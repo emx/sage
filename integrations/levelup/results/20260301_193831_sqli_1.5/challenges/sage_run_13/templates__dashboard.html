@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Welcome back, Technician {{ session.username }}</h2>
+        <p class="text-secondary">Current Clearance Level: {{ session.role }}</p>
+    </div>
+    <div class="col-md-4 mt-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5>Active Deployments</h5>
+                <h2 class="text-success">1,240</h2>
+                <p class="small text-secondary">Units currently in high-altitude operation across 14 facilities.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mt-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5>Maintenance Alerts</h5>
+                <h2 class="text-warning">3</h2>
+                <p class="small text-secondary">Propulsion units requiring immediate alloy inspection.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mt-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5>System Integrity</h5>
+                <h2 class="text-info">99.9%</h2>
+                <p class="small text-secondary">Global logistics node sync status.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mt-5">
+    <a href="/units" class="btn btn-outline-light">Browse Propulsion Inventory</a>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Thalassa LogiStream Dashboard</h1>
+    <p>Managing global trade logistics for the Eastern Mediterranean. Port status: <strong>NORMAL</strong>.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="card" style="background: #eef2f7;">
+            <h3>Vessel Arrivals</h3>
+            <p>4 vessels expected in the next 12 hours.</p>
+        </div>
+        <div class="card" style="background: #eef2f7;">
+            <h3>Active Containers</h3>
+            <p>12,402 units currently in yard.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

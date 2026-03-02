@@ -1,0 +1,15 @@
+Docker build failed for levelup-challenge-eeb60e07: The command '/bin/sh -c python3 init_crypto.py' returned a non-zero code: 1
+[validator] Docker build failed: The command '/bin/sh -c python3 init_crypto.py' returned a non-zero code: 1
+Validation failed: ["Docker build failed: The command '/bin/sh -c python3 init_crypto.py' returned a non-zero code: 1"]
+Docker build failed for levelup-challenge-eeb60e07: When using COPY with more than one source file, the destination must be a directory and end with a /
+[validator] Docker build failed: When using COPY with more than one source file, the destination must be a directory and end with a /
+Validation failed: ['Docker build failed: When using COPY with more than one source file, the destination must be a directory and end with a /']
+SAGE enabled: True
+Starting SAGE-enabled challenge generation...
+
+Result: COMPLETE
+Quality: 93.0
+Calibrated difficulty: 1.65
+Time: 289.1s
+Title: ZenithReach Sub-Orbital Relay Protocol
+Saved to results/_sage_test/result.json

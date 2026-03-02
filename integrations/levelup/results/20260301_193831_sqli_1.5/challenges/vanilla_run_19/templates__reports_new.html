@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width: 600px;">
+    <h2>Configure Manifest Report</h2>
+    <form method="POST">
+        <div style="margin-bottom: 15px;">
+            <label>Report Name</label><br>
+            <input type="text" name="report_name" placeholder="e.g. Q3 Asia Export Summary" style="width: 100%; padding: 8px;" required>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Sorting Preference (Column Name)</label><br>
+            <select name="sort_by" style="width: 100%; padding: 8px;">
+                <option value="tracking_no">Tracking Number</option>
+                <option value="origin">Origin City</option>
+                <option value="destination">Destination City</option>
+                <option value="cargo_type">Cargo Classification</option>
+            </select>
+            <p style="font-size: 0.8rem; color: #666;">Advanced users can type custom sort fields for specialized auditing.</p>
+            <input type="text" name="sort_by_custom" placeholder="Or type custom sort logic..." style="width: 100%; padding: 8px; margin-top: 5px;">
+        </div>
+        <button type="submit" class="btn">Generate & Save</button>
+    </form>
+</div>
+<script>
+    // Simple UI helper to sync custom field to select
+    document.getElementsByName('sort_by_custom')[0].oninput = function() {
+        let val = this.value;
+        if(val) {
+            let sel = document.getElementsByName('sort_by')[0];
+            let opt = document.createElement('option');
+            opt.value = val;
+            opt.text = val;
+            opt.selected = true;
+            sel.add(opt);
+        }
+    };
+</script>
+{% endblock %}

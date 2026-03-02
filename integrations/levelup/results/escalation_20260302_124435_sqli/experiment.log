@@ -1,0 +1,156 @@
+[12:44:36] ============================================================
+[12:44:36] Difficulty Escalation Experiment
+[12:44:36] ============================================================
+[12:44:36]   Category:      sqli
+[12:44:36]   Type:          web
+[12:44:36]   Difficulties:  1.0 1.25 1.5 1.75 2.0 2.25 2.5 2.75 3.0
+[12:44:36]   Runs per tier: 1
+[12:44:36]   Mode:          --sage-only
+[12:44:36]   Result dir:    results/escalation_20260302_124435_sqli
+[12:44:36]   Start:         Mon Mar  2 12:44:36 +08 2026
+[12:44:36] 
+[12:44:36] 
+[12:44:36] === SAGE ARM (sequential, knowledge accumulates) ===
+[12:44:36] 
+[12:44:36] --- [1] sage_d1_0_r1 (difficulty=1.0) ---
+[12:49:38]     COMPLETE: 'AetherFreight Shadow Tracker' (target=1.0, cal=0.6, gap=0.4)
+[12:49:38]     Running validator...
+[12:49:48] --- [2] sage_d1_25_r1 (difficulty=1.25) ---
+[12:56:58]     COMPLETE: 'Veridian Resident Portal' (target=1.25, cal=1.0, gap=0.25)
+[12:56:58]     Running validator...
+[12:57:12] --- [3] sage_d1_5_r1 (difficulty=1.5) ---
+[13:04:13]     COMPLETE: 'Vertex AeroLogistics - Ground Support Portal' (target=1.5, cal=1.2, gap=0.3)
+[13:04:13]     Running validator...
+[13:04:23] --- [4] sage_d1_75_r1 (difficulty=1.75) ---
+[13:11:55]     COMPLETE: 'Obsidian Anchor Logistics: Manifest Audit' (target=1.75, cal=1.2, gap=0.55)
+[13:11:55]     Running validator...
+[13:12:06] --- [5] sage_d2_0_r1 (difficulty=2.0) ---
+[13:22:12]     COMPLETE: 'Aetheris Avionics: Diagnostic Logic' (target=2.0, cal=1.85, gap=0.15)
+[13:22:12]     Running validator...
+[13:22:23] --- [6] sage_d2_25_r1 (difficulty=2.25) ---
+[13:29:31]     COMPLETE: 'Aetheris Geostrategy: Orbital Integrity' (target=2.25, cal=1.6, gap=0.65)
+[13:29:31]     Running validator...
+[13:29:42] --- [7] sage_d2_5_r1 (difficulty=2.5) ---
+[13:42:35]     COMPLETE: 'Aetheris-Gaea Orbital Telemetry Analytics' (target=2.5, cal=2.1, gap=0.4)
+[13:42:35]     Running validator...
+[13:42:46] --- [8] sage_d2_75_r1 (difficulty=2.75) ---
+[13:55:47]     COMPLETE: 'Aetheris Telemetry Gateway' (target=2.75, cal=2.6, gap=0.15)
+[13:55:47]     Running validator...
+[13:56:00] --- [9] sage_d3_0_r1 (difficulty=3.0) ---
+[14:09:45]     COMPLETE: 'Vaelin-Krieger Aerospace: Deep Orbit Logistics' (target=3.0, cal=2.8, gap=0.2)
+[14:09:45]     Running validator...
+[14:10:03] 
+[14:10:03] SAGE arm complete: 9 completed, 0 failed out of 9
+[14:10:03] 
+[14:10:03] === ANALYSIS ===
+
+================================================================================
+  DIFFICULTY ESCALATION EXPERIMENT — CALIBRATION ACCURACY ANALYSIS
+================================================================================
+
+  Vanilla runs: 0
+  SAGE runs:    9
+
+  Difficulty   Vanilla Gap      SAGE Gap     Delta      Winner
+  -----------------------------------------------------------------
+        1.00           N/A         0.400                      
+        1.25           N/A         0.250                      
+        1.50           N/A         0.300                      
+        1.75           N/A         0.550                      
+        2.00           N/A         0.150                      
+        2.25           N/A         0.650                      
+        2.50           N/A         0.400                      
+        2.75           N/A         0.150                      
+        3.00           N/A         0.200                      
+
+  CALIBRATION GAP TREND (does gap increase with difficulty?)
+  -----------------------------------------------------------------
+  Vanilla: insufficient data
+
+  SAGE: gap = 0.446 + -0.053 * difficulty  (R²=0.043)
+    Slope: -0.053 (positive = gap grows with difficulty, bad)
+    At difficulty 1.0: predicted gap = 0.392
+    At difficulty 3.0: predicted gap = 0.286
+
+  PIPELINE COMPLETION RATE
+  -----------------------------------------------------------------
+  Vanilla: N/A
+  SAGE: 9/9 (100%)
+    d=1.00: 1/1
+    d=1.25: 1/1
+    d=1.50: 1/1
+    d=1.75: 1/1
+    d=2.00: 1/1
+    d=2.25: 1/1
+    d=2.50: 1/1
+    d=2.75: 1/1
+    d=3.00: 1/1
+
+  REPAIR ATTEMPTS (lower = cleaner generation)
+  -----------------------------------------------------------------
+  SAGE: mean=0.11, total=1, max=1
+
+  SAGE QUALITY PROGRESSION (sequential order)
+  -----------------------------------------------------------------
+    1. sage_d1_0_r1              target=1.00 cal=0.60 gap=0.40 ########
+    2. sage_d1_25_r1             target=1.25 cal=1.00 gap=0.25 #####
+    3. sage_d1_5_r1              target=1.50 cal=1.20 gap=0.30 ######
+    4. sage_d1_75_r1             target=1.75 cal=1.20 gap=0.55 ###########
+    5. sage_d2_0_r1              target=2.00 cal=1.85 gap=0.15 ##
+    6. sage_d2_25_r1             target=2.25 cal=1.60 gap=0.65 ############
+    7. sage_d2_5_r1              target=2.50 cal=2.10 gap=0.40 #######
+    8. sage_d2_75_r1             target=2.75 cal=2.60 gap=0.15 ##
+    9. sage_d3_0_r1              target=3.00 cal=2.80 gap=0.20 ####
+
+  VISUAL: Calibration Gap by Difficulty Tier
+  -----------------------------------------------------------------
+   Diff     Vanilla        SAGE  Chart (V=vanilla gap, S=sage gap)
+   1.00       0.000       0.400  V  SSSS
+   1.25       0.000       0.250  V  SS
+   1.50       0.000       0.300  V  SSS
+   1.75       0.000       0.550  V  SSSSS
+   2.00       0.000       0.150  V  S
+   2.25       0.000       0.650  V  SSSSSS
+   2.50       0.000       0.400  V  SSS
+   2.75       0.000       0.150  V  S
+   3.00       0.000       0.200  V  SS
+
+================================================================================
+
+  Report saved to results/escalation_20260302_124435_sqli/escalation_report.json
+[14:10:03] 
+[14:10:03] ============================================================
+[14:10:03] Experiment Complete: Mon Mar  2 14:10:03 +08 2026
+[14:10:03] Results: results/escalation_20260302_124435_sqli
+[14:10:03] ============================================================
+[14:17:07] 
+[14:17:07] ============================================================
+[14:17:07] Escalation Extension: 6 additional runs at d=3.0
+[14:17:07] ============================================================
+[14:17:07]   Category:   sqli
+[14:17:07]   Difficulty:  3.0
+[14:17:07]   Extra runs:  6
+[14:17:07]   Result dir:  results/escalation_20260302_124435_sqli
+[14:17:07]   Start:       Mon Mar  2 14:17:07 +08 2026
+[14:17:07] 
+[14:17:07]   Existing: 9 sage, 9 vanilla
+[14:17:07] === VANILLA EXTENSION (d=3.0, cold) ===
+[14:17:07] --- [ext 1/6] vanilla_ext_d3_0_r1 ---
+[14:24:09]     FAILED (see results/escalation_20260302_124435_sqli/vanilla/vanilla_ext_d3_0_r1/generation.log)
+[14:26:28] 
+[14:26:28] ============================================================
+[14:26:28] Escalation Extension: 6 additional runs at d=3.0
+[14:26:28] ============================================================
+[14:26:28]   Category:   sqli
+[14:26:28]   Difficulty:  3.0
+[14:26:28]   Extra runs:  6
+[14:26:28]   Result dir:  results/escalation_20260302_124435_sqli
+[14:26:28]   Start:       Mon Mar  2 14:26:28 +08 2026
+[14:26:28] 
+[14:26:28]   Existing: 9 sage, 9 vanilla
+[14:26:28] === VANILLA EXTENSION (d=3.0, cold) ===
+[14:26:28] --- [ext 1/6] vanilla_ext_d3_0_r1 ---
+[14:37:21]     COMPLETE: 'Vanguard Aetheria Telemetry Portal' (target=3.0, cal=2.7, gap=0.3)
+[14:37:23] --- [ext 2/6] vanilla_ext_d3_0_r2 ---
+[14:50:15]     COMPLETE: 'Aetheris Orbital Nexus' (target=3.0, cal=2.75, gap=0.25)
+[14:50:17] --- [ext 3/6] vanilla_ext_d3_0_r3 ---

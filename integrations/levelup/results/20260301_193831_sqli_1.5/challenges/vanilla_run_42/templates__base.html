@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vanguardia Orbital | Logistics</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0e14; color: #e0e0e0; margin: 0; }
+        nav { background: #1a1f29; padding: 1rem; border-bottom: 2px solid #2d3440; display: flex; justify-content: space-between; }
+        nav a { color: #00a8ff; text-decoration: none; margin-left: 15px; }
+        .container { padding: 2rem; max-width: 1000px; margin: auto; }
+        .card { background: #161b22; padding: 1.5rem; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #30363d; }
+        th { color: #8b949e; }
+        .btn { background: #238636; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
+        .alert { color: #f85149; background: rgba(248, 81, 73, 0.1); padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div><strong>VANGUARDIA ORBITAL</strong></div>
+        <div>
+            <a href="/">Home</a>
+            {% if session.username %}
+                <a href="/dashboard">Dashboard</a>
+                <a href="/manifests">Manifests</a>
+                <a href="/telemetry">Telemetry</a>
+                <a href="/logout">Logout ({{ session.username }})</a>
+            {% else %}
+                <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Shipping Manifest: {{ manifest_id }}</h2>
+<div class="card">
+    <div class="card-body">
+        <h5>Manifest Details</h5>
+        <hr>
+        <p><strong>Carrier:</strong> Maersk Line</p>
+        <p><strong>Contents:</strong> Electronics, Industrial Components</p>
+        <p><strong>Weight:</strong> 42,000 kg</p>
+        <p><strong>Security Clearance:</strong> Level 2 (Standard)</p>
+        <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

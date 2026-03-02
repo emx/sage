@@ -1,0 +1,52 @@
+{
+  "run_number": 5,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AuraFlow Media Archive Explorer",
+  "description": "Welcome to the AuraFlow Media Metadata Portal. Explore decades of broadcast history. Our librarians rely on the Archive Explorer to organize vast quantities of footage. Please note: the advanced explorer tool is currently in beta and is only intended for internal library staff. We hope our custom SecurityShield middleware keeps the metadata safe!",
+  "flag": "LEVELUP{2f8iF2wINbBeFLa7bflimIJ7Le4Yrx6K}",
+  "solution": "1. Enumerate the application to find the hidden endpoint. Looking at the source of `/catalog`, a commented-out script reference points to `/static/js/explorer_beta.js` which mentions the `/archive/explorer` route.\n2. Access `/archive/explorer`. The page allows sorting media by various fields using a `sort` GET parameter.\n3. Test the `sort` parameter for SQL injection. Common keywords like `SELECT` or `UNION` are stripped by the application's 'SecurityShield' middleware.\n4. Observe that the filter uses a non-recursive replacement (e.g., `value.replace('SELECT', '')`). Bypass this by nesting keywords: `SELSELECTECT`.\n5. Because the application does not display the results of a subquery directly, use Boolean-based Blind SQLi. Inject a `CASE` statement into the `ORDER BY` clause.\n6. If the condition is true, sort by `id`; if false, sort by `title`. By observing the order of the items in the returned table, you can infer the flag.\n7. Targeted query: `(CASE WHEN (SUBSTR((SELSELECTECT setting_value FRFROMOM app_settings WHWHERERE setting_key='archive_vault_key'),1,1)='L') THEN id ELSE title END)`.\n8. Script this process to iterate through all characters of the flag.",
+  "docker_image_tag": "levelup-challenge-60745af5",
+  "narrative_context": {
+    "company_name": "AuraFlow Media",
+    "industry": "media",
+    "scenario": "AuraFlow Media is a leading provider of archived broadcasting content and high-fidelity stock footage for major film studios. As part of a pre-merger due diligence process, the company is scrutinizing its internal asset management systems. The Pulse Archive Manager serves as the primary interface for librarians and editors to locate historical footage spanning over four decades, often requiring complex filtering and categorization to meet strict production deadlines.\n\nWhile the enterprise has a dedicated security operations center, they are currently overwhelmed by a large-scale migration to a serverless architecture. This has left the legacy on-premise components of the Pulse system largely unmonitored. You have been contracted as a security auditor to conduct a focused assessment of the metadata search engine, which interacts with several distributed databases across their regional hubs.",
+    "app_name": "Pulse Archive Manager",
+    "app_purpose": "Allows media librarians to search, categorize, and license historical broadcast clips and stock footage through a metadata-rich interface.",
+    "data_theme": "video metadata, license IDs, historical event dates, filming locations, and director notes",
+    "flavor_details": {
+      "company_motto": "Bringing the Past into Focus",
+      "department": "Digital Preservation & Archiving",
+      "recent_event": "A pre-merger compliance audit mandated by the acquiring firm's legal team.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic search query generation",
+        "Legacy metadata filtering system"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a single-pass regex filter that is trivially bypassed using nested keywords like 'SELSELECTECT'. Once bypassed, the lack of error feedback and the ORDER BY context force the attacker to use boolean-based blind extraction by observing changes in result ordering, which is a standard Medium-tier technique. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

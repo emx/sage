@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h1>Part Specifications: {{ part.part_name }}</h1>
+    <hr>
+    <p><strong>SKU:</strong> {{ part.sku }}</p>
+    <p><strong>Category:</strong> {{ part.category }}</p>
+    <p><strong>Available Stock:</strong> {{ part.quantity }}</p>
+    <p><strong>Warehouse Location:</strong> Zone-{{ part.id + 100 }}</p>
+    <div style="background: #eee; padding: 1rem; margin-top: 1rem;">
+        <strong>Technical Notes:</strong><br>
+        This component is rated for high-pressure environments and exceeds ISO-9001 standards for industrial automation.
+    </div>
+    <br>
+    <a href="/catalog" class="btn">Back to Catalog</a>
+</div>
+{% endblock %}

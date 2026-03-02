@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Account Settings</h2>
+    {% if request.args.get('msg') %}<p class="success">{{ request.args.get('msg') }}</p>{% endif %}
+    <form method="POST">
+        <label>Display Name</label>
+        <input type="text" value="{{ user.username }}" readonly>
+        
+        <label>Diagnostic Display Filter (Beta)</label>
+        <p style="font-size: 0.8em; color: #a0aec0;">Configure SQL-based filters for telemetry analysis. Default: 1=1</p>
+        <textarea name="filter" rows="4">{{ user.display_filter }}</textarea>
+        
+        <button type="submit">Update Profile</button>
+    </form>
+</div>
+{% endblock %}

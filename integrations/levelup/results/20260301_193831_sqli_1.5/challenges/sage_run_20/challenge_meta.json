@@ -1,0 +1,49 @@
+{
+  "run_number": 20,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.45,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Vanguard Manifest Audit System",
+  "description": "Welcome to the Vanguard Deep-Sea Logistics Manifest Portal. As a junior logistics manager, you have been tasked with auditing the recent shipping manifests. The higher-ups are paranoid about data integrity, but rumors say the filtering system for the audit logs is not as robust as they claim. Can you find a way to access the restricted system configuration and extract the master security hash?",
+  "flag": "LEVELUP{TBPd_Mghovdu71bHIk6XDnR9YAysR2Gr}",
+  "solution": "1. Log in with the default credentials 'operator' / 'vanguard2024' found in the application description or hinted by common defaults.\n2. Access the main dashboard and notice the 'Manifest Search' and 'Container Tracking' features.\n3. Discover the hidden '/audit_logs' endpoint by checking 'robots.txt' or performing directory enumeration.\n4. Observe that the '/audit_logs' page allows filtering by 'operator_id'.\n5. Test for SQL injection in the 'id' parameter: `?id=1 AND 1=1`. The page returns results. `?id=1 AND 1=2` returns no results.\n6. Identify the WAF: Keywords like 'UNION' and spaces ' ' are blocked. Bypass spaces using `/**/` and avoid 'UNION' by using boolean-blind techniques.\n7. Enumerate tables using boolean-blind SQLi: `1/**/AND/**/(SELECT/**/COUNT(*)/**/FROM/**/sqlite_master/**/WHERE/**/type='table'/**/AND/**/name/**/LIKE/**/'site_%')>0`.\n8. Discover the table 'site_settings' and columns 'key' and 'value'.\n9. Extract the flag from the 'site_settings' table where the key is 'master_security_hash' using a script or manual binary search: `1/**/AND/**/(SELECT/**/hex(substr(value,1,1))/**/FROM/**/site_settings/**/WHERE/**/key='master_security_hash')='4c'` (Hex for 'L').\n10. Reconstruct the full flag character by character.",
+  "docker_image_tag": "levelup-challenge-640fc2ac",
+  "narrative_context": {
+    "company_name": "Vanguard Deep-Sea Logistics",
+    "industry": "logistics",
+    "scenario": "Vanguard Deep-Sea Logistics (VDL) is a global leader in maritime shipping, managing a fleet of over 400 autonomous and semi-autonomous cargo vessels. As the company prepares for a high-stakes merger with a European conglomerate, they are undergoing a rigorous due diligence process. The security team is currently overwhelmed with the integration of cloud-based HR systems, leaving several core operational tools with minimal oversight.\n\nOne such tool is the manifest tracking system used by port authorities and high-value clients to verify cargo contents and delivery schedules. This application was developed in-house to bridge the gap between legacy mainframe data and modern web interfaces. Because it handles sensitive shipping manifests and international customs data, ensuring its integrity is paramount before the merger is finalized.",
+    "app_name": "Oceanic Fleet Manifest & Cargo Tracker",
+    "app_purpose": "Allows authenticated port operators and logistics managers to search for specific containers by ID, vessel name, or destination to check customs status and hazardous material certifications.",
+    "data_theme": "maritime shipping manifests, vessel tracking IDs, port destination codes, and cargo weight logs",
+    "flavor_details": {
+      "company_motto": "Charting the Uncharted, Delivering the Impossible.",
+      "department": "Global Operations & Supply Chain",
+      "recent_event": "A mandatory pre-merger security audit triggered by a 'due diligence' clause in the acquisition contract.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic search filtering",
+        "Legacy middleware integration"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires bypassing a WAF that blocks spaces, UNION, and OR, which forces the attacker into a Boolean-based blind SQL injection using comments (/**/) for whitespace and AND for logic. The process involves finding static credentials in the source, discovering a hidden endpoint via robots.txt, and scripting a blind extraction, making it a solid Medium-level challenge. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

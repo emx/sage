@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vanguard Logistics - {{ title }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b1a27; color: #e0e0e0; margin: 0; }
+        nav { background-color: #162b3d; padding: 1rem; border-bottom: 2px solid #2a4d69; display: flex; justify-content: space-between; }
+        nav a { color: #4fc3f7; text-decoration: none; margin: 0 15px; font-weight: bold; }
+        .container { padding: 40px; }
+        .card { background-color: #1c3345; border-radius: 8px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2a4d69; }
+        th { color: #4fc3f7; }
+        .btn { background-color: #0288d1; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background-color: #03a9f4; }
+        input { background: #0b1a27; border: 1px solid #2a4d69; color: white; padding: 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div>
+            <strong>VANGUARD DEEP-SEA</strong>
+            {% if session['user'] %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/manifests">Manifests</a>
+            <a href="/telemetry">Telemetry</a>
+            {% endif %}
+        </div>
+        <div>
+            {% if session['user'] %}
+            <span>Welcome, {{ session['user'] }}</span> | <a href="/logout">Logout</a>
+            {% else %}
+            <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

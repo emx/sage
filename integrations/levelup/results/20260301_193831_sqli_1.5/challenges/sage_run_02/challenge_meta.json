@@ -1,0 +1,50 @@
+{
+  "run_number": 2,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloSync Logistics: Telemetry Archive",
+  "description": "Welcome to the VeloSync Logistics portal. As a fleet manager, you can monitor vehicle logs and generate telemetry reports. We've recently integrated our legacy archive systems\u2014please ensure everything is working as expected. Note: The system is under active monitoring by our internal WAF.",
+  "flag": "LEVELUP{ISUrzOqpF_Oj2HDe3lk2wjnr5GqpUsN4}",
+  "solution": "1. Log in with guest/guest. 2. Navigate to 'Fleet Tracking'. 3. Observe the AJAX request to /api/v1/telemetry/history?vehicle_id=VS-101&sort=timestamp. 4. Test the 'sort' parameter for SQL injection. 5. Notice that common keywords like 'SELECT ', 'UNION ', and 'OR ' are blocked by a case-insensitive WAF that looks for trailing spaces or specific patterns. 6. Bypass the WAF by using keywords followed by parentheses instead of spaces, e.g., (SELECT(prop_val)FROM(system_vault)). 7. Use a Boolean-based approach in the ORDER BY clause: ?sort=(CASE+WHEN+(substr((SELECT(prop_val)FROM(system_vault)LIMIT(1)),1,1)='L')+THEN+timestamp+ELSE+vehicle_id+END). 8. If the condition is true, results are sorted by timestamp; if false, by vehicle_id. 9. Script this process to extract the flag character by character.",
+  "docker_image_tag": "levelup-challenge-17cd4b35",
+  "narrative_context": {
+    "company_name": "VeloSync Logistics",
+    "industry": "logistics",
+    "scenario": "VeloSync Logistics recently underwent a series of aggressive acquisitions, absorbing three regional delivery firms to expand their last-mile operations. The FleetMaster Hub is a mission-critical middleware application designed to bridge the gap between legacy tracking systems and the company's new centralized cloud infrastructure. It serves as the primary interface for regional managers to pull historical route data and driver performance metrics. \n\nDespite the enterprise's robust security posture, the rapid integration of these legacy components has left the internal security team overwhelmed. They are currently focused on the flagship customer-facing mobile app, leaving internal reporting tools with less oversight. As a third-party security auditor, you have been granted access to the FleetMaster Hub to evaluate the resilience of the data retrieval layer before it is exposed to the wider corporate network.",
+    "app_name": "FleetMaster Hub",
+    "app_purpose": "Allows logistics managers to search, filter, and export detailed historical telemetry and driver logs from diverse legacy databases.",
+    "data_theme": "Vehicle IDs, driver manifests, GPS coordinates, timestamps, and cargo inventory lists.",
+    "flavor_details": {
+      "company_motto": "Moving the world, one millisecond at a time.",
+      "department": "Supply Chain Operations & Integration",
+      "recent_event": "The company is preparing for an ISO 27001 compliance audit following the acquisition of 'NorthStar Couriers'.",
+      "tech_hints": [
+        "Node.js Express middleware",
+        "PostgreSQL backend",
+        "Legacy REST API v2 endpoints",
+        "JSON-based search filtering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a trivially bypassable WAF that relies on whitespace checks (\\s+), which are easily circumvented in SQLite using parentheses or alternative delimiters. The injection point is in an ORDER BY clause, which requires blind SQLi techniques rather than simple UNION-based extraction, adding a slight layer of complexity but nothing novel for a medium-tier challenge. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

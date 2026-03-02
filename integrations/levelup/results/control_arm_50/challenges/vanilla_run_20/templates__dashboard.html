@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dispatcher Dashboard</h2>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h4>Active Shipments</h4>
+        <h2 style="color: #3498db;">1,284</h2>
+    </div>
+    <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h4>Drivers En Route</h4>
+        <h2 style="color: #e67e22;">412</h2>
+    </div>
+    <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h4>Pending Clearances</h4>
+        <h2 style="color: #e74c3c;">18</h2>
+    </div>
+</div>
+<div style="margin-top: 30px;">
+    <h3>Quick Actions</h3>
+    <a href="/manifests" class="btn">Search Manifests</a>
+    <a href="/drivers" class="btn" style="background: #95a5a6;">View Fleet</a>
+</div>
+{% endblock %}

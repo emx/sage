@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Manifest #{{ manifest.id }}</h2>
+<div style="margin-bottom: 2rem;">
+    <p><strong>Origin:</strong> {{ manifest.origin }}</p>
+    <p><strong>Destination:</strong> {{ manifest.destination }}</p>
+    <p><strong>Coordinator ID:</strong> {{ manifest.coordinator_id }}</p>
+</div>
+
+<h3>Container Telemetry</h3>
+<div id="telemetry-controls">
+    <label>Sort By:</label>
+    <select id="sort_field">
+        <option value="id">ID</option>
+        <option value="temperature">Temperature</option>
+        <option value="humidity">Humidity</option>
+        <option value="pressure">Pressure</option>
+    </select>
+    <button onclick="loadTelemetry()" class="btn btn-primary">Refresh Data</button>
+</div>
+
+<table id="telemetry-table">
+    <thead>
+        <tr>
+            <th>Container ID</th>
+            <th>Temp (°C)</th>
+            <th>Humidity (%)</th>
+            <th>Pressure (hPa)</th>
+        </tr>
+    </thead>
+    <tbody id="telemetry-body"></tbody>
+</table>
+
+<script>
+function loadTelemetry() {
+    const sortField = document.getElementById('sort_field').value;
+    fetch('/api/v1/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manifest_id: {{ manifest.id }}, sort_by: sortField, order: 'ASC' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const tbody = document.getElementById('telemetry-body');
+        tbody.innerHTML = '';
+        if(data.error) {
+            alert(data.error);
+            return;
+        }
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${row.container_id}</td><td>${row.temperature}</td><td>${row.humidity}</td><td>${row.pressure}</td>`;
+            tbody.appendChild(tr);
+        });
+    });
+}
+window.onload = loadTelemetry;
+</script>
+{% endblock %}

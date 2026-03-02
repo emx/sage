@@ -1,0 +1,49 @@
+{
+  "run_number": 29,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "TerraSync - The Harvester",
+  "description": "Welcome to the TerraSync internal research portal. As a newly hired junior agronomist, you've been granted access to the 'Harvester' dashboard. Your goal is to explore the system, understand how data is queried, and see if you can access the restricted 'Master API Key' stored in the system's internal configuration. The security team claims the application has a 'WAF' to prevent a security vulnerability, but is it enough?",
+  "flag": "LEVELUP{D1ccMeZZyI26iJsEeEEhs0AwXyIqGFNm}",
+  "solution": "1. Log in with the default credentials 'agronomist' / 'terra-sync-2024' (found in common researcher documentation or by enumeration).\n2. Navigate to the 'System Logs' page (/logs). Observe that the 'sort' parameter controls the order of entries.\n3. Test for SQL injection in the 'sort' parameter: `/logs?sort=(CASE WHEN (1=1) THEN timestamp ELSE id END)`. Note the order. Then try `/logs?sort=(CASE WHEN (1=2) THEN timestamp ELSE id END)` and observe the order changes.\n4. The application has a WAF that blocks common keywords followed by spaces (e.g., 'SELECT ', 'UNION '). Bypass this by using comments (/**/) or newlines.\n5. Use Boolean-based Blind SQL Injection to discover table names from 'sqlite_master'.\n6. Payload to test first letter of table name: `/logs?sort=(CASE WHEN (SELECT/**/substr(name,1,1)/**/FROM/**/sqlite_master/**/WHERE/**/type='table'/**/LIMIT/**/1,1)='i'/**/THEN/**/timestamp/**/ELSE/**/id/**/END)`.\n7. Discover the table 'internal_metadata' and column 'secret_val'.\n8. Extract the flag from 'internal_metadata' where 'config_key' = 'api_master_key'.",
+  "docker_image_tag": "levelup-challenge-c65692dd",
+  "narrative_context": {
+    "company_name": "TerraSync Agronomics",
+    "industry": "agriculture",
+    "scenario": "TerraSync Agronomics is a global leader in precision farming, providing data-driven insights to large-scale agricultural enterprises. As the company expands its global footprint, it has integrated various tools from its recent acquisition of 'BioData Solutions'. One of the core tools, FieldInsight 360, is a massive repository of soil samples and nutrient profiles used by agronomists to determine crop viability. \n\nThe application has become a cornerstone of their digital transformation strategy, but integration into the main enterprise network has been slow. The central security operations center is currently overwhelmed by a series of unrelated network outages, leaving several legacy-migrated applications without a deep code review. Management is anxious to ensure that the data\u2014which contains proprietary nutrient formulas\u2014remains secure before the peak harvesting season begins.",
+    "app_name": "FieldInsight 360",
+    "app_purpose": "A data-heavy research portal used to query historical crop performance, soil chemistry reports, and regional weather correlation data across millions of test plots.",
+    "data_theme": "soil chemistry records, crop yield statistics, GPS-tagged research plots, and agronomist access logs",
+    "flavor_details": {
+      "company_motto": "Seeding the Future with Data",
+      "department": "Research & Development (R&D) Digital Services",
+      "recent_event": "A routine compliance audit noted that legacy BioData assets had not undergone a manual security assessment since the acquisition.",
+      "tech_hints": [
+        "Dynamic Query Builder",
+        "Relational Data Warehouse",
+        "Search Filtering Middleware"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge involves a standard SQL injection in an ORDER BY clause. While the 'simple_waf' attempts to block keywords, it naively only checks for keywords followed by a space, which is trivial to bypass using alternative whitespace characters (\\t, \\n) or comments (/**/). The lack of UNION-based exploitation due to the ORDER BY context and the need for Boolean-based or time-based extraction after bypassing the filter places this in the Medium range. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

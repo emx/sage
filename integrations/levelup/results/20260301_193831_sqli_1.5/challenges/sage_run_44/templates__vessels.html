@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Vessel Registry</h2>
+<div class="row mt-4">
+    {% for vessel in vessels %}
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ vessel.name }}</h5>
+                <p class="card-text text-muted small">Registry: {{ vessel.registry_num }}</p>
+                <p>Status: <span class="text-success">{{ vessel.status }}</span></p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class='card'>
+    <h2>Aerospace Component Search</h2>
+    <form method='GET' style='margin-bottom: 2rem;'>
+        <input type='text' name='q' value='{{ query }}' placeholder='Enter part name...'>
+        <button type='submit' class='btn'>Search</button>
+    </form>
+    <table>
+        <thead>
+            <tr>
+                <th>Part ID</th>
+                <th>Name</th>
+                <th>Serial Number</th>
+                <th>Stock</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for part in parts %}
+            <tr>
+                <td>{{ part.part_id }}</td>
+                <td>{{ part.part_name }}</td>
+                <td>{{ part.serial_number }}</td>
+                <td>{{ part.stock_level }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,834 @@
+package store
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pgvector/pgvector-go"
+
+	"github.com/l33tdawg/sage/internal/memory"
+)
+
+// PostgresStore implements MemoryStore and ValidatorScoreStore using PostgreSQL.
+type PostgresStore struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresStore creates a new PostgreSQL store.
+func NewPostgresStore(ctx context.Context, connString string) (*PostgresStore, error) {
+	config, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres config: %w", err)
+	}
+
+	config.MaxConns = 20
+	config.MinConns = 2
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("create postgres pool: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping postgres: %w", err)
+	}
+
+	return &PostgresStore{pool: pool}, nil
+}
+
+func (s *PostgresStore) InsertMemory(ctx context.Context, record *memory.MemoryRecord) error {
+	var emb *pgvector.Vector
+	if len(record.Embedding) > 0 {
+		v := pgvector.NewVector(record.Embedding)
+		emb = &v
+	}
+
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO memories (memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
+			memory_type, domain_tag, confidence_score, status, parent_hash, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (memory_id) DO NOTHING`,
+		record.MemoryID, record.SubmittingAgent, record.Content, record.ContentHash,
+		emb, record.EmbeddingHash,
+		string(record.MemoryType), record.DomainTag, record.ConfidenceScore,
+		string(record.Status), record.ParentHash, record.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert memory: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetMemory(ctx context.Context, memoryID string) (*memory.MemoryRecord, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
+			memory_type, domain_tag, confidence_score, status, parent_hash, created_at, committed_at, deprecated_at
+		FROM memories WHERE memory_id = $1`, memoryID)
+
+	var r memory.MemoryRecord
+	var mt, st string
+	var emb *pgvector.Vector
+	var parentHash *string
+
+	err := row.Scan(&r.MemoryID, &r.SubmittingAgent, &r.Content, &r.ContentHash,
+		&emb, &r.EmbeddingHash, &mt, &r.DomainTag, &r.ConfidenceScore,
+		&st, &parentHash, &r.CreatedAt, &r.CommittedAt, &r.DeprecatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("memory not found: %s", memoryID)
+		}
+		return nil, fmt.Errorf("get memory: %w", err)
+	}
+
+	r.MemoryType = memory.MemoryType(mt)
+	r.Status = memory.MemoryStatus(st)
+	if emb != nil {
+		r.Embedding = emb.Slice()
+	}
+	if parentHash != nil {
+		r.ParentHash = *parentHash
+	}
+
+	return &r, nil
+}
+
+func (s *PostgresStore) UpdateStatus(ctx context.Context, memoryID string, status memory.MemoryStatus, now time.Time) error {
+	var query string
+	switch status {
+	case memory.StatusCommitted:
+		query = `UPDATE memories SET status = $2, committed_at = $3 WHERE memory_id = $1`
+	case memory.StatusDeprecated:
+		query = `UPDATE memories SET status = $2, deprecated_at = $3 WHERE memory_id = $1`
+	default:
+		query = `UPDATE memories SET status = $2 WHERE memory_id = $1`
+	}
+
+	var err error
+	if status == memory.StatusCommitted || status == memory.StatusDeprecated {
+		_, err = s.pool.Exec(ctx, query, memoryID, string(status), now)
+	} else {
+		_, err = s.pool.Exec(ctx, `UPDATE memories SET status = $2 WHERE memory_id = $1`, memoryID, string(status))
+	}
+	if err != nil {
+		return fmt.Errorf("update status: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) QuerySimilar(ctx context.Context, embedding []float32, opts QueryOptions) ([]*memory.MemoryRecord, error) {
+	if opts.TopK <= 0 {
+		opts.TopK = 10
+	}
+	if opts.TopK > 100 {
+		opts.TopK = 100
+	}
+
+	query := `SELECT memory_id, submitting_agent, content, content_hash, embedding,
+		memory_type, domain_tag, confidence_score, status, parent_hash, created_at,
+		committed_at, deprecated_at, embedding <=> $1 AS distance
+		FROM memories WHERE embedding IS NOT NULL`
+	args := []any{pgvector.NewVector(embedding)}
+	argIdx := 2
+
+	if opts.DomainTag != "" {
+		query += fmt.Sprintf(" AND domain_tag = $%d", argIdx)
+		args = append(args, opts.DomainTag)
+		argIdx++
+	}
+	if opts.MinConfidence > 0 {
+		query += fmt.Sprintf(" AND confidence_score >= $%d", argIdx)
+		args = append(args, opts.MinConfidence)
+		argIdx++
+	}
+	if opts.StatusFilter != "" {
+		query += fmt.Sprintf(" AND status = $%d", argIdx)
+		args = append(args, opts.StatusFilter)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(" ORDER BY embedding <=> $1 LIMIT $%d", argIdx)
+	args = append(args, opts.TopK)
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query similar: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*memory.MemoryRecord
+	for rows.Next() {
+		var r memory.MemoryRecord
+		var mt, st string
+		var emb *pgvector.Vector
+		var parentHash *string
+		var distance float64
+
+		err := rows.Scan(&r.MemoryID, &r.SubmittingAgent, &r.Content, &r.ContentHash,
+			&emb, &mt, &r.DomainTag, &r.ConfidenceScore,
+			&st, &parentHash, &r.CreatedAt, &r.CommittedAt, &r.DeprecatedAt, &distance)
+		if err != nil {
+			return nil, fmt.Errorf("scan row: %w", err)
+		}
+
+		r.MemoryType = memory.MemoryType(mt)
+		r.Status = memory.MemoryStatus(st)
+		if emb != nil {
+			r.Embedding = emb.Slice()
+		}
+		if parentHash != nil {
+			r.ParentHash = *parentHash
+		}
+		results = append(results, &r)
+	}
+
+	return results, nil
+}
+
+func (s *PostgresStore) InsertTriples(ctx context.Context, memoryID string, triples []memory.KnowledgeTriple) error {
+	batch := &pgx.Batch{}
+	for _, t := range triples {
+		batch.Queue("INSERT INTO knowledge_triples (memory_id, subject, predicate, object) VALUES ($1, $2, $3, $4)",
+			memoryID, t.Subject, t.Predicate, t.Object)
+	}
+
+	br := s.pool.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for range triples {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("insert triple: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *PostgresStore) InsertVote(ctx context.Context, vote *ValidationVote) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO validation_votes (memory_id, validator_id, decision, rationale, weight_at_vote, block_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (memory_id, validator_id) DO UPDATE SET decision = $3, rationale = $4, weight_at_vote = $5`,
+		vote.MemoryID, vote.ValidatorID, vote.Decision, vote.Rationale, vote.WeightAtVote, vote.BlockHeight, vote.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert vote: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetVotes(ctx context.Context, memoryID string) ([]*ValidationVote, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, memory_id, validator_id, decision, rationale, weight_at_vote, block_height, created_at
+		FROM validation_votes WHERE memory_id = $1 ORDER BY created_at`, memoryID)
+	if err != nil {
+		return nil, fmt.Errorf("get votes: %w", err)
+	}
+	defer rows.Close()
+
+	var votes []*ValidationVote
+	for rows.Next() {
+		v := &ValidationVote{}
+		if err := rows.Scan(&v.ID, &v.MemoryID, &v.ValidatorID, &v.Decision, &v.Rationale,
+			&v.WeightAtVote, &v.BlockHeight, &v.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan vote: %w", err)
+		}
+		votes = append(votes, v)
+	}
+	return votes, nil
+}
+
+func (s *PostgresStore) InsertCorroboration(ctx context.Context, corr *Corroboration) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO corroborations (memory_id, agent_id, evidence, created_at)
+		VALUES ($1, $2, $3, $4)`,
+		corr.MemoryID, corr.AgentID, corr.Evidence, corr.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert corroboration: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) GetCorroborations(ctx context.Context, memoryID string) ([]*Corroboration, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, memory_id, agent_id, evidence, created_at
+		FROM corroborations WHERE memory_id = $1 ORDER BY created_at`, memoryID)
+	if err != nil {
+		return nil, fmt.Errorf("get corroborations: %w", err)
+	}
+	defer rows.Close()
+
+	var corrs []*Corroboration
+	for rows.Next() {
+		c := &Corroboration{}
+		if err := rows.Scan(&c.ID, &c.MemoryID, &c.AgentID, &c.Evidence, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan corroboration: %w", err)
+		}
+		corrs = append(corrs, c)
+	}
+	return corrs, nil
+}
+
+func (s *PostgresStore) GetPendingByDomain(ctx context.Context, domainTag string, limit int) ([]*memory.MemoryRecord, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT memory_id, submitting_agent, content, content_hash,
+			memory_type, domain_tag, confidence_score, status, created_at
+		FROM memories WHERE status = 'proposed' AND domain_tag LIKE $1
+		ORDER BY created_at LIMIT $2`, domainTag, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get pending: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*memory.MemoryRecord
+	for rows.Next() {
+		var r memory.MemoryRecord
+		var mt, st string
+		if err := rows.Scan(&r.MemoryID, &r.SubmittingAgent, &r.Content, &r.ContentHash,
+			&mt, &r.DomainTag, &r.ConfidenceScore, &st, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan pending: %w", err)
+		}
+		r.MemoryType = memory.MemoryType(mt)
+		r.Status = memory.MemoryStatus(st)
+		results = append(results, &r)
+	}
+	return results, nil
+}
+
+// GetScore retrieves a validator's score.
+func (s *PostgresStore) GetScore(ctx context.Context, validatorID string) (*ValidatorScore, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT validator_id, weighted_sum, weight_denom, vote_count, expertise_vec,
+			last_active_ts, current_weight, updated_at
+		FROM validator_scores WHERE validator_id = $1`, validatorID)
+
+	vs := &ValidatorScore{}
+	err := row.Scan(&vs.ValidatorID, &vs.WeightedSum, &vs.WeightDenom, &vs.VoteCount,
+		&vs.ExpertiseVec, &vs.LastActiveTS, &vs.CurrentWeight, &vs.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("validator score not found: %s", validatorID)
+		}
+		return nil, fmt.Errorf("get validator score: %w", err)
+	}
+	return vs, nil
+}
+
+// UpdateScore upserts a validator's score.
+func (s *PostgresStore) UpdateScore(ctx context.Context, score *ValidatorScore) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO validator_scores (validator_id, weighted_sum, weight_denom, vote_count, expertise_vec,
+			last_active_ts, current_weight, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (validator_id) DO UPDATE SET
+			weighted_sum = $2, weight_denom = $3, vote_count = $4, expertise_vec = $5,
+			last_active_ts = $6, current_weight = $7, updated_at = $8`,
+		score.ValidatorID, score.WeightedSum, score.WeightDenom, score.VoteCount,
+		score.ExpertiseVec, score.LastActiveTS, score.CurrentWeight, score.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("update validator score: %w", err)
+	}
+	return nil
+}
+
+// GetAllScores retrieves all validator scores.
+func (s *PostgresStore) GetAllScores(ctx context.Context) ([]*ValidatorScore, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT validator_id, weighted_sum, weight_denom, vote_count, expertise_vec,
+			last_active_ts, current_weight, updated_at
+		FROM validator_scores ORDER BY validator_id`)
+	if err != nil {
+		return nil, fmt.Errorf("get all scores: %w", err)
+	}
+	defer rows.Close()
+
+	var scores []*ValidatorScore
+	for rows.Next() {
+		vs := &ValidatorScore{}
+		if err := rows.Scan(&vs.ValidatorID, &vs.WeightedSum, &vs.WeightDenom, &vs.VoteCount,
+			&vs.ExpertiseVec, &vs.LastActiveTS, &vs.CurrentWeight, &vs.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan validator score: %w", err)
+		}
+		scores = append(scores, vs)
+	}
+	return scores, nil
+}
+
+// InsertEpochScore records an epoch score snapshot.
+func (s *PostgresStore) InsertEpochScore(ctx context.Context, epoch *EpochScore) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO epoch_scores (epoch_num, block_height, validator_id, accuracy, domain_score,
+			recency_score, corr_score, raw_weight, capped_weight, normalized_weight)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (epoch_num, validator_id) DO NOTHING`,
+		epoch.EpochNum, epoch.BlockHeight, epoch.ValidatorID, epoch.Accuracy, epoch.DomainScore,
+		epoch.RecencyScore, epoch.CorrScore, epoch.RawWeight, epoch.CappedWeight, epoch.NormalizedWeight)
+	if err != nil {
+		return fmt.Errorf("insert epoch score: %w", err)
+	}
+	return nil
+}
+
+// --- Federation Access Control ---
+
+// InsertAccessGrant inserts an access grant into PostgreSQL.
+func (s *PostgresStore) InsertAccessGrant(ctx context.Context, grant *AccessGrantEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO access_grants (domain, grantee_id, granter_id, access_level, expires_at, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (domain, grantee_id, created_height) DO NOTHING`,
+		grant.Domain, grant.GranteeID, grant.GranterID, grant.Level, grant.ExpiresAt, grant.CreatedHeight, grant.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert access grant: %w", err)
+	}
+	return nil
+}
+
+// GetActiveGrants retrieves all non-revoked grants for an agent.
+func (s *PostgresStore) GetActiveGrants(ctx context.Context, agentID string) ([]*AccessGrantEntry, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT domain, grantee_id, granter_id, access_level, expires_at, created_height, created_at
+		FROM access_grants WHERE grantee_id = $1 AND revoked_at IS NULL
+		ORDER BY created_at`, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("get active grants: %w", err)
+	}
+	defer rows.Close()
+
+	var grants []*AccessGrantEntry
+	for rows.Next() {
+		g := &AccessGrantEntry{}
+		if err := rows.Scan(&g.Domain, &g.GranteeID, &g.GranterID, &g.Level, &g.ExpiresAt, &g.CreatedHeight, &g.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan grant: %w", err)
+		}
+		grants = append(grants, g)
+	}
+	return grants, nil
+}
+
+// RevokeGrant marks a grant as revoked.
+func (s *PostgresStore) RevokeGrant(ctx context.Context, domain, granteeID string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE access_grants SET revoked_at = NOW()
+		WHERE domain = $1 AND grantee_id = $2 AND revoked_at IS NULL`,
+		domain, granteeID)
+	if err != nil {
+		return fmt.Errorf("revoke grant: %w", err)
+	}
+	return nil
+}
+
+// InsertAccessRequest inserts an access request into PostgreSQL.
+func (s *PostgresStore) InsertAccessRequest(ctx context.Context, req *AccessRequestEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO access_requests (request_id, requester_id, target_domain, justification, status, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (request_id) DO NOTHING`,
+		req.RequestID, req.RequesterID, req.TargetDomain, req.Justification, req.Status, req.CreatedHeight, req.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert access request: %w", err)
+	}
+	return nil
+}
+
+// UpdateAccessRequestStatus updates the status of an access request.
+func (s *PostgresStore) UpdateAccessRequestStatus(ctx context.Context, requestID, status string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE access_requests SET status = $2, resolved_height = $3 WHERE request_id = $1`,
+		requestID, status, height)
+	if err != nil {
+		return fmt.Errorf("update access request status: %w", err)
+	}
+	return nil
+}
+
+// InsertAccessLog inserts an audit log entry into PostgreSQL.
+func (s *PostgresStore) InsertAccessLog(ctx context.Context, log *AccessLogEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO access_logs (agent_id, domain, action, memory_ids, block_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		log.AgentID, log.Domain, log.Action, log.MemoryIDs, log.BlockHeight, log.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert access log: %w", err)
+	}
+	return nil
+}
+
+// InsertDomain inserts a domain registry entry into PostgreSQL.
+func (s *PostgresStore) InsertDomain(ctx context.Context, domain *DomainEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO domain_registry (domain_name, owner_agent_id, parent_domain, description, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (domain_name) DO NOTHING`,
+		domain.DomainName, domain.OwnerAgentID, domain.ParentDomain, domain.Description, domain.CreatedHeight, domain.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert domain: %w", err)
+	}
+	return nil
+}
+
+// GetDomain retrieves a domain registry entry from PostgreSQL.
+func (s *PostgresStore) GetDomain(ctx context.Context, name string) (*DomainEntry, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT domain_name, owner_agent_id, parent_domain, description, created_height, created_at
+		FROM domain_registry WHERE domain_name = $1`, name)
+
+	d := &DomainEntry{}
+	var parentDomain, description *string
+	err := row.Scan(&d.DomainName, &d.OwnerAgentID, &parentDomain, &description, &d.CreatedHeight, &d.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("domain not found: %s", name)
+		}
+		return nil, fmt.Errorf("get domain: %w", err)
+	}
+	if parentDomain != nil {
+		d.ParentDomain = *parentDomain
+	}
+	if description != nil {
+		d.Description = *description
+	}
+	return d, nil
+}
+
+// --- Organization / Federation / Classification ---
+
+// InsertOrg inserts an organization into PostgreSQL.
+func (s *PostgresStore) InsertOrg(ctx context.Context, org *OrgEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO organizations (org_id, name, description, admin_agent_id, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (org_id) DO NOTHING`,
+		org.OrgID, org.Name, org.Description, org.AdminAgentID, org.CreatedHeight, org.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert org: %w", err)
+	}
+	return nil
+}
+
+// GetOrg retrieves an organization from PostgreSQL.
+func (s *PostgresStore) GetOrg(ctx context.Context, orgID string) (*OrgEntry, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT org_id, name, description, admin_agent_id, created_height, created_at
+		FROM organizations WHERE org_id = $1`, orgID)
+
+	o := &OrgEntry{}
+	var description *string
+	err := row.Scan(&o.OrgID, &o.Name, &description, &o.AdminAgentID, &o.CreatedHeight, &o.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("org not found: %s", orgID)
+		}
+		return nil, fmt.Errorf("get org: %w", err)
+	}
+	if description != nil {
+		o.Description = *description
+	}
+	return o, nil
+}
+
+// InsertOrgMember inserts an org member into PostgreSQL.
+func (s *PostgresStore) InsertOrgMember(ctx context.Context, member *OrgMemberEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO org_members (org_id, agent_id, clearance, role, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (org_id, agent_id) DO NOTHING`,
+		member.OrgID, member.AgentID, int16(member.Clearance), member.Role, member.CreatedHeight, member.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert org member: %w", err)
+	}
+	return nil
+}
+
+// RemoveOrgMember marks a member as removed.
+func (s *PostgresStore) RemoveOrgMember(ctx context.Context, orgID, agentID string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE org_members SET removed_at = NOW()
+		WHERE org_id = $1 AND agent_id = $2 AND removed_at IS NULL`,
+		orgID, agentID)
+	if err != nil {
+		return fmt.Errorf("remove org member: %w", err)
+	}
+	return nil
+}
+
+// UpdateMemberClearance updates a member's clearance level.
+func (s *PostgresStore) UpdateMemberClearance(ctx context.Context, orgID, agentID string, clearance ClearanceLevel) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE org_members SET clearance = $3
+		WHERE org_id = $1 AND agent_id = $2 AND removed_at IS NULL`,
+		orgID, agentID, int16(clearance))
+	if err != nil {
+		return fmt.Errorf("update member clearance: %w", err)
+	}
+	return nil
+}
+
+// GetOrgMembers retrieves all active members of an organization.
+func (s *PostgresStore) GetOrgMembers(ctx context.Context, orgID string) ([]*OrgMemberEntry, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT org_id, agent_id, clearance, role, created_height, created_at
+		FROM org_members WHERE org_id = $1 AND removed_at IS NULL
+		ORDER BY created_at`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("get org members: %w", err)
+	}
+	defer rows.Close()
+
+	var members []*OrgMemberEntry
+	for rows.Next() {
+		m := &OrgMemberEntry{}
+		var clearance int16
+		if err := rows.Scan(&m.OrgID, &m.AgentID, &clearance, &m.Role, &m.CreatedHeight, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan org member: %w", err)
+		}
+		m.Clearance = ClearanceLevel(clearance)
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+// InsertFederation inserts a federation agreement into PostgreSQL.
+func (s *PostgresStore) InsertFederation(ctx context.Context, fed *FederationEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO federations (federation_id, proposer_org_id, target_org_id, allowed_domains, allowed_depts,
+			max_clearance, expires_at, requires_approval, status, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (federation_id) DO NOTHING`,
+		fed.FederationID, fed.ProposerOrgID, fed.TargetOrgID, fed.AllowedDomains, fed.AllowedDepts,
+		int16(fed.MaxClearance), fed.ExpiresAt, fed.RequiresApproval, fed.Status,
+		fed.CreatedHeight, fed.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert federation: %w", err)
+	}
+	return nil
+}
+
+// GetFederation retrieves a federation agreement from PostgreSQL.
+func (s *PostgresStore) GetFederation(ctx context.Context, federationID string) (*FederationEntry, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT federation_id, proposer_org_id, target_org_id, allowed_domains, allowed_depts,
+			max_clearance, expires_at, requires_approval, status, created_height,
+			approved_height, created_at, revoked_at
+		FROM federations WHERE federation_id = $1`, federationID)
+
+	f := &FederationEntry{}
+	var maxClearance int16
+	err := row.Scan(&f.FederationID, &f.ProposerOrgID, &f.TargetOrgID, &f.AllowedDomains, &f.AllowedDepts,
+		&maxClearance, &f.ExpiresAt, &f.RequiresApproval, &f.Status, &f.CreatedHeight,
+		&f.ApprovedHeight, &f.CreatedAt, &f.RevokedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("federation not found: %s", federationID)
+		}
+		return nil, fmt.Errorf("get federation: %w", err)
+	}
+	f.MaxClearance = ClearanceLevel(maxClearance)
+	return f, nil
+}
+
+// ApproveFederation marks a federation as active with an approved height.
+func (s *PostgresStore) ApproveFederation(ctx context.Context, federationID string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE federations SET status = 'active', approved_height = $2
+		WHERE federation_id = $1 AND status = 'proposed'`,
+		federationID, height)
+	if err != nil {
+		return fmt.Errorf("approve federation: %w", err)
+	}
+	return nil
+}
+
+// RevokeFederation marks a federation as revoked.
+func (s *PostgresStore) RevokeFederation(ctx context.Context, federationID string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE federations SET status = 'revoked', revoked_at = NOW()
+		WHERE federation_id = $1 AND status = 'active'`,
+		federationID)
+	if err != nil {
+		return fmt.Errorf("revoke federation: %w", err)
+	}
+	return nil
+}
+
+// GetActiveFederations retrieves all active federations for an org (as proposer or target).
+func (s *PostgresStore) GetActiveFederations(ctx context.Context, orgID string) ([]*FederationEntry, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT federation_id, proposer_org_id, target_org_id, allowed_domains, allowed_depts,
+			max_clearance, expires_at, requires_approval, status, created_height,
+			approved_height, created_at, revoked_at
+		FROM federations
+		WHERE (proposer_org_id = $1 OR target_org_id = $1) AND status IN ('active', 'proposed')
+		ORDER BY created_at`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("get active federations: %w", err)
+	}
+	defer rows.Close()
+
+	var feds []*FederationEntry
+	for rows.Next() {
+		f := &FederationEntry{}
+		var maxClearance int16
+		if err := rows.Scan(&f.FederationID, &f.ProposerOrgID, &f.TargetOrgID, &f.AllowedDomains, &f.AllowedDepts,
+			&maxClearance, &f.ExpiresAt, &f.RequiresApproval, &f.Status, &f.CreatedHeight,
+			&f.ApprovedHeight, &f.CreatedAt, &f.RevokedAt); err != nil {
+			return nil, fmt.Errorf("scan federation: %w", err)
+		}
+		f.MaxClearance = ClearanceLevel(maxClearance)
+		feds = append(feds, f)
+	}
+	return feds, nil
+}
+
+// --- Department methods ---
+
+// InsertDept inserts a department into PostgreSQL.
+func (s *PostgresStore) InsertDept(ctx context.Context, dept *DeptEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO departments (dept_id, org_id, dept_name, description, parent_dept, created_height)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT DO NOTHING`,
+		dept.DeptID, dept.OrgID, dept.DeptName, dept.Description, dept.ParentDept, dept.CreatedHeight)
+	if err != nil {
+		return fmt.Errorf("insert dept: %w", err)
+	}
+	return nil
+}
+
+// GetDept retrieves a department by org and dept ID.
+func (s *PostgresStore) GetDept(ctx context.Context, orgID, deptID string) (*DeptEntry, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT dept_id, org_id, dept_name, description, parent_dept, created_height, created_at
+		FROM departments WHERE org_id = $1 AND dept_id = $2`, orgID, deptID)
+
+	d := &DeptEntry{}
+	var description, parentDept *string
+	err := row.Scan(&d.DeptID, &d.OrgID, &d.DeptName, &description, &parentDept, &d.CreatedHeight, &d.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("dept not found: %s/%s", orgID, deptID)
+		}
+		return nil, fmt.Errorf("get dept: %w", err)
+	}
+	if description != nil {
+		d.Description = *description
+	}
+	if parentDept != nil {
+		d.ParentDept = *parentDept
+	}
+	return d, nil
+}
+
+// GetOrgDepts retrieves all departments for an organization.
+func (s *PostgresStore) GetOrgDepts(ctx context.Context, orgID string) ([]*DeptEntry, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT dept_id, org_id, dept_name, description, parent_dept, created_height, created_at
+		FROM departments WHERE org_id = $1 ORDER BY dept_name`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("get org depts: %w", err)
+	}
+	defer rows.Close()
+
+	var depts []*DeptEntry
+	for rows.Next() {
+		d := &DeptEntry{}
+		var description, parentDept *string
+		if err := rows.Scan(&d.DeptID, &d.OrgID, &d.DeptName, &description, &parentDept, &d.CreatedHeight, &d.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan dept: %w", err)
+		}
+		if description != nil {
+			d.Description = *description
+		}
+		if parentDept != nil {
+			d.ParentDept = *parentDept
+		}
+		depts = append(depts, d)
+	}
+	return depts, nil
+}
+
+// InsertDeptMember inserts a department member into PostgreSQL.
+func (s *PostgresStore) InsertDeptMember(ctx context.Context, member *DeptMemberEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO dept_members (org_id, dept_id, agent_id, clearance, role, created_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT DO NOTHING`,
+		member.OrgID, member.DeptID, member.AgentID, int16(member.Clearance), member.Role, member.CreatedHeight, member.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert dept member: %w", err)
+	}
+	return nil
+}
+
+// RemoveDeptMember soft-deletes a department member.
+func (s *PostgresStore) RemoveDeptMember(ctx context.Context, orgID, deptID, agentID string, height int64) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE dept_members SET removed_at = NOW()
+		WHERE org_id = $1 AND dept_id = $2 AND agent_id = $3 AND removed_at IS NULL`,
+		orgID, deptID, agentID)
+	if err != nil {
+		return fmt.Errorf("remove dept member: %w", err)
+	}
+	return nil
+}
+
+// GetDeptMembers retrieves all active members of a department.
+func (s *PostgresStore) GetDeptMembers(ctx context.Context, orgID, deptID string) ([]*DeptMemberEntry, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT org_id, dept_id, agent_id, clearance, role, created_height, created_at
+		FROM dept_members WHERE org_id = $1 AND dept_id = $2 AND removed_at IS NULL
+		ORDER BY created_at`, orgID, deptID)
+	if err != nil {
+		return nil, fmt.Errorf("get dept members: %w", err)
+	}
+	defer rows.Close()
+
+	var members []*DeptMemberEntry
+	for rows.Next() {
+		m := &DeptMemberEntry{}
+		var clearance int16
+		if err := rows.Scan(&m.OrgID, &m.DeptID, &m.AgentID, &clearance, &m.Role, &m.CreatedHeight, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan dept member: %w", err)
+		}
+		m.Clearance = ClearanceLevel(clearance)
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+// UpdateDeptMemberClearance updates a department member's clearance level.
+func (s *PostgresStore) UpdateDeptMemberClearance(ctx context.Context, orgID, deptID, agentID string, clearance ClearanceLevel) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE dept_members SET clearance = $4
+		WHERE org_id = $1 AND dept_id = $2 AND agent_id = $3 AND removed_at IS NULL`,
+		orgID, deptID, agentID, int16(clearance))
+	if err != nil {
+		return fmt.Errorf("update dept member clearance: %w", err)
+	}
+	return nil
+}
+
+// UpdateMemoryClassification updates a memory's classification level.
+func (s *PostgresStore) UpdateMemoryClassification(ctx context.Context, memoryID string, classification ClearanceLevel) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE memories SET classification = $2 WHERE memory_id = $1`,
+		memoryID, int16(classification))
+	if err != nil {
+		return fmt.Errorf("update memory classification: %w", err)
+	}
+	return nil
+}
+
+func (s *PostgresStore) Close() error {
+	s.pool.Close()
+	return nil
+}
+
+// Ping checks the database connection.
+func (s *PostgresStore) Ping(ctx context.Context) error {
+	return s.pool.Ping(ctx)
+}

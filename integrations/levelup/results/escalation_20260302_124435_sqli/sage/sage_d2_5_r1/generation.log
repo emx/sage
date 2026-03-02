@@ -1,0 +1,6 @@
+sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
+app.agents.hardener WARNING: [harden-loop] Rejected iteration 1: difficulty went from 1.20 → 1.10 (no improvement)
+app.agents.exploit WARNING: [replay] Timeout after 264.3s
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (264.3s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 360s, verification=smoke_tested
+sage_bridge INFO: SAGE observation submitted: 10e4dbe6-bf70-4a1b-997d-e76fa4d0f293

@@ -1,0 +1,14 @@
+Quality Evaluation: sage_run_01
+==================================================
+Arm: sage
+Overall: 5.1/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  6.0/10  ######
+  creativity               :  5.0/10  #####
+  realism                  :  6.0/10  ######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: Standard ORDER BY injection in a sort parameter with a simple 6-keyword blacklist and no authentication on the vulnerable endpoint. The space-blocking WAF adds minor friction but the lack of auth and shallow defense make this below the target difficulty of 1.5. Clean Flask structure with proper templates but the vulnerability pattern is cookie-cutter.

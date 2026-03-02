@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Telemetry Logs: {{ field.field_name }}</h2>
+<div class="card">
+    <p>Sorting applied: <code>{{ field.sort_pref }}</code></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>pH Level</th>
+                <th>Nitrogen (mg/kg)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp }}</td>
+                <td>{{ log.ph_level }}</td>
+                <td>{{ log.nitrogen }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <a href="/dashboard" class="btn-secondary btn">Back to Dashboard</a>
+</div>
+{% endblock %}

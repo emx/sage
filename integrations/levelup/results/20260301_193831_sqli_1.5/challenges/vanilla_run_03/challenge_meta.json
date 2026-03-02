@@ -1,0 +1,49 @@
+{
+  "run_number": 3,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloLink Global Manifest Management",
+  "description": "Welcome to the VeloLink Global Logistics Dispatcher Portal. Authenticate to manage active manifests and track vehicle locations. Note: The system is undergoing maintenance; certain legacy diagnostic endpoints may be exposed to authorized personnel only.",
+  "flag": "LEVELUP{nkWjIcuruUxqrBBKD_adIWrQoLa6sWKV}",
+  "solution": "1. Access the application and log in using common dispatcher credentials hinted in the source or found via enumeration (e.g., d.watkins/password123). \n2. Explore the dashboard and view the 'Network Status' tab. This triggers a request to the hidden endpoint `/api/v1/debug/node_diagnostics`. \n3. Identify that the `sort_by` parameter in this endpoint is vulnerable to SQL injection. \n4. The application implements a WAF that blocks keywords like 'SELECT', 'UNION', 'FROM', and 'WHERE' if followed by a space. \n5. Bypass the WAF by using comments `/**/` instead of spaces or by using parentheses `SELECT(column)FROM(table)`. \n6. Since the injection is in an `ORDER BY` clause, use a Boolean-based approach: `ORDER BY (CASE WHEN (condition) THEN id ELSE name END)`. \n7. Enumerate the database schema to find the `internal_system_settings` table and the `setting_value` column. \n8. Construct a script to exfiltrate the flag character by character: `/api/v1/debug/node_diagnostics?sort_by=(CASE+WHEN+(SUBSTR((SELECT/**/setting_value/**/FROM/**/internal_system_settings/**/LIMIT/**/1),1,1)='L')+THEN/**/id/**/ELSE/**/status/**/END)`.\n9. When the condition is true, the results are sorted by `id`; when false, they are sorted by `status`. Monitor the order of returned JSON objects to determine the flag.",
+  "docker_image_tag": "levelup-challenge-833fceb7",
+  "narrative_context": {
+    "company_name": "VeloLink Global Logistics",
+    "industry": "logistics",
+    "scenario": "VeloLink Global Logistics recently completed a series of aggressive acquisitions to dominate the mid-tier freight forwarding market. This growth has left the IT department struggling to integrate a patchwork of legacy systems. The OmniTrack fleet management system is one such inheritance\u2014a critical tool used by dispatchers to manage thousands of long-haul routes and warehouse schedules. Because of its antiquity, it was recently moved behind the corporate proxy to provide some semblance of modern security.\n\nThe internal security team is currently overwhelmed by a company-wide SOC 2 Type II audit, leaving several secondary applications like OmniTrack with minimal oversight. You have been brought in as a third-party security auditor to assess the resilience of this specific asset before it is fully integrated into the global ERP system next quarter. The focus is on ensuring that the data stored in the legacy environment remains isolated and protected from unauthorized queries.",
+    "app_name": "OmniTrack Fleet Dashboard",
+    "app_purpose": "Allows dispatchers to search for active vehicle manifests, track shipment statuses, and view driver certification records.",
+    "data_theme": "shipping manifests, driver IDs, vehicle VINs, and destination coordinates",
+    "flavor_details": {
+      "company_motto": "Connecting the World, One Mile at a Time.",
+      "department": "Global Supply Chain Operations",
+      "recent_event": "A whistleblower from an acquired subsidiary suggested that the legacy databases were never properly sanitized during the migration process.",
+      "tech_hints": [
+        "Classic relational database backend",
+        "Dynamic filtering through URL parameters",
+        "Verbose error messages occasionally leak schema details"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The WAF is trivially bypassed by replacing spaces with SQL comments (/**/) or other whitespace characters not covered by the regex. Although it is an ORDER BY injection, the application returns full database error messages (str(e)), allowing for rapid error-based data extraction instead of blind techniques. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

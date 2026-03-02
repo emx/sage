@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_46",
+  "arm": "vanilla",
+  "difficulty_accuracy": 7,
+  "defense_depth": 5,
+  "code_quality": 6,
+  "creativity": 6,
+  "realism": 6,
+  "flag_isolation": 7,
+  "exploit_complexity": 6,
+  "overall": 6.1,
+  "reasoning": "ORDER BY injection via POST JSON requiring a custom X-Aether-Internal header. The discovery of the internal header and analytics endpoint adds genuine enumeration steps. WAF blocks common keywords. The drone logistics hub theme is decent. Calibrated at 1.85."
+}

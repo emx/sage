@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Fleet Management</h1>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Model</th>
+                <th>Last Location</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in fleet %}
+            <tr>
+                <td>{{ v.id }}</td>
+                <td>{{ v.name }}</td>
+                <td>{{ v.model }}</td>
+                <td>{{ v.last_location }}</td>
+                <td><span class="status-{{ v.status }}">{{ v.status.upper() }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="card">
+    <h3>Real-time Tracking</h3>
+    <p>Use the legacy telemetry system (v1.0.2) to ping specific vehicle IDs for detailed status packets.</p>
+</div>
+{% endblock %}

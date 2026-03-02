@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_15 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The single-pass keyword stripping WAF is the only defense layer, making this a one-trick challenge. The interleaved keyword bypass (SELSELECTECT) is a well-documented beginner technique, and the guest credentials are handed to the solver on the landing page. The Flask app structure and aerospace logistics theme are polished and realistic, but the actual exploitation path is straightforward UNION-based extraction with no blind injection, encoding tricks, or multi-stage chaining required — calibrated difficulty of 0.85 is honest but undershoots the 1.5 target significantly.

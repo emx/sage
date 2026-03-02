@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_16 (SAGE)
+==================================================
+Overall: 5.9/10
+
+  difficulty_accuracy      :  6.0/10  ######
+  defense_depth            :  4.0/10  ####
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: The case-insensitive WAF blocking 8 keywords is a meaningful step above trivially-bypassed single-trick filters, and the ORDER BY blind injection via a hidden endpoint requires genuine multi-step exploitation (endpoint discovery + space bypass + keyword evasion + blind data extraction). However, defense remains fundamentally single-layer — one function, no rate limiting, no auth, no secondary validation — keeping defense_depth at 4/10 per SAGE calibration norms. The agronomy theme and ORDER BY vector show creativity, but the flag hardcoded in the Dockerfile and the well-documented nature of tab/comment space bypasses prevent higher scores.

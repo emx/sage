@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_11 (VANILLA)
+==================================================
+Overall: 6.0/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Solid blind SQLi challenge with a natural ORDER BY injection point and CASE-based boolean extraction, but the WAF is a single thin blacklist missing critical keywords (CASE, SELECT, substr) making it trivially bypassable — one real defense layer does not match 'hardened filter' claims. The avionics theme, hidden diagnostics hint, and multi-step exploitation path (login → discover sort param → WAF bypass → blind extraction) are well-constructed, but defense depth drags the overall score down significantly.

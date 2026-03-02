@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard Overview</h2>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <div class="card"><h3>1,240</h3><p>Active Shipments</p></div>
+    <div class="card"><h3>42</h3><p>Carriers On-Duty</p></div>
+    <div class="card"><h3>99.8%</h3><p>On-Time Delivery</p></div>
+</div>
+<div class="card" style="margin-top: 20px;">
+    <h3>Quick Actions</h3>
+    <ul>
+        <li><a href="/manifests">Review Daily Manifests</a></li>
+        <li><a href="/inventory">Check Warehouse Capacity</a></li>
+    </ul>
+</div>
+{% endblock %}

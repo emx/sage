@@ -1,0 +1,3 @@
+
+============================================================
+./scripts/run_sequential_evals.sh: line 76: Sequential Evaluation: ${mode^^}: bad substitution

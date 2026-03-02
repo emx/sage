@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Maintenance Logs</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Vehicle ID</th>
+            <th>Service Date</th>
+            <th>Technician</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.vehicle_id }}</td>
+            <td>{{ log.date }}</td>
+            <td>{{ log.technician }}</td>
+            <td>{{ log.notes }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

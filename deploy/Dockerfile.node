@@ -1,0 +1,22 @@
+# CometBFT v0.38.15 validator node
+# Multi-stage build: compile from source, copy binary to minimal Alpine
+
+# ── Builder ──────────────────────────────────
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache git make
+
+WORKDIR /src
+RUN git clone --branch v0.38.15 --depth 1 https://github.com/cometbft/cometbft.git .
+RUN CGO_ENABLED=0 go build -o /usr/local/bin/cometbft ./cmd/cometbft
+
+# ── Final ────────────────────────────────────
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /usr/local/bin/cometbft /usr/local/bin/cometbft
+
+EXPOSE 26656 26657 26660
+
+CMD ["cometbft", "node", "--home", "/cometbft"]

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AetherLink OrbitalLink</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; }
+        nav { background: #2c3e50; color: white; padding: 15px; display: flex; justify-content: space-between; }
+        nav a { color: white; text-decoration: none; margin: 0 15px; }
+        .container { padding: 20px; max-width: 1000px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .btn { background: #3498db; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .error { color: #e74c3c; background: #fadbd8; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div><strong>AetherLink OrbitalLink</strong></div>
+        <div>
+            <a href="/">Home</a>
+            {% if session.username %}
+                <a href="/dashboard">Fleet</a>
+                <a href="/manifests">Manifests</a>
+                <a href="/telemetry">Telemetry</a>
+                <a href="/logs">Logs</a>
+                <a href="/profile">Profile ({{ session.username }})</a>
+                <a href="/logout">Logout</a>
+            {% else %}
+                <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

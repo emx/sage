@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Flight Manifests</h2>
+    <p>Sort by: 
+        <a href="?sort=flight_num">Flight ID</a> | 
+        <a href="?sort=cargo_weight">Weight</a> | 
+        <a href="?sort=destination">Destination</a> | 
+        <a href="?sort=status">Status</a>
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Flight #</th>
+                <th>Cargo Weight (kg)</th>
+                <th>Destination</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.flight_num }}</td>
+                <td>{{ item.cargo_weight }}</td>
+                <td>{{ item.destination }}</td>
+                <td>{{ item.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

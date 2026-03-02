@@ -1,0 +1,14 @@
+Quality Evaluation: sage_run_02
+==================================================
+Arm: sage
+Overall: 5.1/10
+
+  difficulty_accuracy      :  4.0/10  ####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The WAF only blocks keywords when followed by a space (e.g., 'SELECT '), making it trivially bypassed with parentheses or no trailing space. Authentication exists but credentials are given directly on the login page. The app is well-structured with session management, profiles, and logs, but the defense is paper-thin. Same ORDER BY injection pattern as sage_run_01 with a satellite theme swap.

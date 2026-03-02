@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Shipment {{ shipment.shipment_id }}</h2>
+    <p><strong>Destination:</strong> {{ shipment.destination }}</p>
+    <p><strong>Cargo:</strong> {{ shipment.cargo_type }}</p>
+    <hr>
+    <h3>Assigned Driver</h3>
+    <p><strong>Name:</strong> {{ driver.name }}</p>
+    <p><strong>License:</strong> {{ driver.license_no }}</p>
+    <p><strong>VIN:</strong> {{ driver.vin }}</p>
+    <a href="/shipments" class="btn">Back to Manifest</a>
+</div>
+{% endblock %}

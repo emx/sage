@@ -1,0 +1,49 @@
+{
+  "run_number": 42,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.1,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Orbital Integrity Audit",
+  "description": "Vanguardia Orbital provides state-of-the-art satellite logistics. As a junior ground-crew member, you've been granted access to the basic manifest viewer. However, rumors suggest the legacy telemetry archive API (v1) is still running in the background and contains references to the high-security 'Core Registry'. Can you navigate the orbital data and find the hidden flag?",
+  "flag": "LEVELUP{6rekj5y0SQWwbCE7B0Q7R8gnj265eMcw}",
+  "solution": "1. Log into the application using the guest credentials provided on the login page (guest/guest123).\n2. Navigate through the dashboard and 'Cargo Manifests' page. \n3. View the source code of the 'Telemetry' page to find a commented-out JavaScript block referencing a 'legacy API' at `/api/v1/archive?sort=timestamp`.\n4. Test the `sort` parameter for SQL injection. Observe that `?sort=timestamp DESC` and `?sort=timestamp ASC` change the order of results.\n5. Attempt a boolean-blind injection using `CASE` statements: `?sort=(CASE+WHEN+(1=1)+THEN+timestamp+ELSE+cargo_id+END)`.\n6. Discover the WAF blocks common keywords like 'SELECT', 'FROM', and 'WHERE' (case-insensitive) and spaces.\n7. Bypass the WAF using multi-line comment syntax `/**/` instead of spaces and obfuscating keywords (e.g., `SEL/**/ECT`).\n8. Enumerate tables using the `sqlite_master` table to find the obfuscated table `core_registry` and column `registry_data`.\n9. Use a script to exfiltrate the flag character by character: `?sort=(CASE/**/WHEN/**/(SEL/**/ECT/**/unicode(substr(registry_data,1,1))/**/FR/**/OM/**/core_registry/**/LIMIT/**/1)>100/**/THEN/**/timestamp/**/ELSE/**/cargo_id/**/END)`.\n10. Reconstruct the flag from the successful sort order changes.",
+  "docker_image_tag": "levelup-challenge-ce7add41",
+  "narrative_context": {
+    "company_name": "Vanguardia Orbital",
+    "industry": "aerospace",
+    "scenario": "Vanguardia Orbital is a premier sub-orbital logistics provider that bridges the gap between traditional air freight and satellite deployment. After their recent acquisition of the boutique firm Nebula Express, the enterprise has been rushing to integrate a dozen disparate legacy systems into their central management architecture. The security team is currently buried under a backlog of compliance audits and has requested an external review of the newly merged tracking components.\n\nThe PM-Voyager system was originally a standalone inventory tool used by Nebula Express. It has been hastily adapted as a module within the Vanguardia internal portal to allow ground crews to search through historical flight manifests and cargo specifications. While the core Vanguardia systems are modern, this legacy search module retains much of its original architecture, now connected to a high-capacity enterprise database containing sensitive flight trajectories and client cargo data.",
+    "app_name": "Payload Manifest Voyager (PM-Voyager)",
+    "app_purpose": "Allows logistics managers and ground crews to query historical cargo manifests and flight clearance records using tracking IDs or destination codes.",
+    "data_theme": "satellite telemetry IDs, orbital manifest records, client cargo descriptions, and flight clearance timestamps",
+    "flavor_details": {
+      "company_motto": "Efficiency at Terminal Velocity",
+      "department": "Sub-Orbital Logistics & Distribution",
+      "recent_event": "Post-merger integration of legacy database systems following the Nebula Express acquisition.",
+      "tech_hints": [
+        "The application uses a unified search interface for manifest filtering.",
+        "Data is served via an enterprise-grade backend relational store.",
+        "Error messages may appear verbose when the application receives unexpected input patterns."
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a standard ORDER BY SQL injection with a trivial WAF bypass. The WAF explicitly suggests the bypass (using /**/ for spaces), and the application leaks raw database error messages via 'details: str(e)', allowing for fast error-based extraction instead of tedious blind-based extraction. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Global SKU Inventory</h2>
+    <table>
+        <tr><th>SKU</th><th>Product Name</th><th>Stock Level</th><th>Warehouse</th></tr>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.sku }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.warehouse_id }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

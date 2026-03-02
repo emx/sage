@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Vessel Registry</h2>
+<div class="row">
+    {% for vessel in vessels %}
+    <div class="col-md-6 mb-3">
+        <div class="card p-3">
+            <h5>{{ vessel.name }}</h5>
+            <p class="mb-1"><strong>IMO:</strong> {{ vessel.registration }}</p>
+            <p class="mb-0"><strong>Flag State:</strong> {{ vessel.flag_state }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

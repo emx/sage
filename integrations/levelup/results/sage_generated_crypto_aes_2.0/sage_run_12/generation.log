@@ -1,0 +1,7 @@
+sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
+sage_bridge INFO: SAGE observation submitted: 465634d2-e40e-4992-afa8-408e68e491bb
+app.agents.orchestrator WARNING: Static analysis failed: ['Python syntax error: unexpected character after line continuation character (challenge.py, line 1)']
+app.agents.hardener WARNING: [harden-loop] Rejected iteration 1: difficulty went from 1.20 → 1.20 (no improvement)
+app.agents.smoke_test WARNING: Flag submission test FAILED: No endpoint accepted the known flag at http://localhost:42654. Tried: ['/submit', '/check', '/verify', '/api/check', '/api/submit'] with fields: ['flag', 'answer', 'solution', 'input']
+app.agents.orchestrator WARNING: Flag submission NOT verified for crypto — synthetic par 300s, verification=smoke_tested. Details: No endpoint accepted the known flag at http://localhost:42654. Tried: ['/submit', '/check', '/verify', '/api/check', '/api/submit'] with fields: ['flag', 'answer', 'solution', 'input']
+sage_bridge INFO: SAGE observation submitted: 9f8c9c35-6c3f-4ff9-94f8-8828da353669

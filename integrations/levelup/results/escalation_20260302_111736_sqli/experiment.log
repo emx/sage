@@ -1,0 +1,21 @@
+[11:17:36] ============================================================
+[11:17:36] Difficulty Escalation Experiment
+[11:17:36] ============================================================
+[11:17:36]   Category:      sqli
+[11:17:36]   Difficulties:  1.0 1.25 1.5 1.75 2.0 2.25 2.5 2.75 3.0
+[11:17:36]   Runs per tier: 1
+[11:17:36]   Mode:          --vanilla-only
+[11:17:36]   Result dir:    /Users/l33tdawg/nodejs-projects/sage/integrations/levelup/results/escalation_20260302_111736_sqli
+[11:17:36]   Start:         Mon Mar  2 11:17:36 +08 2026
+[11:17:36] 
+[11:17:36] 
+[11:17:36] === VANILLA ARM (cold, no memory) ===
+[11:17:36] 
+[11:17:36] --- [1] vanilla_d1_0_r1 (difficulty=1.0) ---
+[11:17:36]   Generating vanilla_d1_0_r1 (difficulty=1.0, sage=false)...
+[11:17:37]     FAILED: vanilla_d1_0_r1
+[11:17:37] --- [2] vanilla_d1_25_r1 (difficulty=1.25) ---
+[11:17:37]   Generating vanilla_d1_25_r1 (difficulty=1.25, sage=false)...
+[11:17:37]     FAILED: vanilla_d1_25_r1
+[11:17:37] --- [3] vanilla_d1_5_r1 (difficulty=1.5) ---
+[11:17:37]   Generating vanilla_d1_5_r1 (difficulty=1.5, sage=false)...

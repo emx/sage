@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, {{ session.username }}</h2>
+<hr>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card p-4 text-center">
+            <h4>Active Regions</h4>
+            <p class="display-6">12</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4 text-center">
+            <h4>Active Sensors</h4>
+            <p class="display-6">1,248</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4 text-center">
+            <h4>Yield Growth</h4>
+            <p class="display-6 text-success">+8.2%</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

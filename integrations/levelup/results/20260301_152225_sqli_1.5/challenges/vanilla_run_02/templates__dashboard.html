@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Regional Dashboard</h1>
+<div class="card">
+    <h2>Vessel Distribution</h2>
+    <table>
+        <thead><tr><th>Region</th><th>Vessel Count</th></tr></thead>
+        <tbody>
+            {% for stat in stats %}
+            <tr><td>{{ stat['region'] }}</td><td>{{ stat['count'] }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class='container my-5'>
+    <h2>Our Active Fleet</h2>
+    <table class='table table-striped mt-4'>
+        <thead class='table-dark'>
+            <tr>
+                <th>ID</th>
+                <th>Vessel Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for vessel in vessels %}
+            <tr>
+                <td>{{ vessel.id }}</td>
+                <td>{{ vessel.name }}</td>
+                <td>{{ vessel.vessel_type }}</td>
+                <td><span class='badge bg-success'>{{ vessel.status }}</span></td>
+                <td><a href='/fleet/details/{{ vessel.id }}' class='btn btn-sm btn-info'>Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

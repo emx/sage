@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <title>Veridian Kinetic | Fleet Ops</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0e14; color: #e0e0e0; margin: 0; }
+        nav { background: #1a1f29; padding: 1rem; border-bottom: 2px solid #2d343f; display: flex; justify-content: space-between; }
+        nav a { color: #4facfe; text-decoration: none; margin: 0 15px; font-weight: bold; }
+        .container { padding: 40px; max-width: 1200px; margin: auto; }
+        .card { background: #1a1f29; padding: 25px; border-radius: 8px; border: 1px solid #2d343f; }
+        input, select { background: #0b0e14; color: white; border: 1px solid #2d343f; padding: 10px; border-radius: 4px; }
+        button { background: #0078d4; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #2d343f; }
+        .footer { margin-top: 50px; font-size: 0.8rem; color: #555; text-align: center; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div>
+            <a href='/'>VERIDIAN KINETIC</a>
+            {% if session.user_id %}
+            <a href='/dashboard'>Dashboard</a>
+            <a href='/fleet'>Fleet</a>
+            <a href='/maintenance'>Maintenance</a>
+            {% endif %}
+        </div>
+        <div>
+            {% if session.user_id %}
+            <a href='/profile'>Profile</a>
+            <a href='/logout'>Logout</a>
+            {% else %}
+            <a href='/login'>Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class='container'>
+        {% block content %}{% endblock %}
+    </div>
+    <div class='footer'>
+        Veridian Kinetic Solutions &copy; 2023 - Confidential Internal System (Guest Access: guest/guest123)
+    </div>
+</body>
+</html>

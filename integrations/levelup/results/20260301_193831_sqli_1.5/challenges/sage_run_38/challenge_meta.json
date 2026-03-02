@@ -1,0 +1,50 @@
+{
+  "run_number": 38,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.1,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloLink Global Manifest Search",
+  "description": "VeloLink Logistics has modernized their infrastructure with a new vessel tracking and manifest verification system. As a security consultant, you've been tasked with auditing their new 'Vessel Intelligence' module. The company claims their proprietary 'VeloGuard' filtering middleware makes the system immune to common web attacks. Can you prove them wrong and retrieve the sensitive node configuration secret?",
+  "flag": "LEVELUP{4WGMPX1ibRnTwX_kPsCHBWWNOatKaI3q}",
+  "solution": "1. Enumerate the application and navigate to the '/vessels' page. Clicking on a vessel takes you to '/vessel/<id>'.\n2. Inspect the network traffic or page source of '/vessel/<id>' to discover a client-side API call to '/api/v1/vessel/details?id=<id>'.\n3. Test the 'id' parameter for SQL injection. Observe that common characters like spaces and keywords like 'UNION' or 'OR' are blocked by the VeloGuard middleware (returning a 403 Forbidden).\n4. Bypass the whitespace filter by using tab characters (%09) or newlines (%0a). \n5. Since 'UNION' is blocked, use a Boolean-based blind SQL injection approach. Test the response differences between a true condition (e.g., '1%09AND%091=1') and a false condition (e.g., '1%09AND%091=0').\n6. Use the Boolean-based injection to enumerate the database schema. Query 'sqlite_master' to find hidden tables: '1%09AND%09(SELECT%09count(*)%09FROM%09sqlite_master%09WHERE%09type='table'%09AND%09name%09LIKE%09'internal%')>0'.\n7. Identify the table 'internal_node_cfg' and the column 'node_secret'.\n8. Systematically extract the flag character by character using the 'substr' function: '1%09AND%09(SELECT%09substr(node_secret,1,1)%09FROM%09internal_node_cfg)='L''.",
+  "docker_image_tag": "levelup-challenge-b165566b",
+  "narrative_context": {
+    "company_name": "VeloLink Logistics",
+    "industry": "logistics",
+    "scenario": "VeloLink Logistics recently migrated their regional tracking databases into the 'Global Cargo Hub' to streamline international supply chain visibility. Despite an established security team, the rapid migration timeline prioritized feature parity over deep-code auditing. The system is now a sprawling ecosystem of legacy scripts and modern front-end components.\n\nThe CISO is concerned that the public-facing 'Cargo Search' feature, which allows customers to query manifests using various parameters, may not be as isolated as intended. With an upcoming merger on the horizon, the pressure is on to ensure that sensitive cargo manifests remain strictly confidential and do not leak into the public domain.",
+    "app_name": "Global Cargo Hub (GCH)",
+    "app_purpose": "Allows clients and customs agents to search, verify, and track international shipping manifests across multiple transportation modes.",
+    "data_theme": "shipping manifests, bill of lading records, customer account IDs, and vessel itineraries",
+    "flavor_details": {
+      "company_motto": "Moving the world at the speed of trust.",
+      "department": "Global Operations & Infrastructure",
+      "recent_event": "A competitor allegedly mentioned 'unusually detailed' knowledge of VeloLink's shipping lanes during a private contract bid, prompting a deep dive into data exposure.",
+      "tech_hints": [
+        "LAMP stack architecture",
+        "Dynamic query generation for complex filters",
+        "Legacy PHP integration",
+        "Unified search bar across multiple data tables"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a basic keyword blacklist that is easily bypassed by using alternative whitespace characters like newlines (%0a) or tabs (%09). While the UNION block prevents direct data leakage, the application's binary response (vessel found vs. 404) allows for standard Boolean-based blind SQL injection to extract the flag from the internal_node_cfg table. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

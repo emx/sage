@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_12 (SAGE)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  4.0/10  ####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  6.0/10  ######
+  creativity               :  7.0/10  #######
+  realism                  :  6.0/10  ######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: The case-sensitive WAF is a single-layer defense trivially bypassed by lowercase — matching the weak pattern SAGE has repeatedly flagged at defense_depth 3/10. While the ORDER BY injection vector and agtech IoT theme show creativity, the bypass requires only one technique (lowercase), falling below the 2+ technique threshold expected at difficulty 1.5. The blind data extraction from ORDER BY adds some genuine complexity, but the negligible WAF means the calibrated difficulty of 0.9 is more accurate than the 1.5 target.

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Mission Control Overview</h1>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Satellites</h3>
+        <p>Aether-1: <span style="color: #00ff00;">Active</span></p>
+        <p>Aether-2: <span style="color: #00ff00;">Active</span></p>
+        <p>Aether-3: <span style="color: #ffaa00;">Calibration Required</span></p>
+    </div>
+    <div class="card">
+        <h3>Quick Links</h3>
+        <ul>
+            <li><a href="/telemetry" style="color: #00a8ff;">View Real-time Logs</a></li>
+            <li><a href="/inventory" style="color: #00a8ff;">Equipment Inventory</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

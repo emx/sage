@@ -1,0 +1,223 @@
+[18:28:06] ==========================================
+[18:28:06] Per-Challenge Evaluation: 50 challenges, mode=both
+[18:28:06] ==========================================
+[18:28:06] [1/50] Evaluating vanilla_run_01 (vanilla)...
+[vanilla] Prompt for vanilla_run_01: 11360 bytes
+[18:28:36]   -> vanilla: 5
+[18:28:36] [1/50] Evaluating vanilla_run_01 (SAGE)...
+SAGE: retrieved 9 memories
+[SAGE] Prompt for vanilla_run_01: 13965 bytes
+Traceback (most recent call last):
+  File "<string>", line 17, in <module>
+BrokenPipeError: [Errno 32] Broken pipe
+[18:29:05]   -> sage: FAILED
+[19:02:36] ==========================================
+[19:02:36] Per-Challenge Evaluation: 50 challenges, mode=both
+[19:02:36] ==========================================
+[19:02:36] [1/50] Evaluating vanilla_run_01 (vanilla)...
+[vanilla] Prompt for vanilla_run_01: 11360 bytes
+[19:03:07]   -> vanilla: 5
+[19:03:07] [1/50] Evaluating vanilla_run_01 (SAGE)...
+SAGE: retrieved 3 memories
+[SAGE] Prompt for vanilla_run_01: 12003 bytes
+[19:03:36]   -> sage: 5.2
+[19:03:36] [2/50] Evaluating vanilla_run_02 (vanilla)...
+[vanilla] Prompt for vanilla_run_02: 12289 bytes
+[19:04:06]   -> vanilla: 5
+[19:04:06] [2/50] Evaluating vanilla_run_02 (SAGE)...
+SAGE: retrieved 4 memories
+[SAGE] Prompt for vanilla_run_02: 13195 bytes
+[19:04:43]   -> sage: 5.4
+[19:04:43] [3/50] Evaluating vanilla_run_03 (vanilla)...
+[vanilla] Prompt for vanilla_run_03: 11405 bytes
+[19:05:10]   -> vanilla: 5
+[19:05:10] [3/50] Evaluating vanilla_run_03 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_03: 12574 bytes
+[19:05:37]   -> sage: 5.0
+[19:05:37] [4/50] Evaluating vanilla_run_04 (vanilla)...
+[vanilla] Prompt for vanilla_run_04: 14126 bytes
+[19:06:08]   -> vanilla: 5
+[19:06:08] [4/50] Evaluating vanilla_run_04 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_04: 15453 bytes
+[19:06:43]   -> sage: 5.5
+[19:06:43] [5/50] Evaluating vanilla_run_05 (vanilla)...
+[vanilla] Prompt for vanilla_run_05: 10828 bytes
+[19:07:24]   -> vanilla: 5
+[19:07:24] [5/50] Evaluating vanilla_run_05 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_05: 12155 bytes
+[19:08:21]   -> sage: 4.8
+[19:08:21] [6/50] Evaluating vanilla_run_06 (vanilla)...
+[vanilla] Prompt for vanilla_run_06: 13222 bytes
+[19:08:51]   -> vanilla: 5
+[19:08:51] [6/50] Evaluating vanilla_run_06 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_06: 14549 bytes
+[19:09:26]   -> sage: 5.4
+[19:09:26] [7/50] Evaluating vanilla_run_07 (vanilla)...
+[vanilla] Prompt for vanilla_run_07: 11214 bytes
+[19:09:58]   -> vanilla: 5
+[19:09:58] [7/50] Evaluating vanilla_run_07 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_07: 12541 bytes
+[19:10:40]   -> sage: 5.2
+[19:10:40] [8/50] Evaluating vanilla_run_08 (vanilla)...
+[vanilla] Prompt for vanilla_run_08: 14337 bytes
+[19:11:19]   -> vanilla: 5
+[19:11:19] [8/50] Evaluating vanilla_run_08 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_08: 15664 bytes
+[19:11:50]   -> sage: 5.0
+[19:11:50] [9/50] Evaluating vanilla_run_09 (vanilla)...
+[vanilla] Prompt for vanilla_run_09: 10593 bytes
+[19:12:27]   -> vanilla: 5
+[19:12:27] [9/50] Evaluating vanilla_run_09 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_09: 11920 bytes
+[19:13:03]   -> sage: 5.2
+[19:13:03] [10/50] Evaluating vanilla_run_10 (vanilla)...
+[vanilla] Prompt for vanilla_run_10: 12436 bytes
+[19:13:30]   -> vanilla: 5
+[19:13:30] [10/50] Evaluating vanilla_run_10 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_10: 13763 bytes
+[19:14:00]   -> sage: 4.9
+[19:14:00] [11/50] Evaluating vanilla_run_11 (vanilla)...
+[vanilla] Prompt for vanilla_run_11: 12440 bytes
+[19:14:28]   -> vanilla: 6
+[19:14:28] [11/50] Evaluating vanilla_run_11 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_11: 13767 bytes
+[19:14:59]   -> sage: 5.7
+[19:14:59] [12/50] Evaluating vanilla_run_12 (vanilla)...
+[vanilla] Prompt for vanilla_run_12: 11617 bytes
+[19:15:29]   -> vanilla: 5
+[19:15:29] [12/50] Evaluating vanilla_run_12 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_12: 12944 bytes
+[19:15:59]   -> sage: 5.0
+[19:15:59] [13/50] Evaluating vanilla_run_13 (vanilla)...
+[vanilla] Prompt for vanilla_run_13: 14246 bytes
+[19:16:30]   -> vanilla: 5
+[19:16:30] [13/50] Evaluating vanilla_run_13 (SAGE)...
+SAGE: retrieved 5 memories
+[SAGE] Prompt for vanilla_run_13: 15573 bytes
+[19:16:57]   -> sage: 4.5
+[19:16:57] [14/50] Evaluating vanilla_run_14 (vanilla)...
+[vanilla] Prompt for vanilla_run_14: 14144 bytes
+[19:17:33]   -> vanilla: 5
+[19:17:33] [14/50] Evaluating vanilla_run_14 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_14: 15728 bytes
+[19:18:53]   -> sage: 6.3
+[19:18:53] [15/50] Evaluating vanilla_run_15 (vanilla)...
+[vanilla] Prompt for vanilla_run_15: 11642 bytes
+[19:19:20]   -> vanilla: 5
+[19:19:20] [15/50] Evaluating vanilla_run_15 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_15: 13226 bytes
+[19:19:48]   -> sage: 4.8
+[19:19:48] [16/50] Evaluating vanilla_run_16 (vanilla)...
+[vanilla] Prompt for vanilla_run_16: 9997 bytes
+[19:20:46]   -> vanilla: 5
+[19:20:46] [16/50] Evaluating vanilla_run_16 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_16: 11581 bytes
+[19:21:44]   -> sage: 5.9
+[19:21:44] [17/50] Evaluating vanilla_run_17 (vanilla)...
+[vanilla] Prompt for vanilla_run_17: 14699 bytes
+[19:22:27]   -> vanilla: 5.7
+[19:22:27] [17/50] Evaluating vanilla_run_17 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_17: 16283 bytes
+[19:23:16]   -> sage: 5.8
+[19:23:17] [18/50] Evaluating vanilla_run_18 (vanilla)...
+[vanilla] Prompt for vanilla_run_18: 11719 bytes
+[19:23:48]   -> vanilla: 5
+[19:23:48] [18/50] Evaluating vanilla_run_18 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_18: 13303 bytes
+[19:24:22]   -> sage: 5.4
+[19:24:22] [19/50] Evaluating vanilla_run_19 (vanilla)...
+[vanilla] Prompt for vanilla_run_19: 15809 bytes
+[19:25:01]   -> vanilla: 6
+[19:25:01] [19/50] Evaluating vanilla_run_19 (SAGE)...
+SAGE: retrieved 6 memories
+[SAGE] Prompt for vanilla_run_19: 17393 bytes
+[19:25:37]   -> sage: 6.6
+[19:25:37] [20/50] Evaluating vanilla_run_20 (vanilla)...
+[vanilla] Prompt for vanilla_run_20: 12818 bytes
+[19:26:16]   -> vanilla: 6
+[19:26:16] [20/50] Evaluating vanilla_run_20 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_20: 14660 bytes
+[19:26:55]   -> sage: 6.0
+[19:26:55] [21/50] Evaluating vanilla_run_21 (vanilla)...
+[vanilla] Prompt for vanilla_run_21: 10572 bytes
+[19:27:23]   -> vanilla: 5.6
+[19:27:23] [21/50] Evaluating vanilla_run_21 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_21: 12414 bytes
+[19:27:55]   -> sage: 5.3
+[19:27:55] [22/50] Evaluating vanilla_run_22 (vanilla)...
+[vanilla] Prompt for vanilla_run_22: 11961 bytes
+[19:28:34]   -> vanilla: 6
+[19:28:34] [22/50] Evaluating vanilla_run_22 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_22: 13803 bytes
+[19:29:11]   -> sage: 6.1
+[19:29:11] [23/50] Evaluating vanilla_run_23 (vanilla)...
+[vanilla] Prompt for vanilla_run_23: 11304 bytes
+[19:29:48]   -> vanilla: 5
+[19:29:48] [23/50] Evaluating vanilla_run_23 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_23: 13146 bytes
+[19:30:32]   -> sage: 5.3
+[19:30:32] [24/50] Evaluating vanilla_run_24 (vanilla)...
+[vanilla] Prompt for vanilla_run_24: 14031 bytes
+[19:31:10]   -> vanilla: 6
+[19:31:10] [24/50] Evaluating vanilla_run_24 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_24: 15873 bytes
+[19:32:14]   -> sage: 6.4
+[19:32:14] [25/50] Evaluating vanilla_run_25 (vanilla)...
+[vanilla] Prompt for vanilla_run_25: 12181 bytes
+[19:32:53]   -> vanilla: 5
+[19:32:53] [25/50] Evaluating vanilla_run_25 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_25: 14023 bytes
+[19:33:37]   -> sage: 4.8
+[19:33:37] [26/50] Evaluating vanilla_run_26 (vanilla)...
+[vanilla] Prompt for vanilla_run_26: 13119 bytes
+[19:34:16]   -> vanilla: 5
+[19:34:16] [26/50] Evaluating vanilla_run_26 (SAGE)...
+SAGE: retrieved 7 memories
+[SAGE] Prompt for vanilla_run_26: 14961 bytes
+[19:35:53]   -> sage: 5.5
+[19:35:53] [27/50] Evaluating vanilla_run_27 (vanilla)...
+[vanilla] Prompt for vanilla_run_27: 12466 bytes
+[19:36:23]   -> vanilla: 5
+[19:36:23] [27/50] Evaluating vanilla_run_27 (SAGE)...
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+SAGE: retrieved 0 memories
+[SAGE] Prompt for vanilla_run_27: 12466 bytes
+[19:36:56]   -> sage: 5.5
+[19:36:56] [28/50] Evaluating vanilla_run_28 (vanilla)...
+[vanilla] Prompt for vanilla_run_28: 12162 bytes
+[19:37:48]   -> vanilla: 6
+[19:37:48] [28/50] Evaluating vanilla_run_28 (SAGE)...
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+Ollama embedding failed, falling back to hash: [Errno 61] Connection refused
+SAGE: retrieved 0 memories
+[SAGE] Prompt for vanilla_run_28: 12162 bytes
+Traceback (most recent call last):
+  File "/Users/l33tdawg/nodejs-projects/sage/integrations/levelup/scripts/parse_single_eval.py", line 96, in <module>
+    main()
+  File "/Users/l33tdawg/nodejs-projects/sage/integrations/levelup/scripts/parse_single_eval.py", line 80, in main
+    print(json.dumps(evaluation))
+BrokenPipeError: [Errno 32] Broken pipe

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Container Manifest Search</h2>
+<div class="card p-3 mb-4">
+    <div class="row">
+        <div class="col-md-8">
+            <input type="text" id="searchQ" class="form-control" placeholder="Filter by Container ID (e.g., CONT-)">
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-primary w-100" onclick="loadManifests()">Apply Filter</button>
+        </div>
+    </div>
+</div>
+<table class="table table-striped card">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Container ID</th>
+            <th>Origin</th>
+            <th>Destination</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody id="manifestTable">
+    </tbody>
+</table>
+<script>
+function loadManifests() {
+    const q = document.getElementById('searchQ').value;
+    fetch(`/api/v1/manifests/search?q=${q}&sort=id`)
+        .then(r => r.json())
+        .then(data => {
+            const body = document.getElementById('manifestTable');
+            body.innerHTML = '';
+            data.forEach(m => {
+                body.innerHTML += `<tr>
+                    <td>${m.id}</td>
+                    <td>${m.container_id}</td>
+                    <td>${m.origin}</td>
+                    <td>${m.destination}</td>
+                    <td><span class="badge bg-info">${m.status}</span></td>
+                </tr>`;
+            });
+        });
+}
+window.onload = loadManifests;
+</script>
+{% endblock %}

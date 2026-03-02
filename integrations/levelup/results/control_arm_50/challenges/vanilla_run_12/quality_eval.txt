@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_12 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  6.0/10  ######
+  flag_isolation           :  5.0/10  #####
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: The single case-sensitive keyword blacklist is the only defense layer, making this trivially bypassable with lowercase — well below the 1.5 target difficulty. Code quality is solid with proper Flask templating, parameterized queries on non-vulnerable routes, and a believable agronomy theme, but the ORDER BY injection context creates an awkward gap: extracting data requires boolean-based techniques yet the WAF offers zero resistance to them. Flag placement in /flag.txt is disconnected from the SQLi vector unless init_db.py seeds it into a table, which is not shown.

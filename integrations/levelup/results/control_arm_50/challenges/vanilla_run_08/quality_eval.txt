@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_08 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The sole defense is a case-sensitive uppercase keyword blacklist — trivially bypassed with lowercase alone (not even mixed-case needed), dropping both defense_depth and exploit_complexity significantly. The second-order SQLi concept (store via profile, trigger via dashboard) adds a nice architectural twist and the agricultural analytics theme is plausible, but the actual exploitation path is straightforward enough that the target difficulty of 1.5 overshoots the calibrated 0.85. Code quality and realism are solid with proper Flask patterns, multiple routes, and Bootstrap templates.

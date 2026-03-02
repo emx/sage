@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VerdantReach - {{ title }}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; color: #333; }
+        nav { background: #2e7d32; padding: 1rem; color: white; display: flex; justify-content: space-between; }
+        nav a { color: white; text-decoration: none; margin-left: 15px; font-weight: bold; }
+        .container { padding: 2rem; max-width: 1000px; margin: auto; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #f1f8e9; }
+        .btn { background: #2e7d32; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; border: none; cursor: pointer; }
+        .alert { background: #fff3e0; border-left: 5px solid #ff9800; padding: 1rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <span>VerdantReach Solutions</span>
+        <div>
+            <a href="/">Home</a>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/harvests">Harvests</a>
+            <a href="/soil">Soil Data</a>
+            <a href="/reports">Reports</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

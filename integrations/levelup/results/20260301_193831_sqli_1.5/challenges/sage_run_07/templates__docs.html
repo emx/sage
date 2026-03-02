@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>API Documentation</h2>
+<div class="card p-4 mt-3 font-monospace">
+    <h5>GET /api/v1/shipments</h5>
+    <p>Retrieves a JSON list of all active shipments.</p>
+    <p>Parameters:</p>
+    <ul>
+        <li><code>sort</code> (Optional): Column name to sort results by. Defaults to <code>id</code>.</li>
+    </ul>
+    <hr>
+    <h5>Note on Security</h5>
+    <p>All inputs to the <code>sort</code> parameter are sanitized via Velocita's <i>SafeRoute</i> middleware which removes malicious SQL sub-clauses before execution.</p>
+</div>
+{% endblock %}

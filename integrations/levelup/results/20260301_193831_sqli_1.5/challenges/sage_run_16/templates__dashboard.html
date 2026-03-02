@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="title">Welcome, {{ session['user'] }}</h1>
+<div class="tile is-ancestor">
+    <div class="tile is-parent">
+        <article class="tile is-child box">
+            <p class="title">Active Shipments</p>
+            <p class="subtitle">124 currently in transit</p>
+            <a href="/shipments">View List</a>
+        </article>
+    </div>
+    <div class="tile is-parent">
+        <article class="tile is-child box">
+            <p class="title">Pending Manifests</p>
+            <p class="subtitle">8 require officer signature</p>
+        </article>
+    </div>
+</div>
+{% endblock %}

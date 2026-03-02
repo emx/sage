@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Partner Audit Portal</h1>
+<p>Enter an Audit Log ID to check the status of a specific system event.</p>
+<form method="GET" action="/portal/audit">
+    <input type="text" name="id" placeholder="Log ID (e.g., 101)">
+    <button type="submit">Check Status</button>
+</form>
+
+{% if result %}
+<div class="alert" style="margin-top: 20px;">
+    <strong>Audit Record Status:</strong> {{ result }}
+</div>
+{% endif %}
+{% endblock %}

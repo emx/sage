@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card p-4">
+            <h4 class="text-center mb-4">Dispatcher Login</h4>
+            <form method="POST">
+                <div class="mb-3">
+                    <label>Terminal ID</label>
+                    <input type="text" class="form-control" placeholder="T-XXXX">
+                </div>
+                <div class="mb-3">
+                    <label>Access Code</label>
+                    <input type="password" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Authorize</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

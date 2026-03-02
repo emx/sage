@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="header-accent">Inventory Tracking</h2>
+<table class="table table-hover bg-white">
+    <thead>
+        <tr>
+            <th style="cursor:pointer" onclick="loadData('batch_id')">Batch ID ↕</th>
+            <th style="cursor:pointer" onclick="loadData('strain_name')">Strain Name ↕</th>
+            <th style="cursor:pointer" onclick="loadData('moisture')">Moisture (%) ↕</th>
+            <th>Warehouse</th>
+        </tr>
+    </thead>
+    <tbody id="inventory-body">
+        <!-- Loaded via API -->
+    </tbody>
+</table>
+
+<script>
+function loadData(sortField) {
+    fetch(`/api/v1/inventory/search?sort=${sortField}`)
+        .then(res => res.json())
+        .then(data => {
+            const body = document.getElementById('inventory-body');
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            body.innerHTML = '';
+            data.forEach(row => {
+                body.innerHTML += `<tr>
+                    <td><a href="/batch/${row.batch_id}">${row.batch_id}</a></td>
+                    <td>${row.strain_name}</td>
+                    <td>${row.moisture}%</td>
+                    <td>${row.warehouse}</td>
+                </tr>`;
+            });
+        });
+}
+document.addEventListener('DOMContentLoaded', () => loadData('batch_id'));
+</script>
+{% endblock %}

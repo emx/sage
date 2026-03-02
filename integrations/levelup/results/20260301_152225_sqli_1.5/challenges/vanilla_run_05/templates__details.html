@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ clip.title }}{% endblock %}
+{% block content %}
+<div class="card">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div style="background: #000; height: 300px; border-radius: 8px;"></div>
+        <div>
+            <h2>{{ clip.title }}</h2>
+            <p><strong>Category:</strong> {{ clip.category }}</p>
+            <p><strong>Broadcast Year:</strong> {{ clip.broadcast_year }}</p>
+            <p><strong>Location:</strong> {{ clip.location }}</p>
+            <p><strong>Director:</strong> {{ clip.director }}</p>
+            <hr>
+            <p><em>Notes: {{ clip.description }}</em></p>
+            <a href="/license" class="btn">Request License</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

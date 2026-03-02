@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Shipment Manifests</h2>
+<p class="text-muted">Review and sort historical manifest records.</p>
+<div class="card p-4 mt-3">
+    <div class="mb-3">
+        <label>Sort By:</label>
+        <select id="sortSelect" class="form-select d-inline-block w-auto ms-2">
+            <option value="id">Internal ID</option>
+            <option value="tracking_id">Tracking Number</option>
+            <option value="origin">Origin Port</option>
+            <option value="destination">Destination Port</option>
+            <option value="status">Status</option>
+        </select>
+    </div>
+    <table class="table table-hover mt-2">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tracking #</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="shipmentBody">
+        </tbody>
+    </table>
+</div>
+<script>
+    async function loadShipments(sort = 'id') {
+        const resp = await fetch(`/api/v1/shipments?sort=${encodeURIComponent(sort)}`);
+        const data = await resp.json();
+        const tbody = document.getElementById('shipmentBody');
+        tbody.innerHTML = '';
+        if(data.error) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-danger">${data.error}</td></tr>`;
+            return;
+        }
+        data.forEach(s => {
+            tbody.innerHTML += `<tr>
+                <td>${s.id}</td>
+                <td><code>${s.tracking_id}</code></td>
+                <td>${s.origin}</td>
+                <td>${s.destination}</td>
+                <td><span class="badge bg-secondary">${s.status}</span></td>
+            </tr>`;
+        });
+    }
+    document.getElementById('sortSelect').addEventListener('change', (e) => loadShipments(e.target.value));
+    loadShipments();
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_49",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 4,
+  "code_quality": 7,
+  "creativity": 5,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 5,
+  "overall": 5.5,
+  "reasoning": "Blind boolean SQLi in a telemetry status API with single-pass keyword + space stripping. The dark aerospace theme and maintenance portal discovery via footer link are well-done. The SELSELECTECT bypass is standard but the boolean-only response requires proper blind extraction technique."
+}

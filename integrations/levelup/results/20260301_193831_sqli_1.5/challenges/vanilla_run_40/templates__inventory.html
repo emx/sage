@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<h1>Aerospace Component Inventory</h1>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Serial Number</th>
+                <th>Component Name</th>
+                <th>Category</th>
+                <th>Condition</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td><code>{{ item.serial }}</code></td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.category }}</td>
+                <td>{{ item.condition }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

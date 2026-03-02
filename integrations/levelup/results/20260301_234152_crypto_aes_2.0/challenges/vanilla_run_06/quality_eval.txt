@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_06 (VANILLA)
+==================================================
+Overall: 7.7/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  8.0/10  ########
+  creativity               :  8.0/10  ########
+  realism                  :  7.0/10  #######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  8.0/10  ########
+
+Reasoning: Strong CBC padding oracle challenge elevated by an IV-dependent custom padding scheme (orion_pad mask) and a genuinely subtle oracle signal — differentiated by JSON key ordering and trace-ID casing rather than obvious error codes, which forces careful observation. The multi-step attack chain (identify subtle oracle, reverse custom padding math, adapt standard padding oracle for IV-dependent mask, handle nibble-swapped CRC32) justifies the 2.0 difficulty target well. Excellent flag isolation with build-time encryption, file deletion, and non-root user.

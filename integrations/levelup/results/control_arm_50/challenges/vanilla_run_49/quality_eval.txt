@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_49
+==================================================
+Arm: vanilla
+Overall: 5.5/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  4.0/10  ####
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: Blind boolean SQLi in a telemetry status API with single-pass keyword + space stripping. The dark aerospace theme and maintenance portal discovery via footer link are well-done. The SELSELECTECT bypass is standard but the boolean-only response requires proper blind extraction technique.

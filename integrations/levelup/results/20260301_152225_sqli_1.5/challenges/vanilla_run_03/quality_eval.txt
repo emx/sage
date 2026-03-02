@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_03
+==================================================
+Arm: vanilla
+Overall: 5.8/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  5.0/10  #####
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: Good layering: session authentication with real credentials, POST JSON endpoint, regex-based WAF blocking keyword+space patterns, and a direction parameter adding injection surface. The cold-chain logistics theme with manifests and reporting is realistic. However, the WAF regex only blocks keywords followed by whitespace, easily bypassed with parentheses. /flag.txt not explicitly removed from container (though root-only). Error details leaked in JSON.

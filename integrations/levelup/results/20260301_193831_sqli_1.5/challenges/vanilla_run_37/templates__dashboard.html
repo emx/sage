@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Logistics Command Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Missions</h3>
+        <p>Current active drone deployments: <strong>14</strong></p>
+        <p>Operational zones: Atlantic-Sector 7, Mariana-Depth G</p>
+    </div>
+    <div class="card">
+        <h3>System Status</h3>
+        <p>Network Connectivity: <span style="color: #4caf50;">Excellent</span></p>
+        <p>Encryption Layer: <span style="color: #4caf50;">Active (V-AES)</span></p>
+    </div>
+</div>
+{% endblock %}

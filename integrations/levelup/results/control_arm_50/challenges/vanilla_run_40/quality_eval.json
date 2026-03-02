@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_40",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 4,
+  "code_quality": 7,
+  "creativity": 5,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 4,
+  "overall": 5.3,
+  "reasoning": "ORDER BY injection with single-pass keyword stripping discovered via dashboard JavaScript. The SELSELECTECT bypass is mechanical and well-documented. Good aerospace theme and dashboard telemetry display, but the exploitation requires minimal skill."
+}

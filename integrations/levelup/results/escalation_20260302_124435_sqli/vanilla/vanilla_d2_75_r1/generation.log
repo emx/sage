@@ -1,0 +1,3 @@
+app.agents.exploit WARNING: [replay] Timeout after 324.3s
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (324.3s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 390s, verification=smoke_tested

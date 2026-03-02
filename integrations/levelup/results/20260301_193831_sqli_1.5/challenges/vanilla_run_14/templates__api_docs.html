@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h2>API Documentation v1.0</h2>
+        <hr>
+        <h4><code>POST /api/v1/sensors/telemetry</code></h4>
+        <p>Returns a list of the latest sensor readings. Supports dynamic SQL query extensions for data enrichment.</p>
+        <table class="table table-bordered">
+            <tr class="table-secondary"><th>Parameter</th><th>Type</th><th>Description</th></tr>
+            <tr><td><code>enrichment</code></td><td>String</td><td>Valid SQL JOIN clauses to extend the base query on the <code>sensor_readings</code> table.</td></tr>
+        </table>
+        <p><strong>Note:</strong> To prevent data leaks, the following keywords are restricted: SELECT, UNION, WHERE, OR, and whitespace.</p>
+        <p><strong>Base Table Schema:</strong><br>
+        <code>sensor_readings(id, sensor_name, region_id, humidity, temperature, timestamp)</code></p>
+    </div>
+</div>
+{% endblock %}

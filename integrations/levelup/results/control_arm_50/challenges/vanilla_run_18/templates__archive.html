@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Harvest Historical Archive</h3>
+<p>Use the table below to analyze regional yields. Sorting is available via the column headers.</p>
+<div class="table-responsive">
+    <table class="table table-striped shadow-sm" id="harvestTable">
+        <thead class="table-dark">
+            <tr>
+                <th onclick="fetchData('id')" style="cursor:pointer">ID ↕</th>
+                <th onclick="fetchData('crop_type')" style="cursor:pointer">Crop Type ↕</th>
+                <th onclick="fetchData('yield_tons')" style="cursor:pointer">Yield (Tons) ↕</th>
+                <th onclick="fetchData('region')" style="cursor:pointer">Region ↕</th>
+                <th onclick="fetchData('moisture_pct')" style="cursor:pointer">Moisture % ↕</th>
+            </tr>
+        </thead>
+        <tbody id="archiveBody">
+            <!-- Loaded via API -->
+        </tbody>
+    </table>
+</div>
+<script>
+    let currentOrder = 'ASC';
+    function fetchData(sortField) {
+        currentOrder = (currentOrder === 'ASC') ? 'DESC' : 'ASC';
+        fetch('/api/v1/archive/telemetry', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sort: sortField, order: currentOrder})
+        })
+        .then(res => res.json())
+        .then(data => {
+            const body = document.getElementById('archiveBody');
+            body.innerHTML = '';
+            data.forEach(row => {
+                body.innerHTML += `<tr><td>${row.id}</td><td>${row.crop_type}</td><td>${row.yield_tons}</td><td>${row.region}</td><td>${row.moisture_pct}</td></tr>`;
+            });
+        });
+    }
+    window.onload = () => fetchData('id');
+</script>
+{% endblock %}

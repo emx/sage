@@ -1,0 +1,50 @@
+{
+  "run_number": 36,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.7,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Thalassa Logistix: Manifest Voyager",
+  "description": "Welcome to the Thalassa Logistix Manifest Management Portal. You have been granted access to the public tracking system. Explore the fleet, check cargo manifests, and see if you can find a way to access the internal system configuration. The flag is stored as the 'backup_vault_checksum' in the telemetry logs.",
+  "flag": "LEVELUP{ONkOFu18zDZAZ78d8t7WJVyS8jMaFo0Q}",
+  "solution": "1. Browse to the /manifests page. Observe the sorting functionality (e.g., clicking on column headers or using ?sort=vessel).\n2. Test for SQL injection in the 'sort' parameter. A single quote (') triggers a 500 error, but comments or spaces are blocked by the WAF.\n3. Identify WAF bypass: The WAF blocks spaces (use /**/), UNION, and logical keywords 'OR'/'AND'. However, CASE statements and subqueries are allowed.\n4. Find the schema hint in the HTML source code of the /manifests page: '<!-- Schema Hint: site_telemetry (event_type, event_data) -->'.\n5. Construct a boolean-based blind injection payload in the ORDER BY clause. We can change the sort order based on a condition.\n6. Payload structure: `(CASE/**/WHEN/**/(SUBSTR((SELECT/**/event_data/**/FROM/**/site_telemetry/**/WHERE/**/event_type='backup_vault_checksum'),1,1)='L')/**/THEN/**/id/**/ELSE/**/vessel/**/END)`.\n7. If the condition is true, the results are sorted by 'id' (First row: CONT-102). If false, results are sorted by 'vessel' (First row: CONT-505).\n8. Script the extraction of each character to retrieve the flag from the 'event_data' column.",
+  "docker_image_tag": "levelup-challenge-20b21922",
+  "narrative_context": {
+    "company_name": "Thalassa Logistix",
+    "industry": "logistics",
+    "scenario": "Thalassa Logistix is a global leader in maritime freight operations, managing thousands of shipping containers across the Atlantic and Pacific corridors. To maintain their dominance, they recently completed a rapid acquisition of WaveRunner Express, a regional carrier. During the transition, the legacy WaveRunner shipment database was bridged into Thalassa's primary enterprise environment via an internal tracking portal to provide continuity for legacy clients.\n\nThe enterprise security team, currently overwhelmed by a mandatory ISO 27001 recertification and a recent push for cloud migration, has expressed concerns about the haste of the database integration. They have authorized an external assessment of the portal to ensure that the legacy search mechanisms do not expose sensitive manifest data or port schedules to unauthorized users. The application serves as a critical bridge between modern enterprise architecture and older, less scrutinized data handling practices.",
+    "app_name": "VesselTrack Pro",
+    "app_purpose": "Allows logistics managers and authorized clients to search for cargo shipments by container ID, destination port, or vessel name to provide real-time updates to global shipping partners.",
+    "data_theme": "shipping manifests, cargo contents, vessel registration numbers, and docking schedules",
+    "flavor_details": {
+      "company_motto": "Connecting Horizons, Securing the Seas.",
+      "department": "Global Operations & Logistics",
+      "recent_event": "A security scanner flagged an 'unusual response pattern' in the shipment search field during a routine weekend sweep, but the report was buried under higher-priority alerts.",
+      "tech_hints": [
+        "Express.js",
+        "PostgreSQL",
+        "Legacy SQL Connectors",
+        "Multi-tenant database architecture"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a blind ORDER BY injection that requires bypassing a WAF blocking all whitespace (\\s) and logical operators (AND/OR). Exploitation necessitates using C-style comments (/**/) for spacing and a CASE-based boolean inference to leak data character-by-character based on the sort order of the returned rows. The restriction on UNION and time-based functions (sleep/benchmark) forces the attacker into a specific, more complex blind extraction technique. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

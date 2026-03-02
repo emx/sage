@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package sage.v1;
+
+option go_package = "github.com/l33tdawg/sage/internal/proto/sagepb";
+
+import "google/protobuf/timestamp.proto";
+import "sage/v1/tx.proto";
+
+// MemoryStatus tracks the lifecycle state of a memory object.
+enum MemoryStatus {
+  MEMORY_STATUS_UNSPECIFIED = 0;
+  MEMORY_STATUS_PROPOSED    = 1;
+  MEMORY_STATUS_VALIDATED   = 2;
+  MEMORY_STATUS_COMMITTED   = 3;
+  MEMORY_STATUS_CHALLENGED  = 4;
+  MEMORY_STATUS_DEPRECATED  = 5;
+}
+
+// MemoryRecord is the full representation of a memory object.
+message MemoryRecord {
+  string                    memory_id        = 1;
+  string                    submitting_agent = 2;
+  string                    content          = 3;
+  bytes                     content_hash     = 4;
+  repeated float            embedding        = 5;
+  bytes                     embedding_hash   = 6;
+  MemoryType                memory_type      = 7;
+  string                    domain_tag       = 8;
+  double                    confidence_score = 9;
+  MemoryStatus              status           = 10;
+  string                    parent_hash      = 11;
+  google.protobuf.Timestamp created_at       = 12;
+  google.protobuf.Timestamp committed_at     = 13;
+}
+
+// QueryMemoryRequest fetches a single memory by ID.
+message QueryMemoryRequest {
+  string memory_id = 1;
+}
+
+// QueryMemoryResponse returns a single memory record.
+message QueryMemoryResponse {
+  MemoryRecord memory = 1;
+}
+
+// QuerySimilarRequest performs a vector similarity search.
+message QuerySimilarRequest {
+  repeated float embedding      = 1;
+  string         domain_tag     = 2;
+  double         min_confidence = 3;
+  int32          top_k          = 4;
+  string         cursor         = 5;
+}
+
+// QuerySimilarResponse returns matching memories with pagination.
+message QuerySimilarResponse {
+  repeated MemoryRecord results     = 1;
+  string                next_cursor = 2;
+  int32                 total_count = 3;
+}

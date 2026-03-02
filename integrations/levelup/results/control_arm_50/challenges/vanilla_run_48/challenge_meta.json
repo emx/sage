@@ -1,0 +1,49 @@
+{
+  "run_number": 48,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloLink Global Logistics - Enterprise Portal",
+  "description": "Welcome to the VeloLink Global Logistics Enterprise Portal. As a new logistics coordinator, you have access to shipment history and warehouse inventory. Explore the system, identify internal management endpoints, and see if you can retrieve the master maintenance key from the system registry.",
+  "flag": "LEVELUP{MzCpdcaaAfxs22pTpB6LXnxAi_jgCKpA}",
+  "solution": "1. Enumerate the application to find the dashboard and various tracking tools. \n2. Inspect the HTML source or JavaScript files to find a hidden link or commented-out API endpoint: `/api/v1/nodes/status?node_id=1`.\n3. Test the `node_id` parameter for SQL injection. Observe that input like `1' AND 1=1--` works, but `1' UNION SELECT` is blocked by a WAF. \n4. Identify that the WAF blocks keywords like 'SELECT', 'UNION', 'FROM', and 'WHERE' if they are followed by whitespace. \n5. Bypass the WAF by using SQLite comments `/**/` instead of spaces: `1'/**/OR/**/(SELECT/**/SUBSTR(reg_value,1,1)/**/FROM/**/system_registry/**/LIMIT/**/1)='L'--`.\n6. Use a boolean-blind approach: If the condition is true, the response contains 'Node Status: ACTIVE'. If false, it contains 'Node Status: OFFLINE'. \n7. Script the extraction of the flag from the `system_registry` table, column `reg_value` where `reg_key='maintenance_key'`.",
+  "docker_image_tag": "levelup-challenge-3a6a2a30",
+  "narrative_context": {
+    "company_name": "VeloLink Global Logistics",
+    "industry": "logistics",
+    "scenario": "VeloLink Global Logistics recently completed a high-speed acquisition of a regional carrier, 'Swift-Drop Express,' to bolster their last-mile delivery capabilities. As part of the merger, the IT department had to rapidly integrate Swift-Drop\u2019s legacy inventory and tracking systems into VeloLink's central infrastructure. This 'bridge' was built over a single weekend to ensure that enterprise clients wouldn't experience service interruptions during the transition.\n\nWhile the main VeloLink systems are maintained by a robust security team, this newly integrated legacy module has not yet undergone a formal security review. The security team is currently preoccupied with a large-scale migration to a new cloud provider, leaving this specific portal as a blind spot. You have been brought in as a security auditor to evaluate the integrity of this integrated system before it is fully rolled out to the general public.",
+    "app_name": "Global Freight Navigator",
+    "app_purpose": "A comprehensive portal for enterprise clients to search for shipment history, track active cargo manifests, and manage warehouse inventory levels across multiple continents.",
+    "data_theme": "shipment manifests, cargo tracking numbers, warehouse locations, and client account IDs",
+    "flavor_details": {
+      "company_motto": "Moving the world at the speed of thought.",
+      "department": "Global Operations & Acquisitions",
+      "recent_event": "Post-merger integration of a legacy database system into the enterprise environment.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic search queries",
+        "Python-based web framework"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The vulnerability is a direct string-concatenation SQL injection in a publicly accessible API endpoint that lacks session validation. The only defense is a regex-based WAF that only checks for keywords followed by whitespace, which is trivially bypassed using the well-known SQL comment (/**/) technique. Exploitation is a standard UNION-based attack that requires no complex side-channels or multi-step discovery. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Historical Shipment Logs</h2>
+    <div>
+        <small class="text-muted">Sorted by: {{ current_sort }}</small>
+    </div>
+</div>
+<div class="card">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th><a href="?sort=id">ID</a></th>
+                <th><a href="?sort=manifest_id">Manifest ID</a></th>
+                <th><a href="?sort=vessel_name">Vessel</a></th>
+                <th>Destination</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ship in shipments %}
+            <tr>
+                <td>{{ ship.id }}</td>
+                <td><code>{{ ship.manifest_id }}</code></td>
+                <td>{{ ship.vessel_name }}</td>
+                <td>{{ ship.destination }}</td>
+                <td><span class="badge bg-info text-dark">{{ ship.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

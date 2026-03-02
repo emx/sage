@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_44",
+  "arm": "vanilla",
+  "difficulty_accuracy": 4,
+  "defense_depth": 3,
+  "code_quality": 7,
+  "creativity": 4,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 4,
+  "overall": 4.9,
+  "reasoning": "String injection in vessel metrics with a keyword+space WAF. Calibrated at 0.8 \u2014 the easiest in the set. The WAF bypass is trivial (use comments instead of spaces). The app has good realism with vessels and manifests but the challenge offers minimal resistance."
+}

@@ -1,0 +1,49 @@
+{
+  "run_number": 41,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.4,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "The Gilt Ledger",
+  "description": "Vesper & Gilt International provides bespoke travel and estate services to the world's elite. Explore our catalog of ultra-luxury properties. Our security is as robust as our portfolio\u2014or so we claim. Can you find a way to extract the Master Key from our secure audit systems?",
+  "flag": "LEVELUP{5tHng1hTrmMDQBHCn3AzJkEUtELIuF4v}",
+  "solution": "1. Enumerate the application to find the estates listing page. 2. Observe that the search feature uses an internal API endpoint `/api/v1/estates/search` via POST with a JSON body. 3. The JSON body contains a 'sort' field. 4. Test the 'sort' field for SQL injection. A WAF blocks spaces, 'union', '/*', '--', and '#'. 5. Bypass the space filter using alternative whitespace characters like '\\n' or '\\t'. 6. Since it is an ORDER BY injection, use a CASE statement for boolean-based extraction: `(CASE/**/WHEN/**/(sElEcT/**/suBstR(config_value,1,1)/**/fRoM/**/site_config/**/wHeRe/**/config_key='master_key')='L'/**/THEN/**/price/**/ELSE/**/name/**/END)`. Note: Since `/*` is blocked, use actual tab characters or newlines in the JSON string: `\"sort\": \"(CASE\\tWHEN\\t(sElEcT...)\"`. 7. Script the extraction to retrieve the flag character by character by observing the sort order of the results.",
+  "docker_image_tag": "levelup-challenge-1618fe8d",
+  "narrative_context": {
+    "company_name": "Vesper & Gilt International",
+    "industry": "hospitality",
+    "scenario": "Vesper & Gilt International is a premier luxury hospitality firm catering to the world's most affluent travelers. Recently, they expanded their digital footprint by acquiring several independent boutique agencies. In the race to consolidate these platforms, the IT department integrated a legacy villa-search engine into their high-security Concierge Platinum Portal. This portal serves as the primary interface for members to find and reserve multi-million dollar estates and bespoke travel experiences.\n\nDespite having an established internal security team, the sheer volume of the migration has left several modules with only surface-level reviews. While the corporate security posture is generally strong, utilizing modern firewalls and rigorous identity management, the logic within the specific database-querying components of the legacy search engine has become a point of concern. The security team is currently stretched thin overseeing the migration of the core financial systems, leaving the villa-lookup component potentially vulnerable.",
+    "app_name": "Concierge Platinum Portal",
+    "app_purpose": "Allows elite members to search, filter, and reserve high-end private estates and customized luxury travel itineraries.",
+    "data_theme": "Luxury property listings, client travel histories, member contact details, and high-value security preferences.",
+    "flavor_details": {
+      "company_motto": "Privacy is the Ultimate Luxury",
+      "department": "Digital Experience & Acquisitions",
+      "recent_event": "A data-sharing agreement audit flagged potential inconsistencies in how legacy data is fetched compared to modern corporate standards.",
+      "tech_hints": [
+        "PostgreSQL backend",
+        "Dynamic query generation based on user-applied filters",
+        "RESTful API endpoint for searching"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a classic Boolean-based blind SQL injection within an ORDER BY clause. While it includes a WAF that filters spaces and common keywords (union, comments), the space filter is easily bypassed using tab or newline characters, and the keyword filter only prevents the most trivial UNION-based attacks. The exploitation requires scripting a blind exfiltration tool to leak the flag character-by-character based on the result sort order. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

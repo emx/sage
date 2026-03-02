@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Vessel Schedules</h2>
+    <table>
+        <tr><th>Vessel Name</th><th>Flag State</th><th>ETA</th><th>Berth</th></tr>
+        {% for vessel in vessels %}
+        <tr>
+            <td>{{ vessel.name }}</td>
+            <td>{{ vessel.flag_state }}</td>
+            <td>{{ vessel.eta }}</td>
+            <td>{{ vessel.berth }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

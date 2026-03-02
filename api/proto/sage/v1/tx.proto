@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package sage.v1;
+
+option go_package = "github.com/l33tdawg/sage/internal/proto/sagepb";
+
+import "google/protobuf/timestamp.proto";
+
+// MemoryType classifies the nature of a memory object.
+enum MemoryType {
+  MEMORY_TYPE_UNSPECIFIED = 0;
+  MEMORY_TYPE_FACT        = 1;
+  MEMORY_TYPE_OBSERVATION = 2;
+  MEMORY_TYPE_INFERENCE   = 3;
+}
+
+// VoteDecision represents a validator's vote on a proposed memory.
+enum VoteDecision {
+  VOTE_DECISION_UNSPECIFIED = 0;
+  VOTE_DECISION_ACCEPT      = 1;
+  VOTE_DECISION_REJECT      = 2;
+  VOTE_DECISION_ABSTAIN     = 3;
+}
+
+// SageTx is the top-level transaction envelope submitted to the chain.
+message SageTx {
+  oneof payload {
+    MemorySubmitTx    submit    = 1;
+    MemoryVoteTx      vote      = 2;
+    MemoryChallengeTx challenge = 3;
+    MemoryCorrobTx    corrob    = 4;
+  }
+
+  bytes                     signature  = 10;
+  bytes                     public_key = 11;
+  uint64                    nonce      = 12;
+  google.protobuf.Timestamp timestamp  = 13;
+}
+
+// MemorySubmitTx proposes a new memory object for consensus validation.
+message MemorySubmitTx {
+  string     memory_id        = 1;
+  bytes      content_hash     = 2;
+  bytes      embedding_hash   = 3;
+  MemoryType memory_type      = 4;
+  string     domain_tag       = 5;
+  double     confidence_score = 6;
+  string     content          = 7;
+  string     parent_hash      = 8;
+}
+
+// MemoryVoteTx records a validator's vote on a proposed memory.
+message MemoryVoteTx {
+  string       memory_id = 1;
+  VoteDecision decision  = 2;
+  string       rationale = 3;
+}
+
+// MemoryChallengeTx disputes an existing committed memory.
+message MemoryChallengeTx {
+  string memory_id = 1;
+  string reason    = 2;
+  string evidence  = 3;
+}
+
+// MemoryCorrobTx corroborates an existing memory with supporting evidence.
+message MemoryCorrobTx {
+  string memory_id = 1;
+  string evidence  = 2;
+}

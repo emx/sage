@@ -1,0 +1,18 @@
+{
+  "experiment_date": "2026-03-01T15:41:52.614374+00:00",
+  "runs_per_arm": 10,
+  "total_runs": 20,
+  "category": "crypto_aes",
+  "difficulty": 2.0,
+  "dry_run": false,
+  "control_only": true,
+  "sage_endpoint": "http://localhost:8080",
+  "sage_enabled_env": "false",
+  "sage_agent_key_file": "./experiment_agent.key",
+  "llm_provider": "google",
+  "llm_model": "gemini-3-flash-preview",
+  "sage_commit": "e092426c1f06523b9158f52bd9f9d3b3f96d57d5",
+  "python_version": "3.12.8",
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "machine": "arm64"
+}

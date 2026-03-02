@@ -1,0 +1,50 @@
+{
+  "run_number": 49,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.05,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherFlow Component Registry",
+  "description": "Welcome to AetherFlow Aerospace. You have been granted access to our public component catalog. As a procurement officer, your goal is to ensure all hardware is accounted for. Some internal telemetry systems are still undergoing security audits. Can you find the hidden configuration data?",
+  "flag": "LEVELUP{RHYEepo_oY7Q7rqwbH4sfi2A9Dy0rUof}",
+  "solution": "1. Explore the application to find the public catalog at /catalog and individual component pages.\n2. Discover a hidden maintenance tracking link in the footer or by fuzzing, leading to /maintenance.\n3. Observe the maintenance page makes an AJAX call to a 'hidden' API: /api/v1/telemetry/status?sensor_id=SENS-001.\n4. Test the 'sensor_id' parameter for SQL injection. Notice that common keywords like 'SELECT', 'UNION', 'WHERE', and spaces ' ' are stripped from the input.\n5. Bypass the WAF by using double-keywords (e.g., 'SELSELECTECT') and alternative space characters like newlines (%0A) or comments (/**/).\n6. Use a Boolean-based Blind SQL injection approach because the API only returns whether a sensor is 'Active' or 'Offline'.\n7. Target the 'internal_configs' table and the 'config_value' column where 'config_name' is 'master_access_key'.\n8. Script a blind extraction to leak the flag character by character.",
+  "docker_image_tag": "levelup-challenge-bc9ae044",
+  "narrative_context": {
+    "company_name": "AetherFlow Aerospace",
+    "industry": "aerospace",
+    "scenario": "AetherFlow Aerospace recently acquired a smaller avionics firm, StratoSystems, to bolster their satellite deployment division. As part of the merger, StratoSystems' legacy inventory management tool was migrated into the main corporate cloud infrastructure. While AetherFlow maintains a robust internal Security Operations Center, the team is currently overwhelmed by the logistical nightmare of integrating five hundred new employees and their respective access controls across twenty different platforms.\n\nDuring a preliminary asset discovery scan, the security team flagged the StratoSystems inventory tool as a potential weak point due to its aging codebase and lack of recent updates. You have been brought in as a third-party security auditor to assess the application's resilience before it is fully integrated into the enterprise's central Active Directory and data lakes.",
+    "app_name": "Component-X Inventory Gateway",
+    "app_purpose": "The application allows aerospace engineers and procurement officers to search for specific flight-certified hardware components, verify their maintenance history, and locate their storage bins across international warehouses.",
+    "data_theme": "satellite hardware specifications, orbital sensor serial numbers, warehouse location codes, and procurement officer contact details",
+    "flavor_details": {
+      "company_motto": "Connecting the Stars, Grounded in Precision",
+      "department": "Orbital Logistics & Procurement",
+      "recent_event": "A routine compliance audit flagged several legacy StratoSystems assets as 'high risk' due to outdated database middleware.",
+      "tech_hints": [
+        "Classic multi-parameter search forms",
+        "Verbose error messages (partially suppressed)",
+        "Backend relational database integration",
+        "PHP 7.4 environment"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a classic keyword-stripping WAF that is trivially bypassed by nesting keywords (e.g., 'SELSELECTECT'). While it requires a boolean-blind approach and alternative whitespace (like %09 or comments) to bypass the space filter, these are standard techniques that do not reach the 'Hard' threshold. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

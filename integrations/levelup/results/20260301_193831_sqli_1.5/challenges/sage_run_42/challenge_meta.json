@@ -1,0 +1,50 @@
+{
+  "run_number": 42,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.8,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "OrbitStream Logistics - Telemetry Portal",
+  "description": "Welcome to the OrbitStream Logistics Technician Portal. As a Lead Logistics Manager, you need to ensure all cargo manifests are accounted for and orbital trajectories are within safety margins. The system is hardened against typical web attacks, but internal auditing has flagged an inconsistency in how the telemetry reporting module handles legacy device identifiers. Can you find the secret uplink token stored in the system's configuration?",
+  "flag": "LEVELUP{grBJU6KSwyM1JX7DTaXMx2ERckkC1loo}",
+  "solution": "1. Explore the application and discover the Manifest Search and Dashboard.\n2. Examine the source code or use a directory fuzzer to find the hidden endpoint `/api/v1/telemetry/report` mentioned in a commented-out developer script in `dashboard.html`.\n3. Identify that the endpoint takes a `device_id` and `sort` parameter. Testing the `sort` parameter reveals it is vulnerable to SQL injection.\n4. The application implements a WAF that blocks common keywords like 'SELECT', 'UNION', 'WHERE', and 'OR'.\n5. Bypass the WAF by using SQLite-specific syntax or comments like `SEL/**/ECT` and `WH/**/ERE` if the filter is simple, or by using boolean-based logic in the `ORDER BY` clause.\n6. Use an `ORDER BY` case statement to perform a blind boolean SQL injection: `(CASE WHEN (SUBSTR((SEL/**/ECT value FROM system_parameters WH/**/ERE key='core_uplink_auth_token'),1,1)='L') THEN timestamp ELSE device_id END)`.\n7. Automate the extraction of the token from the `system_parameters` table to retrieve the flag.",
+  "docker_image_tag": "levelup-challenge-28b7b1b5",
+  "narrative_context": {
+    "company_name": "OrbitStream Logistics",
+    "industry": "aerospace",
+    "scenario": "OrbitStream Logistics specializes in the 'last-mile' delivery of sensitive satellite hardware from manufacturing plants to remote orbital launch facilities. As the company has expanded rapidly, their internal tracking systems have struggled to keep pace with the influx of international shipping regulations and the high volume of component parts. The 'Celestial Manifest Portal' was recently updated to allow ground crews to quickly query the status of critical components across multiple hangars.\n\nFollowing a recent merger, the company's security posture is mature but currently overstretched. The central IT team has migrated the inventory database to a modern relational backend, but they are concerned that the rapid transition may have overlooked data handling protocols within the global search functionality used by dispatchers.",
+    "app_name": "Celestial Manifest Portal",
+    "app_purpose": "Provides a centralized dashboard for technicians and logistics managers to search for cargo manifests, track orbital component movements, and verify shipping credentials.",
+    "data_theme": "manifest IDs, satellite serial numbers, destination hangar coordinates, and technician access logs",
+    "flavor_details": {
+      "company_motto": "Reaching Beyond the Horizon",
+      "department": "Orbital Ground Operations",
+      "recent_event": "A post-migration compliance review for a new government aerospace contract identified potential gaps in the application's input processing.",
+      "tech_hints": [
+        "Express.js backend",
+        "Dynamic SQL query construction",
+        "Client-side search filtering",
+        "Legacy database connectors"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements an ORDER BY injection with a WAF that specifically targets the 'SELECT' keyword using word boundaries, which is a significant barrier for standard payloads. Exploitation requires leveraging advanced SQLite-specific syntax like the 'TABLE' or 'VALUES' keywords to perform subqueries without the 'SELECT' keyword, which is not common knowledge. The presence of 'str(e)' in the error handling allows for error-based extraction, but the attacker must still bypass the keyword fil (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

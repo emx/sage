@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_31
+==================================================
+Arm: vanilla
+Overall: 6.5/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  5.0/10  #####
+  code_quality             :  8.0/10  ########
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Numeric injection in a diagnostic API endpoint with space and keyword blocking. The dark-themed renewable energy UI is the best-looking in the vanilla set. The WAF requires genuine bypass skill with tab characters. Calibrated at 1.85, slightly above target but reasonable.

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Welcome, {{ session.user }}</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+            <h3>System Status</h3>
+            <ul>
+                <li>Gateway Alpha: Online</li>
+                <li>Uplink Status: Encrypted</li>
+                <li>Pending Manifests: 14</li>
+            </ul>
+        </div>
+        <div>
+            <h3>Active Resources</h3>
+            <p>Access the <a href="/manifests">Manifest Search</a> to review current shipping cycles.</p>
+        </div>
+    </div>
+    <!-- DEVELOPER NOTE: Legacy telemetry reporting available at /api/v1/telemetry/report?device_id=DEV-99 -->
+</div>
+{% endblock %}

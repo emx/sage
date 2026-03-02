@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Welcome, {{ session.user }}</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 1rem;">
+        <div style="border: 1px solid #ddd; padding: 1rem; border-radius: 8px;">
+            <h3>Active Shipments</h3>
+            <p style="font-size: 2rem; color: #1a2a6c;">1,284</p>
+            <a href="/shipments">View All Manifests &rarr;</a>
+        </div>
+        <div style="border: 1px solid #ddd; padding: 1rem; border-radius: 8px;">
+            <h3>Available Drivers</h3>
+            <p style="font-size: 2rem; color: #f06103;">42</p>
+            <a href="#">Manage Fleet &rarr;</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

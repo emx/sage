@@ -1,0 +1,52 @@
+{
+  "run_number": 47,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantAxle Logistics Command",
+  "description": "Welcome to the VerdantAxle Dynamics Logistics Portal. As a logistics coordinator, you can track shipments and monitor warehouse inventory. Our system is built for efficiency and security, ensuring that only authorized assets are visible in our global manifests. Explore the inventory, track your cargo, and ensure the system's integrity remains intact.",
+  "flag": "LEVELUP{XotttFjNvMQQK1D4AvZmN3001tTR3CYs}",
+  "solution": "1. Explore the application. The public endpoints include /tracking and /inventory. \n2. In the 'Warehouse Inventory' section, notice that filtering by category triggers an API call to `/api/v1/inventory/filter?category=...`.\n3. Attempting SQL injection in the `category` parameter shows a custom WAF filtering keywords like 'SELECT', 'UNION', and 'OR'.\n4. Discover a hidden API endpoint mentioned in a client-side comment or via brute-force: `/api/v1/internal/audit?asset_tag=...`. \n5. The `asset_tag` parameter is vulnerable to a Boolean-based Blind SQLi. The backend requires the tag to start with 'AX-'. Use a payload like `AX-' AND (SELECT 1 FROM internal_vault WHERE data LIKE 'L%')--` to test.\n6. Because the application uses a blacklist-based WAF that only checks for 'SELECT' but not 'select' (case sensitivity error), bypass it by using lowercase or mixed case if needed. In this case, the vulnerability exists in a different parameter that the developer forgot to protect with the WAF.\n7. Use a script to exfiltrate the flag character by character from the `internal_vault` table, column `data`.",
+  "docker_image_tag": "levelup-challenge-db8f93eb",
+  "narrative_context": {
+    "company_name": "VerdantAxle Dynamics",
+    "industry": "logistics",
+    "scenario": "VerdantAxle Dynamics has recently undergone a massive expansion after acquiring several regional transport firms. In an effort to unify their operations, they have rushed the deployment of 'RouteOptima Global,' a centralized dashboard designed to provide real-time visibility into high-value cargo movements across three continents. The application acts as the primary interface for warehouse managers and premium clients to query the status of thousands of shipments simultaneously.\n\nWhile the core infrastructure is managed by a dedicated enterprise security team, the sheer scale of the legacy data migration has left certain modules under-reviewed. The 'Advanced Shipment Query' component, in particular, was ported directly from a decade-old system used by one of the acquired firms. Management is concerned that the integration layer between the modern frontend and the legacy backend database may not be as robust as their newer systems.",
+    "app_name": "RouteOptima Global Dashboard",
+    "app_purpose": "To allow authorized logistics coordinators and clients to search for shipment status, warehouse inventory levels, and customs documentation via tracking numbers and destination parameters.",
+    "data_theme": "Shipment manifests, tracking IDs, warehouse coordinates, and client account identifiers.",
+    "flavor_details": {
+      "company_motto": "Precision in every pulse.",
+      "department": "Global Logistics Operations",
+      "recent_event": "A whistleblower in the IT department suggested that the rapid integration of the 'Regional Search' feature did not undergo the standard security vetting process due to a project deadline.",
+      "tech_hints": [
+        "Traditional relational database backend",
+        "Dynamic query construction",
+        "Complex server-side filtering logic"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires a multi-step chain: discovering a hidden authentication header in static JS files, identifying a blind SQL injection point with a required prefix, and bypassing a restrictive WAF. The WAF is particularly difficult because it uses substring matching to block keywords like AND, OR, and UNION, which inadvertently restricts common SQL functions and requires the use of less common operators like INTERSECT or creative CASE statements for boolean-blind extraction. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Operations Dashboard</h1>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>System Health</h3>
+        <p>Telemetry: <span style="color: #4ade80;">ACTIVE</span></p>
+        <p>Orbital Sync: <span style="color: #4ade80;">STABLE</span></p>
+        <p>Last Archive Sync: 14 mins ago</p>
+    </div>
+    <div class="card">
+        <h3>Internal Advisory</h3>
+        <p>Due to database migration, the legacy flag-sensitive logs have been moved.</p>
+        <p>Please refer to table: <code style="color: #38bdf8;">log_archive_7712</code> for all system key rotation events.</p>
+    </div>
+</div>
+{% endblock %}

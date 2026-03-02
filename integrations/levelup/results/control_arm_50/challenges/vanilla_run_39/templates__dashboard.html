@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="header-main">Telemetry Report: Silo-{{ silo.silo_id }}</h1>
+<div class="card">
+    <h3>Live Data Stream</h3>
+    <table style="margin-top: 10px;">
+        <tr><th>Location</th><td>{{ silo.location }}</td></tr>
+        <tr><th>Grain Variety</th><td>{{ silo.grain_type }}</td></tr>
+        <tr><th>Moisture Content</th><td>{{ silo.moisture_level }}%</td></tr>
+        <tr><th>Current Capacity</th><td>{{ silo.capacity_pct }}%</td></tr>
+        <tr><th>Last Calibration</th><td>{{ silo.last_updated }}</td></tr>
+    </table>
+</div>
+<div style="text-align: right;">
+    <small>Data integrity verified by VerdantShield.</small>
+</div>
+{% endblock %}

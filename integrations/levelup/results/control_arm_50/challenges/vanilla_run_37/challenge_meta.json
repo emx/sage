@@ -1,0 +1,50 @@
+{
+  "run_number": 37,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Vanguard Deep-Sea Logistics - Telemetry Portal",
+  "description": "Welcome to the Vanguard Deep-Sea Logistics Telemetry Portal. As an authorized logistics officer, you have access to drone health data and shipping manifests. We've implemented a robust security filter on all public-facing query parameters to ensure system integrity. Your task is to audit the system and prove that the internal system metadata remains inaccessible to unauthorized personnel.",
+  "flag": "LEVELUP{9grZrmTwmkDhWCGAsit53AVRDLJc1XMJ}",
+  "solution": "1. Log in with guest credentials (guest:vanguard2024) provided in the application metadata or discovered through enumeration.\n2. Navigate to the 'Drone Telemetry' page. Use the 'Toggle Monitoring' features.\n3. Observe the network traffic or page source. A hidden API endpoint is used to sort telemetry data: `/api/v1/telemetry/search?sort=timestamp`.\n4. Test for SQL injection on the 'sort' parameter. Common bypasses are needed because the WAF filters spaces, comments (-- and /*), and UNION/OR keywords.\n5. Confirm the vulnerability using a CASE statement: `/api/v1/telemetry/search?sort=(CASE%09WHEN%09(1=1)%09THEN%09id%09ELSE%09timestamp%09END)`. Use %09 (Tab) instead of spaces to bypass the WAF.\n6. Enumerate the database schema using boolean-based sorting. The flag is stored in the `system_node_metadata` table under `node_auth_token`.\n7. Construct a payload to extract the token: `/api/v1/telemetry/search?sort=(CASE%09WHEN%09(SUBSTR((SELECT%09node_auth_token%09FROM%09system_node_metadata),1,1)='L')%09THEN%09id%09ELSE%09timestamp%09END)`. If the condition is true, results are sorted by ID; otherwise, by timestamp.\n8. Script the extraction of all characters to retrieve the full flag.",
+  "docker_image_tag": "levelup-challenge-89ed6a58",
+  "narrative_context": {
+    "company_name": "Vanguard Deep-Sea Logistics",
+    "industry": "logistics",
+    "scenario": "Vanguard Deep-Sea Logistics recently completed a rapid acquisition of a niche deep-water salvage firm to bolster their automated cargo drone fleet. As part of the merger, several legacy systems were hastily integrated into Vanguard's enterprise-grade infrastructure. The security team, currently preoccupied with a massive cloud migration project, has prioritized high-traffic customer portals, leaving several internal-facing management tools with minimal oversight. \n\nYou have been brought in as a third-party security auditor to evaluate 'The Manifest Engine.' This tool was originally a standalone application used by port authorities and maritime logistics managers to query the real-time status and specific cargo contents of autonomous underwater vehicles (AUVs) as they transit trans-oceanic routes. Preliminary reports suggest that while the authentication layer is robust, the internal search logic inherited from the acquired firm might not meet Vanguard's modern coding standards.",
+    "app_name": "The Manifest Engine",
+    "app_purpose": "Allows authorized logistics personnel to query, filter, and track specific freight manifests and drone telemetry data.",
+    "data_theme": "shipping manifests, drone telemetry, cargo IDs, port terminal codes, and maritime route logs",
+    "flavor_details": {
+      "company_motto": "The pressure doesn't stop us.",
+      "department": "Global Operations & Fleet Management",
+      "recent_event": "Whistleblower reports from the recently acquired salvage firm suggest that legacy integrations were pushed to production without a formal security review.",
+      "tech_hints": [
+        "Legacy PHP database connectors",
+        "PostgreSQL back-end",
+        "Dynamic search filters",
+        "RESTful API endpoints with JSON responses"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a boolean-based injection in an 'ORDER BY' clause, requiring the attacker to infer data based on the returned sort order. While the WAF blocks common keywords and spaces, it is trivially bypassed using tabs (%09) and 'CASE' statements to avoid restricted logical operators like 'AND' or 'OR'. The inclusion of raw database error messages in the JSON response significantly lowers the difficulty by providing immediate feedback for payload debugging. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

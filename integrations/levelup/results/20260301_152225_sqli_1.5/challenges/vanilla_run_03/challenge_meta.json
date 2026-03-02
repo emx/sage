@@ -1,0 +1,50 @@
+{
+  "run_number": 3,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.25,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherLogistics: Cold Chain Oversight",
+  "description": "Welcome to the AetherLogistics Manifest Management System. You have been provisioned with a low-level 'Analyst' account. Your objective is to audit the reporting system and retrieve the master internal signature key. The application uses a sophisticated filtering system to prevent unauthorized access to the database metadata. Can you find a way to bypass the oversight and exfiltrate the signature?",
+  "flag": "LEVELUP{_nP47zka6LoXNPGgjCFB6wNuvDp80euF}",
+  "solution": "1. Log in to the application using the provided analyst credentials (analyst / AetherAnalyst2024!).\n2. Navigate to the 'Reporting' section. Notice that clicking 'Generate Report' sends a POST request to a hidden API endpoint `/api/v1/reports/custom` with a JSON payload.\n3. Analyze the JSON payload: `{\"sort_by\": \"origin\", \"direction\": \"ASC\"}`. Testing the `sort_by` parameter reveals that it is vulnerable to SQL injection.\n4. The application has a WAF that blocks keywords like SELECT, UNION, and spaces. Bypass the space filter by using comments `/**/` and the keyword filter by using newlines or different case/structure if the regex is weak.\n5. Since it's an ORDER BY injection, use a CASE statement to perform a blind boolean-based attack. Example: `(CASE/**/WHEN/**/(SUBSTR((SELECT/**/meta_value/**/FROM/**/app_metadata_internal/**/WHERE/**/config_id=1337),1,1)='L')/**/THEN/**/origin/**/ELSE/**/destination/**/END)`. \n6. If the condition is true, the results are sorted by the 'origin' column. If false, they are sorted by the 'destination' column.\n7. Automate this process to iterate through every character of the `meta_value` in the `app_metadata_internal` table to retrieve the flag.",
+  "docker_image_tag": "levelup-challenge-e39ee363",
+  "narrative_context": {
+    "company_name": "AetherLogistics Global",
+    "industry": "logistics",
+    "scenario": "AetherLogistics Global has recently dominated the boutique shipping market, specializing in the transport of climate-controlled, high-value assets ranging from vintage wines to pharmaceutical prototypes. Their rapid expansion led to the acquisition of several smaller regional carriers, whose legacy tracking systems were integrated into the centralized 'Horizon Shipment Navigator' dashboard. While the integration was hailed as a success, the internal IT department has struggled to keep pace with the influx of new database schemas and reporting requirements.\n\nYou have been contracted as a security auditor during a mandatory SOC2 compliance window. The company's CISO is concerned that the legacy modules merged into the main platform haven't undergone the same rigorous testing as their core infrastructure. Your objective is to examine the customer-facing tracking and reporting interfaces to ensure that proprietary shipment routes and sensitive client lists remain confidential from unauthorized access.",
+    "app_name": "Horizon Shipment Navigator",
+    "app_purpose": "Provides real-time tracking, historical reporting, and manifest management for corporate clients shipping temperature-sensitive goods.",
+    "data_theme": "International shipment manifests, GPS coordinates, temperature logs, and client billing addresses.",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Safety in Silence.",
+      "department": "Supply Chain Integrity & IT",
+      "recent_event": "A recent merger with a Balkan logistics firm has introduced a complex set of legacy database records into the primary production environment.",
+      "tech_hints": [
+        "PHP 7.4 backend",
+        "PostgreSQL database",
+        "Legacy search query parameters",
+        "JSON-based API responses"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a common ORDER BY blind SQL injection. While it includes a WAF, the regex filters only block keywords followed by actual whitespace (\\s+), which is a classic flaw easily bypassed using SQL comments (/**/) or other delimiters. The exploitation requires 5 steps: identifying credentials in source, logging in, discovering the injection point, bypassing the regex-based WAF, and scripting a blind data extraction based on the sort order of the returned JSON. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

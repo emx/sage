@@ -1,0 +1,49 @@
+{
+  "run_number": 19,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloStratus Flight Audit",
+  "description": "Welcome to the VeloStratus Logistics Internal Portal. As a dispatcher, you can monitor real-time drone health, review flight logs, and manage maintenance schedules. We've recently implemented a new telemetry API to improve response times during peak delivery hours. Our security team claims the system is hardened against common attacks, but a recent 'glitch' in the maintenance sorting algorithm suggests otherwise.",
+  "flag": "LEVELUP{9HHhEJPyldj_582z6H1h2qwLeQiw_MS6}",
+  "solution": "1. Explore the application to find the hidden endpoint `/api/v1/logistics/maintenance` mentioned in the client-side JavaScript or via directory brute-forcing. \n2. Observe that the endpoint accepts a `sort` parameter (e.g., `?sort=date`). \n3. Test for SQL injection in the `sort` parameter. Common tautologies like `?sort=id OR 1=1` are blocked by the WAF. \n4. Identify that the WAF blocks `UNION`, `OR`, `AND`, `--`, and `/*`. \n5. Use a boolean-blind approach within the `ORDER BY` clause using a `CASE` statement. \n6. Construct a payload to verify table names from `sqlite_master`: `?sort=(CASE WHEN (SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'v_sys%')>0 THEN date ELSE drone_id END)`. \n7. Discover the table `v_internal_dispatch_metadata`. \n8. Exfiltrate the `config_value` for the row where `config_key` is 'master_dispatch_key' character by character: `?sort=(CASE WHEN (unicode(substr((SELECT config_value FROM v_internal_dispatch_metadata LIMIT 1),1,1))>75) THEN date ELSE drone_id END)`. \n9. Automate the extraction to reconstruct the flag.",
+  "docker_image_tag": "levelup-challenge-83e170a1",
+  "narrative_context": {
+    "company_name": "VeloStratus Logistics",
+    "industry": "logistics",
+    "scenario": "VeloStratus Logistics has recently finalized the acquisition of 'SkySwift Express', a regional pioneer in autonomous drone delivery. As part of the merger, VeloStratus is integrating the legacy 'HubLink Fleet Manager' into their primary enterprise cloud infrastructure. The application is critical for dispatchers to track drone health, manage flight paths, and verify cargo contents across three continents. However, the integration has been rushed to meet the upcoming peak delivery season, and the enterprise security team is currently overwhelmed with other high-priority migrations.\n\nYou have been brought in as an external security auditor to perform a deep-dive assessment of the HubLink portal. While the front-end has been modernized to match VeloStratus branding, much of the underlying data-retrieval logic remains untouched from the original SkySwift codebase. Your goal is to ensure that sensitive flight telemetry and customer delivery logs are protected before the platform goes live for the entire global fleet.",
+    "app_name": "HubLink Fleet Manager",
+    "app_purpose": "Manages global drone deployment, allows dispatchers to search flight logs, and monitors real-time inventory levels across various distribution centers.",
+    "data_theme": "drone flight paths, pilot certification levels, cargo manifests, and maintenance history",
+    "flavor_details": {
+      "company_motto": "Global reach, local touch, autonomous speed.",
+      "department": "Fleet Operations & Global Integration",
+      "recent_event": "Post-acquisition compliance review of legacy software assets.",
+      "tech_hints": [
+        "Relational database backend",
+        "Complex multi-parameter search filters",
+        "JSON-based API responses"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a blind SQL injection in an ORDER BY clause. While the WAF attempts to block common keywords like OR, AND, and UNION, it fails to block the CASE/WHEN/THEN/ELSE structure or the SUBSTR function, which are sufficient for boolean-based extraction in SQLite. The exploitation is slightly elevated from 'Easy' only because it requires scripting a blind extraction based on the sort order of the returned JSON array. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

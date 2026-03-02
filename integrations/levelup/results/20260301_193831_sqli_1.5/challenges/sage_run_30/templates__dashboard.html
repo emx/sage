@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Welcome, Administrator</h2>
+    <p>Internal analytic reports are generated hourly.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="card" style="background: #e8f5e9;">
+            <h3>System Status</h3>
+            <p>Database: Online</p>
+            <p>V-WAF v2.0: Active (Enhanced Mode)</p>
+            <p>Security Mode: High</p>
+        </div>
+        <div class="card" style="background: #fff3e0;">
+            <h3>Quick Actions</h3>
+            <button class="btn" onclick="runTest()">Test Export API</button>
+        </div>
+    </div>
+</div>
+<script>
+    // DEV NOTE: Use internal header X-Access-Token: v-path-7721-delta-9 for all API calls
+    const _INTERNAL_CONFIG = {
+        token: "v-path-7721-delta-9",
+        endpoint: "/api/v1/analytics/export"
+    };
+
+    function runTest() {
+        fetch(`${_INTERNAL_CONFIG.endpoint}?sort_by=yield_weight`, {
+            headers: { 'X-Access-Token': _INTERNAL_CONFIG.token }
+        })
+        .then(r => r.json())
+        .then(d => {
+            console.log("API Response:", d);
+            alert('Report simulation complete. Check dev console.');
+        });
+    }
+</script>
+{% endblock %}

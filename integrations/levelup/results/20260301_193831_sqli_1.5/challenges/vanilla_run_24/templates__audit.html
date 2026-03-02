@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Internal Procurement Audit Logs</h2>
+<p>Showing recent requests and warehouse resolution status.</p>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Part</th>
+                <th>Requester</th>
+                <th>Warehouse Ref</th>
+                <th>Location Name</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>#{{ log.id }}</td>
+                <td>{{ log.part }}</td>
+                <td>{{ log.email }}</td>
+                <td><code>{{ log.ref }}</code></td>
+                <td>{{ log.location }}</td>
+                <td>
+                    {% if log.status == "Valid Warehouse" %}
+                    <span style="color: green;">✔ {{ log.status }}</span>
+                    {% elif log.status == "Audit Error" %}
+                    <span style="color: red;">✘ {{ log.status }}</span>
+                    {% else %}
+                    <span style="color: orange;">⚠ {{ log.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

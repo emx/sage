@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Internal API Documentation</h2>
+    <p>This documentation is for automated hardware nodes and sensor arrays.</p>
+    <hr>
+    <h3>Telemetry Submission</h3>
+    <p><strong>Endpoint:</strong> <code>/api/v1/telemetry</code></p>
+    <p><strong>Method:</strong> <code>POST</code></p>
+    <p><strong>Payload:</strong> <code>{"node_id": "INT", "sensor_class": "STRING"}</code></p>
+    <p><strong>Description:</strong> Verifies if the specified sensor class is active for the reporting node.</p>
+</div>
+{% endblock %}

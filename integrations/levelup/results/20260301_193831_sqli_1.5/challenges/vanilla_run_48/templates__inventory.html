@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Warehouse Node Status</h2>
+    <p>Select a node to check operational integrity:</p>
+    <ul id="node-list">
+        <li><button onclick="checkNode(1)" class="btn">Singapore Distribution Hub (ID: 1)</button></li><br>
+        <li><button onclick="checkNode(2)" class="btn">Rotterdam Logistics Center (ID: 2)</button></li><br>
+        <li><button onclick="checkNode(3)" class="btn">New Jersey Port Terminal (ID: 3)</button></li>
+    </ul>
+    <div id="status-result" style="margin-top: 20px; padding: 10px; border: 1px dashed #ccc; display: none;"></div>
+</div>
+
+<script>
+function checkNode(id) {
+    fetch('/api/v1/nodes/status?node_id=' + id)
+    .then(response => response.json())
+    .then(data => {
+        const res = document.getElementById('status-result');
+        res.style.display = 'block';
+        if (data.status === 'ACTIVE') {
+            res.innerHTML = '<strong>' + data.node + '</strong> Status: <span class="status-active">ACTIVE</span>';
+        } else if (data.status === 'OFFLINE') {
+            res.innerHTML = 'Node Status: <span class="status-offline">OFFLINE / UNKNOWN</span>';
+        } else {
+            res.innerHTML = 'Error: ' + (data.error || 'Unknown response');
+        }
+    });
+}
+</script>
+{% endblock %}

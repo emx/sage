@@ -1,0 +1,49 @@
+{
+  "run_number": 27,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.25,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VantageFlow Global Manifest System",
+  "description": "Welcome to the VantageFlow Logistics Command Center. This portal is used by our global hubs to manage shipping manifests, track carrier credentials, and monitor warehouse inventory in real-time. Only authorized personnel should access the audit and manifest logs.",
+  "flag": "LEVELUP{GcvMUE5PiGLsRtRAMJ_XUpasFddVyaGB}",
+  "solution": "1. Access the application and log in using the guest credentials found in the source or via enumeration (guest:guest123).\n2. Navigate to the 'Shipping Manifests' page.\n3. Observe the sorting functionality. The 'sort' parameter in the URL (e.g., ?sort=destination) is used to order the results.\n4. Test for SQL injection in the 'sort' parameter. Common keywords like UNION and OR are blocked by a middleware WAF.\n5. Use a Boolean-based blind SQL injection technique using the CASE statement. Since it's an ORDER BY injection, the sorting order of the rows changes based on whether the condition is true or false.\n6. Enumerate the database schema using the blind technique. Find the obfuscated table 'site_analytics_tracking' and the column 'session_blob'.\n7. Exfiltrate the flag character by character using a script. Example payload: `(CASE WHEN (SUBSTR((SELECT session_blob FROM site_analytics_tracking LIMIT 1),1,1)='L') THEN weight ELSE id END)`.",
+  "docker_image_tag": "levelup-challenge-bed6c0b2",
+  "narrative_context": {
+    "company_name": "VantageFlow Logistics",
+    "industry": "logistics",
+    "scenario": "VantageFlow Logistics recently finalized a high-profile merger with a regional carrier, necessitating the rapid integration of their respective tracking systems. To bridge the gap, they deployed RouteMaster Elite, a centralized platform designed to consolidate global shipping manifests and carrier schedules into a single searchable interface. While the infrastructure is maintained by an enterprise-grade DevOps team, the transition period has left several legacy modules under-scrutinized.\n\nThe company\u2019s internal security operations center (SOC) is currently overwhelmed with the integration of new network segments, leaving the application layer audit to external contractors. Management is particularly concerned about the 'Global Search' feature, which allows high-tier clients to query historical transit logs across multiple international databases. There are whispers that the logic used to join these disparate datasets might not have undergone a full security review before the peak shipping season.\n\nAs a security auditor, you have been granted access to the client-facing portal. Your objective is to ensure that standard shipping accounts are strictly isolated and that the search parameters cannot be manipulated to reveal internal carrier data or warehouse credentials stored within the same ecosystem.",
+    "app_name": "RouteMaster Elite",
+    "app_purpose": "Centralized portal for querying international shipping manifests, carrier credentials, and warehouse inventory status across multiple global hubs.",
+    "data_theme": "International shipping manifests, carrier employee IDs, warehouse gate codes, and delivery timestamps.",
+    "flavor_details": {
+      "company_motto": "Moving the World, One Packet at a Time.",
+      "department": "Global Distribution & Supply Chain IT",
+      "recent_event": "A routine internal audit flagged 'atypical query patterns' in the tracking module during the integration phase.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic query generation",
+        "Enterprise middleware layer"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a textbook ORDER BY injection in SQLite, complicated slightly by a keyword blacklist that prevents UNION-based extraction and standard comment-out techniques. While the 'OR' substring filter is broad, it does not block the CASE/WHEN/THEN/END logic required for a boolean-blind attack via result sorting. Exploitation requires logging in, identifying the injection point, and scripting a blind extraction based on the row order changes. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

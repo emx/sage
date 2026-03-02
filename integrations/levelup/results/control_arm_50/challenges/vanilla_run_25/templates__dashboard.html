@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Management Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>System Health</h3>
+        <p>Database: <span style="color: green;">CONNECTED</span></p>
+        <p>Active Sensors: 1,402</p>
+    </div>
+    <div class="card">
+        <h3>Quick Actions</h3>
+        <ul>
+            <li><a href="/harvests">View Harvest Records</a></li>
+            <li><a href="/soil">Analyze Soil Minerals</a></li>
+            <li><a href="/reports">Generate Custom Report</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

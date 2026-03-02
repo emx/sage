@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Cargo Manifests</h2>
+    <p>Click headers to sort data. Sort is processed by the secure Logistics-WAF.</p>
+    <table id="manifestTable">
+        <thead>
+            <tr>
+                <th onclick="loadManifests('id')">ID</th>
+                <th onclick="loadManifests('tracking_id')">Tracking ID</th>
+                <th onclick="loadManifests('destination')">Destination</th>
+                <th onclick="loadManifests('weight')">Weight (kg)</th>
+                <th onclick="loadManifests('status')">Status</th>
+            </tr>
+        </thead>
+        <tbody id="manifestData"></tbody>
+    </table>
+</div>
+<script>
+function loadManifests(sort) {
+    fetch('/api/v1/manifests?sort=' + encodeURIComponent(sort))
+    .then(r => r.json())
+    .then(data => {
+        const tbody = document.getElementById('manifestData');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${row.id}</td><td>${row.tracking_id}</td><td>${row.destination}</td><td>${row.weight}</td><td>${row.status}</td>`;
+            tbody.appendChild(tr);
+        });
+    });
+}
+loadManifests('id');
+</script>
+{% endblock %}

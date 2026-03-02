@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Internal API Documentation</h2>
+    <p>Standard endpoints for data visualization.</p>
+    <code>GET /api/health</code> - System status check.
+    <hr>
+    <h3>Maintenance Tunnel (Legacy)</h3>
+    <p>For synchronization of archived telemetry logs. Access restricted to internal debuggers.</p>
+    <p><strong>Endpoint:</strong> <code>POST /api/telemetry/maintenance/archive</code></p>
+    <p><strong>Required Headers:</strong> <code>X-Vanguard-Debug: 1</code></p>
+</div>
+{% endblock %}

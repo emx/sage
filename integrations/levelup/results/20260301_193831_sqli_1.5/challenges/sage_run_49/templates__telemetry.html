@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Real-time Telemetry</h2>
+    <table>
+        <tr>
+            <th>Vehicle ID</th>
+            <th>Timestamp</th>
+            <th>GPS Coordinates</th>
+            <th>Speed</th>
+        </tr>
+        {% for t in telemetry %}
+        <tr>
+            <td>{{ t.vehicle_id }}</td>
+            <td>{{ t.timestamp }}</td>
+            <td>{{ t.lat }}, {{ t.lon }}</td>
+            <td>{{ t.speed }} km/h</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

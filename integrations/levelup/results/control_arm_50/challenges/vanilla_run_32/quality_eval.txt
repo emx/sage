@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_32
+==================================================
+Arm: vanilla
+Overall: 6.4/10
+
+  difficulty_accuracy      :  8.0/10  ########
+  defense_depth            :  5.0/10  #####
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Perfectly calibrated at 1.5 — the only vanilla challenge to exactly match the target difficulty. ORDER BY injection with space, hash, and keyword blocking. Bootstrap UI with flash messages and compliance documentation. Solid execution of a standard pattern.

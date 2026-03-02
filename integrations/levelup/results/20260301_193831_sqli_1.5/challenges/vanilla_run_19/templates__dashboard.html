@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, {{ session.username }}</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Shipments</h3>
+        <p>You have 1,240 containers currently in transit across 14 maritime routes.</p>
+        <a href="{{ url_for('tracking') }}" class="btn">View Manifests</a>
+    </div>
+    <div class="card">
+        <h3>Custom Reporting</h3>
+        <p>Generate detailed audit reports for customs compliance and internal review.</p>
+        <a href="{{ url_for('reports') }}" class="btn">Manifest Reports</a>
+    </div>
+</div>
+{% endblock %}

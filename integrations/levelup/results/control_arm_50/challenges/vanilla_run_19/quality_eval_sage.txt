@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_19 (SAGE)
+==================================================
+Overall: 6.6/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  5.0/10  #####
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: Solid second-order ORDER BY injection with a meaningful two-step exploit chain (store payload via report creation, trigger on view). The WAF blocks union/comments/offset which forces CASE WHEN blind extraction — genuinely requiring 2+ techniques and matching the 1.5 difficulty target well. However, defense_depth is middling: while parameterized login queries and session auth are present, the WAF remains a single-layer keyword blacklist that leaves CASE, WHEN, substr, and subqueries completely unblocked — no encoding validation, length limits, or rate limiting to create real layered defense. The logistics theme, polished UI, and realistic report workflow elevate this above cookie-cutter challenges.

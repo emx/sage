@@ -1,0 +1,17 @@
+{
+  "experiment_date": "2026-03-01T07:22:25.442219+00:00",
+  "runs_per_arm": 5,
+  "total_runs": 10,
+  "category": "sqli",
+  "difficulty": 1.5,
+  "dry_run": false,
+  "sage_endpoint": "http://localhost:8080",
+  "sage_enabled_env": "true",
+  "sage_agent_key_file": "./experiment_agent.key",
+  "llm_provider": "google",
+  "llm_model": "gemini-3-flash-preview",
+  "sage_commit": "e092426c1f06523b9158f52bd9f9d3b3f96d57d5",
+  "python_version": "3.12.8",
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "machine": "arm64"
+}

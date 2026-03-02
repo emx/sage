@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Staff Portal</h1>
+<div class="card" style="max-width: 400px; margin: auto;">
+    <p style="color: #f85149;">{{ message }}</p>
+    <form onsubmit="return false;">
+        <label>Username</label><br>
+        <input type="text" disabled style="width: 100%; margin-bottom: 10px;"><br>
+        <label>Password</label><br>
+        <input type="password" disabled style="width: 100%; margin-bottom: 20px;"><br>
+        <button disabled style="width: 100%;">Login</button>
+    </form>
+</div>
+{% endblock %}

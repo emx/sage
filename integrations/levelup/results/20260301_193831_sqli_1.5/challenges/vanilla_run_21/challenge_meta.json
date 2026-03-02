@@ -1,0 +1,49 @@
+{
+  "run_number": 21,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantPulse Inventory Management",
+  "description": "Welcome to the VerdantPulse internal inventory system. We track vital agricultural supplies across 12 countries. As a guest auditor, you've been granted access to view the general stock. Our developers recently implemented a security filter to prevent malicious queries, but we suspect it might be insufficient. Can you verify if the system's 'Emergency Node Recovery Key' is truly protected?",
+  "flag": "LEVELUP{4IeoVHLBxRVAiWEazAyMj9LfBaHyez5p}",
+  "solution": "1. Browse the application and observe the /inventory page. 2. View the page source or inspect network requests to find a reference to an internal API header 'X-Pulse-Auth: VP-GUEST-9921'. 3. Discover the undocumented search endpoint at /api/v1/inventory/filter?category=Chemicals. 4. Test for SQL injection in the 'category' parameter. Notice that keywords like SELECT, WHERE, and AND are stripped once from the input. 5. Bypass the filter using recursive keywords: SELSELECTECT, WHEWHERERE, AANDND. 6. Since the application does not return SQL errors, perform a Blind Boolean SQL injection. 7. Craft a payload to check if the first character of the 'val' column in the 'app_metadata' table (where key='emergency_node_recovery_key') is 'L': Chemicals' AANDND (SELSELECTECT substr(val,1,1) FRFROMOM app_metadata WHEWHERERE key='emergency_node_recovery_key')='L. 8. Automate this process to extract the full flag string.",
+  "docker_image_tag": "levelup-challenge-0e6ca0dc",
+  "narrative_context": {
+    "company_name": "VerdantPulse Solutions",
+    "industry": "agriculture",
+    "scenario": "VerdantPulse Solutions has recently expanded its global footprint by acquiring several smaller ag-tech startups specializing in precision farming. In the rush to unify their supply chain management, they have integrated a legacy inventory tracking system into their flagship 'BioTrack' ecosystem. This portal allows field technicians and warehouse managers to monitor the distribution of high-value non-GMO seeds, specialized fertilizers, and automated soil sensors across three continents.\n\nThe integration was completed by a third-party contracting firm during a period of high turnover within the VerdantPulse internal IT department. While the front-end interface has been modernized to match the corporate aesthetic, the underlying data retrieval logic remains a patchwork of inherited code. The internal security team, currently preoccupied with a massive cloud migration, has flagged the logistics module as a high-priority area for an external security audit before the spring planting season begins.\n\nAs a contracted security auditor, you have been granted access to the internal network to evaluate the BioTrack Hub. Your goal is to determine if the sensitive chemical inventory data and proprietary seed research records are adequately protected from unauthorized discovery or data exfiltration via the application's search and filtering interfaces.",
+    "app_name": "BioTrack Inventory & Logistics Hub",
+    "app_purpose": "Centralized tracking for crop supplies, chemical inventory, and soil sensor hardware deployment across global farm sites.",
+    "data_theme": "Agricultural supply records, seed batch numbers, chemical Safety Data Sheets (SDS), and sensor location coordinates.",
+    "flavor_details": {
+      "company_motto": "Precision Growth for a Hungry World.",
+      "department": "Global Supply Chain Operations",
+      "recent_event": "Post-acquisition integration of a legacy inventory system into the modern enterprise environment.",
+      "tech_hints": [
+        "PHP-based backend processing",
+        "Enterprise PostgreSQL database instance",
+        "Dynamic filtering on the search results page"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge features a textbook UNION-based SQL injection that is minimally protected by a flawed WAF using a non-recursive string replacement filter, which is trivially bypassed by nesting keywords like 'SELSELECTECT'. While it requires discovering an API endpoint and a specific HTTP header found in the source, the direct return of results in the JSON response makes extraction trivial once the filter is bypassed. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

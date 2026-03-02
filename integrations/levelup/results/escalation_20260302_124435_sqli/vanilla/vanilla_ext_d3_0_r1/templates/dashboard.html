@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>System Dashboard</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+    {% for stat in stats %}
+    <div class="card">
+        <h3>{{ stat['status'] }}</h3>
+        <p style="font-size: 2rem; margin: 0;">{{ stat['count'] }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

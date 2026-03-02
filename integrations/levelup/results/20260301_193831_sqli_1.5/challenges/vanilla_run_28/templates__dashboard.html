@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Field Management Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    {% for field in fields %}
+    <div class="card">
+        <h3>{{ field.field_name }}</h3>
+        <p><strong>Crop Type:</strong> {{ field.crop_type }}</p>
+        <p><strong>Status:</strong> Active</p>
+        <a href="/sensors/{{ field.id }}" class="btn">View Logs</a>
+        <a href="/settings/{{ field.id }}" class="btn btn-secondary">Settings</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

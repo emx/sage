@@ -1,0 +1,50 @@
+{
+  "run_number": 31,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.8,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherLogix Orbital: Telemetry Archive",
+  "description": "Welcome to the AetherLogix Orbital Engineering Portal. Our engineers use this system to track satellite components, fuel mixtures, and launch schedules. Secure telemetry is our top priority. Can you find a way to access the restricted system configuration data?",
+  "flag": "LEVELUP{qMjgchOSFgvIksW_QUvfRhV7JClxheAB}",
+  "solution": "1. Explore the application to find the /inventory and /schedules pages. 2. Observe the 'Internal Diagnostics' link in the footer which points to /diagnostics. 3. On /diagnostics, notice it mentions a 'Legacy Telemetry API' at /api/v1/telemetry. 4. Accessing /api/v1/telemetry requires a POST request with a JSON body: {'sensor_id': '1'}. 5. Test the 'sensor_id' parameter for SQL injection. It filters spaces and common keywords like 'UNION' and 'SELECT' (case-insensitive). 6. Bypass the filter using comments (/**/) for spaces and alternative SQLite syntax. 7. Enumerate tables using the sqlite_master table via error-based or boolean-based injection. 8. Discover the obfuscated table 'legacy_telemetry_meta'. 9. Extract the flag from the 'meta_value' column where 'key_id' is 'SYSTEM_ROOT_SECRET'.",
+  "docker_image_tag": "levelup-challenge-de6f4791",
+  "narrative_context": {
+    "company_name": "AetherLogix Orbital",
+    "industry": "aerospace",
+    "scenario": "AetherLogix Orbital recently secured a massive contract for the deployment of a new low-earth orbit satellite constellation. To manage the sheer volume of components arriving from international suppliers, their engineering team quickly stood up a centralized logistics portal. While the company prides itself on high-security standards for its aerospace hardware, the software development life cycle for internal tools has been accelerated to meet strict launch windows.\n\nThe security team at AetherLogix is highly skilled but currently overwhelmed by the integration of three new acquisitions. They have brought you in as a third-party security auditor to review the 'SILS' platform before it is opened to external contractors. The primary concern is that the system contains sensitive telemetry data and proprietary component specifications that must remain confidential from rival aerospace firms.",
+    "app_name": "Stratosphere Inventory & Launch Scheduler (SILS)",
+    "app_purpose": "Allows engineers and logistics officers to search for specific satellite components by serial number, weight, or manufacturer and view scheduled launch windows at various global spaceports.",
+    "data_theme": "satellite components, fuel mixtures, orbital coordinates, launch pad schedules, and contractor personnel records",
+    "flavor_details": {
+      "company_motto": "Precision Beyond the Horizon",
+      "department": "Orbital Logistics & Infrastructure",
+      "recent_event": "A rival firm recently suffered a data breach, prompting AetherLogix to perform emergency audits on all inventory-related web services.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic search filtering",
+        "Enterprise-grade web framework",
+        "Verbose error logging"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a restrictive WAF that blocks the most common SQLi keywords (SELECT, UNION, WHERE) and all whitespace. While the vulnerability is a simple unquoted injection, bypassing the filter requires a novel SQLite-specific technique: using the 'TABLE' keyword (a shorthand for 'SELECT *') and 'INTERSECT' as a substitute for 'UNION'. The perfect column count match between the telemetry query and the flag table suggests this specific, modern SQLite bypass is the intended solution. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, Technician_7</h2>
+<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;'>
+    <div class='card'>
+        <h3>Inventory Stats</h3>
+        <p>Active Components: 4,102</p>
+        <p>Pending Shipments: 12</p>
+        <a href='/inventory' class='btn'>View Inventory</a>
+    </div>
+    <div class='card'>
+        <h3>System Health</h3>
+        <p>Terminal 7 Status: <span style='color: green;'>Online</span></p>
+        <p>Audit Engine: v2.4.1</p>
+        <!-- Internal Note: Techs can access /api/v1/internal/component_report for raw data exports -->
+    </div>
+</div>
+{% endblock %}

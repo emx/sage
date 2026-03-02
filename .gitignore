@@ -1,0 +1,80 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendor (we use modules)
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# BadgerDB data
+data/
+*.vlog
+*.sst
+MANIFEST
+KEYREGISTRY
+
+# CometBFT generated configs
+deploy/genesis/
+
+# Docker
+docker-compose.override.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+
+# Protobuf generated
+internal/proto/sagepb/*.go
+
+# Test artifacts
+test/integration/testdata/
+test/benchmark/results/
+
+# Grafana data
+deploy/monitoring/grafana/data/
+
+# Backup files
+deploy/scripts/backups/
+
+# Claude
+CLAUDE.md
+amid
+.claude/

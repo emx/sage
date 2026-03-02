@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Management Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="card">
+        <h3>Shipment Status</h3>
+        <p>Active Manifests: 24</p>
+        <p>Pending Delivery: 12</p>
+        <a href="/manifests" class="btn">View Manifests</a>
+    </div>
+    <div class="card">
+        <h3>Driver Fleet</h3>
+        <p>Active Drivers: 85</p>
+        <p>On Leave: 3</p>
+        <a href="/drivers" class="btn">Manage Fleet</a>
+    </div>
+</div>
+{% endblock %}

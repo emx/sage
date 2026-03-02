@@ -1,0 +1,6 @@
+sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
+app.agents.static_analysis WARNING: Auto-fixed Dockerfile flag leak: injected 'RUN rm -f Dockerfile' after context COPY to prevent players from reading the flag via 'cat Dockerfile'.
+app.agents.exploit WARNING: [replay] Timeout after 279.7s
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (279.7s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 330s, verification=smoke_tested
+sage_bridge INFO: SAGE observation submitted: 3f48fe68-87ec-44d2-bb03-475ecc7b8443

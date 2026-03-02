@@ -1,0 +1,49 @@
+{
+  "run_number": 48,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.6,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherAcres Harvest Surveillance Portal",
+  "description": "Welcome to the AetherAcres Solutions Regional Surveillance Portal. As a regional coordinator, you can monitor silos, track shipments, and view personnel profiles. The portal is strictly for internal use and requires regional authorization headers for administrative data access.",
+  "flag": "LEVELUP{O7kG_TSqcEabiWdFRR0MNrKaSQ7YDHCS}",
+  "solution": "1. Explore the application and discover the '/dashboard' route. Notice that it mentions 'Guest Access' and lack of regional authorization. 2. Analyze the HTTP requests; notice a hint or documentation in the 'Support' page or comments regarding 'X-Regional-Token' for coordinator access. 3. Test the 'X-Regional-Token' header. Notice that adding 'X-Regional-Token: admin' changes the dashboard response. 4. Identify the SQL injection vulnerability in the 'X-Regional-Token' header. 5. Discover the WAF blocks: spaces, 'UNION', and 'OR' (case-insensitive). 6. Bypass the space filter using SQL comments '/**/'. 7. Since 'UNION' is blocked, use a Boolean-based Blind SQL injection approach. 8. Enumerate the database schema to find the 'site_settings' table and 'emergency_canary' setting. 9. Construct a payload to extract the flag character by character: \"admin'/**/AND/**/(SELECT/**/SUBSTR(setting_value,1,1)/**/FROM/**/site_settings/**/WHERE/**/setting_name='emergency_canary')='L'/**/--\". 10. Automate the extraction to retrieve the full flag.",
+  "docker_image_tag": "levelup-challenge-847d774d",
+  "narrative_context": {
+    "company_name": "AetherAcres Solutions",
+    "industry": "agriculture",
+    "scenario": "AetherAcres Solutions is a market leader in Precision Agriculture, providing IoT-driven insights to massive farming cooperatives across the Midwest. Their core value proposition lies in their ability to predict harvest cycles and automate the logistics of grain storage. As the company prepares for a high-profile merger with a global food conglomerate, the Board of Directors has mandated a comprehensive security audit of all legacy systems that interface with regional grain elevators.\n\nThe target of this assessment is the YieldSync Logistics Hub, a centralized platform designed to help logistics managers search through decades of historical crop data and current silo inventory levels. While the company maintains an internal security team, they are currently overwhelmed by the integration of the new parent company's infrastructure, leaving the YieldSync portal largely unmonitored during this transition period.\n\nYour role is that of a third-party security auditor. You have been granted access to the internal network environment and tasked with identifying any ways an unauthorized user might bypass standard search filters to access restricted inventory reports or administrative credentials stored within the same ecosystem.",
+    "app_name": "YieldSync Logistics Hub",
+    "app_purpose": "Allows regional coordinators to query harvest historical data, monitor silo capacity, and search for specific transport manifests across multiple jurisdictions.",
+    "data_theme": "Agricultural yield records, silo sensor telemetry, transport manifest IDs, and regional manager profiles.",
+    "flavor_details": {
+      "company_motto": "Cultivating Data, Harvesting Efficiency.",
+      "department": "Supply Chain Operations",
+      "recent_event": "Pre-merger compliance audit mandated by the acquiring firm.",
+      "tech_hints": [
+        "Enterprise-grade middleware",
+        "Legacy relational data stores",
+        "Complex multi-parameter query filters"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a WAF that performs a substring check for 'OR', which effectively blocks many common SQL keywords like 'ORDER', 'COORDINATORS', and 'INFORMATION_SCHEMA', forcing the attacker to use a blind SQLi approach. While the vulnerability is a straightforward string concatenation in a header, the combination of space-bypass (using comments) and the restrictive 'OR' filter requires more effort than a standard injection. The inclusion of the source code and database schema slightly lowers (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

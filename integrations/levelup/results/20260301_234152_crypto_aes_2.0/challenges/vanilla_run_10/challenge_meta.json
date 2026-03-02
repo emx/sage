@@ -1,0 +1,59 @@
+{
+  "run_number": 10,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 1.65,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "Icarus Telemetry Bridge",
+  "description": "Welcome to the AetherStream Aerospace Diagnostics Terminal. We are currently reviewing the security of our Project Icarus Telemetry Bridge. The 'Black Box' archives sensitive flight diagnostics, but internal auditors suspect the legacy telemetry verification system might be leaking information about the encrypted data through its error responses. Your objective is to access the encrypted 'Flag Record' from the status endpoint and use the telemetry verification oracle to recover the underlying plaintext flight data.",
+  "flag": "LEVELUP{2VpvYBf07h7t0Ya9hCwrLb0qF0gyqLEW}",
+  "solution": "The challenge implements an AES-CBC Padding Oracle. 1. Access `/api/v1/telemetry/status` to receive the hex-encoded encrypted flag record (IV + Ciphertext). 2. Observe the `/api/v1/telemetry/verify` endpoint. It accepts a 'data' parameter (hex). 3. Notice the two distinct error messages: if the PKCS7 padding is invalid, the service returns 'Integrity Check Failed' (Code 0x1A). If the padding is valid but the decrypted content doesn't start with 'FLAG_RECORD:', it returns 'Malformed Telemetry Data' (Code 0x2B). 4. Implement a standard padding oracle attack. By manipulating the last byte(s) of the previous ciphertext block (or the IV for the first block) and observing the error codes, you can deduce the intermediate state and recover the plaintext byte-by-byte. 5. The decrypted data will follow the format 'FLAG_RECORD:LEVELUP{...}'.",
+  "docker_image_tag": "levelup-challenge-8d3cc37e",
+  "narrative_context": {
+    "company_name": "AetherStream Aerospace",
+    "industry": "Aerospace",
+    "scenario": "AetherStream Aerospace is a premier satellite deployment firm specializing in low-Earth orbit constellations. Their rapid expansion led to the development of the 'Project Icarus Telemetry Bridge,' a centralized hub designed to relay sensitive flight data and propulsion diagnostics from various ground stations to the engineering headquarters. This system is critical for monitoring the health of billion-dollar assets and ensuring collision avoidance maneuvers are executed without interference from external actors.\n\nThe internal security team, AetherStream Guardians, is currently occupied with a massive SOC2 compliance audit and the migration of their primary data center to a hybrid cloud environment. As a result, they have commissioned an external security review of the Telemetry Bridge. Management is particularly concerned about the 'Black Box' storage module, which archives every command sent to the satellites. While the system claims to use industry-standard symmetric encryption for its persistent storage, a recent internal memo suggested that the implementation logic for the block ciphers might have been simplified for performance reasons during the last software update.",
+    "app_name": "Project Icarus Telemetry Bridge",
+    "app_purpose": "Relaying and archiving satellite telemetry, orbital coordinates, and command logs in a secure, high-integrity environment.",
+    "data_theme": "Satellite health metrics, orbital trajectories, propulsion codes, and command-and-control timestamps.",
+    "flavor_details": {
+      "company_motto": "The Stars are No Longer Out of Reach.",
+      "department": "Orbital Operations & Communications",
+      "recent_event": "An internal whistleblower raised concerns that the encryption routines used for legacy log storage were optimized for speed at the cost of cryptographic variability.",
+      "tech_hints": [
+        "Block-based symmetric processing",
+        "Standard 128-bit alignment",
+        "High-volume telemetry log patterns",
+        "Deterministic data mapping"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a textbook AES-CBC Padding Oracle Attack, albeit hidden behind a timing side-channel rather than explicit error messages. The 80ms timing delta is a massive signal that is easily distinguishable even with network jitter, and the Proof-of-Work and HMAC layers are trivial boilerplate to automate. The IV masking is a red herring that doesn't protect the cipher because the attacker maintains linear control over the XOR'd bits. (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, {{ session.username }}</h2>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <h4>Active Manifests</h4>
+            <p class="display-6">1,284</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <h4>Global Ports</h4>
+            <p class="display-6">42</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <h4>Pending Audits</h4>
+            <p class="display-6">18</p>
+        </div>
+    </div>
+</div>
+<div class="mt-5">
+    <h3>Quick Actions</h3>
+    <a href="/reports" class="btn btn-outline-primary">View Shipment Reports</a>
+    <button class="btn btn-outline-secondary" disabled>Create New Manifest</button>
+</div>
+{% endblock %}

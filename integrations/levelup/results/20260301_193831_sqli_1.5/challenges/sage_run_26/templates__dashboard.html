@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Coordinator Dashboard</h2>
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card p-4 mb-4">
+            <h4>Shipment Tracking</h4>
+            <p>View active and historical shipments for your region.</p>
+            <a href="/shipments" class="btn btn-outline-primary">Access Shipments</a>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-4 mb-4">
+            <h4>Fleet Telemetry</h4>
+            <p>Monitor vehicle health and fuel consumption metrics.</p>
+            <a href="/fleet" class="btn btn-outline-primary">View Fleet</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

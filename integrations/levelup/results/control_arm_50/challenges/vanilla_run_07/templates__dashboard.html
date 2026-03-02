@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome, {{ user }}</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Shipment Management</h3>
+        <p>View and manage active transit records.</p>
+        <a href="/portal/shipments" class="btn">Go to Shipments</a>
+    </div>
+    <div class="card">
+        <h3>Telemetry Reports</h3>
+        <p>Analyze real-time sensor data from active containers.</p>
+        <a href="/portal/telemetry" class="btn">View Telemetry</a>
+    </div>
+</div>
+{% endblock %}

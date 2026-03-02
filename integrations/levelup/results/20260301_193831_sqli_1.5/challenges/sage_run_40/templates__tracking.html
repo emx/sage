@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="card">
+        <h2>Payload Tracking</h2>
+        <form method="GET">
+            <input type="text" name="id" placeholder="Enter Tracking ID (e.g., AB-1001)" style="padding: 8px; width: 300px; background: #0d1117; color: white; border: 1px solid #30363d;">
+            <button type="submit" class="btn">Search</button>
+        </form>
+
+        {% if manifest %}
+            <div style="margin-top: 20px; padding: 15px; border-left: 4px solid #238636; background: #1c2128;">
+                <h3>Details for {{ manifest.tracking_id }}</h3>
+                <p><strong>Payload:</strong> {{ manifest.payload_name }}</p>
+                <p><strong>Destination:</strong> {{ manifest.destination }}</p>
+                <p><strong>Current Status:</strong> {{ manifest.status }}</p>
+            </div>
+        {% elif request.args.get('id') %}
+            <p class="error" style="margin-top: 20px;">No manifest found for that ID.</p>
+        {% endif %}
+    </div>
+{% endblock %}

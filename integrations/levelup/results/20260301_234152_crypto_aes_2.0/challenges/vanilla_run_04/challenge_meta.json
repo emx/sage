@@ -1,0 +1,61 @@
+{
+  "run_number": 4,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 2.8,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "Zenith SkyLink Oracle",
+  "description": "Welcome, Security Auditor. Your objective is to audit the SkyLink Ground Command portal. The company uses an AES-CBC based system to protect telemetry logs and satellite commands. We've detected unusual error patterns in the legacy verification module. Can you recover the 'Admin Status' log which contains the primary system override flag?",
+  "flag": "LEVELUP{YBxapSJNVUu86lS1ri6Kqp23pamj_qzU}",
+  "solution": "The challenge implements an AES-CBC Padding Oracle. 1. Access `/api/v1/telemetry/archive` to obtain the hex-encoded `iv` and `encrypted_flag`. 2. Notice that the `/api/v1/command/verify` endpoint returns different HTTP status codes: a 500 Internal Server Error for PKCS7 padding failures and a 400 Bad Request for validly padded but logically incorrect commands. 3. Implement a standard CBC Padding Oracle attack. For each block, manipulate the bytes of the previous block (or IV) to find the values that result in a 400 instead of a 500. 4. Reconstruct the plaintext flag block by block.",
+  "docker_image_tag": "levelup-challenge-eefc47de",
+  "narrative_context": {
+    "company_name": "Zenith Horizon Dynamics",
+    "industry": "aerospace",
+    "scenario": "Zenith Horizon Dynamics (ZHD) is a leading provider of small-satellite launch services and orbital data management. Following the successful deployment of their 'Stratus' constellation, the company has seen a surge in data throughput, necessitating a rapid upgrade to their ground control infrastructure. The SkyLink Ground Command (SGC) portal was developed to bridge the gap between satellite telemetry and terrestrial data centers, providing engineers with a centralized hub for monitoring satellite health and sending orbital adjustment commands.\n\nHowever, the recent acquisition of a smaller communications firm led to a rushed integration of legacy subsystems into the SGC portal. The internal security team, currently overwhelmed by a global transition to zero-trust architecture across the firm's global offices, has only performed a cursory review of the platform. You have been brought in as a specialized security auditor to ensure that the mission-critical telemetry and command logs remain confidential and tamper-proof as they move through the ZHD network.",
+    "app_name": "SkyLink Ground Command",
+    "app_purpose": "Managing satellite-to-ground telemetry data and executing secure command sequences for orbital maneuvers.",
+    "data_theme": "Satellite telemetry logs, orbital coordinates, and mission-critical command packets.",
+    "flavor_details": {
+      "company_motto": "Reaching Beyond the Atmosphere.",
+      "department": "Orbital Operations & Infrastructure",
+      "recent_event": "An internal audit flagged a discrepancy in how command logs are synchronized between the primary and backup ground stations, suggesting a potential logic gap in the data processing layer.",
+      "tech_hints": [
+        "High-speed Python-based microservices",
+        "Standard block cipher libraries for data at rest",
+        "Fixed-size telemetry packet processing"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements an extremely sophisticated multi-stage side-channel oracle involving X9.23 padding, UTF-16BE encoding validation, and partial string matching, all buried under heavy Gaussian-like noise (jitter) that requires statistical averaging to exploit. Furthermore, it is technically 'broken' or Expert+ because it wraps the decryption in an HMAC-SHA256 integrity check using a key derived from the secret AES key via PBKDF2; without a way to forge this HMAC (the hex-concatenation bou (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

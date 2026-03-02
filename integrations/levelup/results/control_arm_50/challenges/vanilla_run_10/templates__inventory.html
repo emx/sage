@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Warehouse Inventory</h2>
+    {% if debug %}
+    <div style="background: #fff3cd; padding: 10px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #ffeeba;">
+        <strong>Debug Mode Active:</strong> Use the <code>filter</code> parameter to refine results (e.g., <code>?debug=true&filter=quantity < 10</code>).
+    </div>
+    {% endif %}
+    <table>
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>Product Name</th>
+                <th>Stock Level</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.quantity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

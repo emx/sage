@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Saved Manifest Reports</h2>
+    <a href="{{ url_for('create_report') }}" class="btn">+ Create New Report</a>
+</div>
+<div class="card">
+    {% if reports %}
+    <table>
+        <thead>
+            <tr>
+                <th>Report Name</th>
+                <th>Sort Criteria</th>
+                <th>Created At</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reports %}
+            <tr>
+                <td>{{ r.report_name }}</td>
+                <td><code>{{ r.sort_column }}</code></td>
+                <td>{{ r.created_at }}</td>
+                <td><a href="{{ url_for('view_report', report_id=r.id) }}" class="btn">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No reports found. Create one to begin auditing.</p>
+    {% endif %}
+</div>
+{% endblock %}

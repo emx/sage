@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Ground Control Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Satellites</h3>
+        <p style="font-size: 2rem; color: #238636;">14</p>
+    </div>
+    <div class="card">
+        <h3>Pending Manifests</h3>
+        <p style="font-size: 2rem; color: #e3b341;">3</p>
+    </div>
+</div>
+<div class="card">
+    <h3>System Status</h3>
+    <p>Legacy Telemetry API: <span style="color: #f85149;">DEPRECATED</span> (Internal access only)</p>
+    <p>Orbital Registry: <span style="color: #238636;">ONLINE</span></p>
+</div>
+{% endblock %}

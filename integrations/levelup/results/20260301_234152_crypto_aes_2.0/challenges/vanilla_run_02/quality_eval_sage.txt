@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_02 (SAGE)
+==================================================
+Overall: 7.1/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: A well-constructed timing-based CBC padding oracle with two genuine defense layers: an FNV-1a style checksum that must be reversed and recomputed for every modified ciphertext, and triangular jitter (mode=0.025s) deliberately tuned to peak at the same magnitude as the 25ms timing signal, making statistical detection meaningfully harder. The unified error messages force a timing-only oracle rather than the trivial distinct-error-message variant described in the solution text (which contradicts the actual code). Flag isolation is strong with build-time encryption, file deletion, and privilege dropping. The satellite command ledger theme and integrity token concept give it realistic texture beyond a textbook padding oracle. Main weakness: the 20ms base sleep plus statistical timing requirements make solving tedious rather than intellectually deeper, and the key sitting in plaintext in challenge_data.json (though unexposed via API) is a minor architectural concern.

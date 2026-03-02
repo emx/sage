@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_16 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  6.0/10  ######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: The WAF is a single-layer keyword blacklist trivially bypassed for spaces (tabs/%09), earning minimal defense_depth. The ORDER BY injection point is less common than WHERE-clause SQLi, and the agronomy theme is fresh, but the calibrated difficulty (2.1) overshoots the 1.5 target because blocking SELECT/UNION without alternative extraction paths makes blind data exfiltration disproportionately hard for the intended level. The JS comment in parcel_detail.html practically hands the player the vulnerable endpoint, undermining the 'hidden API discovery' step.

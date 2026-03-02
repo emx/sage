@@ -1,0 +1,13 @@
+Quality Evaluation: sage_run_17 (SAGE)
+==================================================
+Overall: 7.0/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: A well-constructed CBC padding oracle with the 15-byte-chunk-plus-checksum block structure genuinely complicating the standard attack — the per-block checksum validation (ERR_DSAS_001) gates the padding oracle (ERR_DSAS_002), meaning attackers can't just run off-the-shelf tools. The XOR-0x42 custom padding and satellite telemetry framing are solid but follow an increasingly familiar pattern from prior high-scoring SAGE evaluations. The truncated encrypt method and failed smoke test in generation.log are minor blemishes on otherwise production-realistic code with proper flag isolation (build-time encryption, init script deletion, non-root user).

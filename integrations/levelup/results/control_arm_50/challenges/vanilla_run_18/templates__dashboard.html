@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Agronomist Dashboard</h2>
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3 shadow">
+            <div class="card-header">Active Nodes</div>
+            <div class="card-body"><h5 class="card-title">1,240</h5></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info mb-3 shadow">
+            <div class="card-header">Data Points (24h)</div>
+            <div class="card-body"><h5 class="card-title">8.4 Million</h5></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-warning mb-3 shadow">
+            <div class="card-header">Soil Alerts</div>
+            <div class="card-body"><h5 class="card-title">3</h5></div>
+        </div>
+    </div>
+</div>
+<div class="mt-4">
+    <h4>Quick Actions</h4>
+    <ul class="list-group">
+        <li class="list-group-item"><a href="/archive">View Historical Harvest Archive</a></li>
+        <li class="list-group-item text-muted">Soil Nutrient Profile Analysis (Coming Soon)</li>
+        <li class="list-group-item text-muted">Weather Correlation Tool (Offline)</li>
+    </ul>
+</div>
+{% endblock %}

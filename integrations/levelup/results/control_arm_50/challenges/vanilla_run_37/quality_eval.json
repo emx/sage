@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_37",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 5,
+  "code_quality": 7,
+  "creativity": 6,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 5,
+  "overall": 5.8,
+  "reasoning": "ORDER BY injection in a deep-sea drone telemetry API with space and keyword blocking. The dark nautical theme and drone monitoring interface are well-designed. Session auth and JS-based sorting UI add realism. Standard WAF bypass required."
+}

@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_03",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 5,
+  "code_quality": 7,
+  "creativity": 6,
+  "realism": 7,
+  "flag_isolation": 6,
+  "exploit_complexity": 5,
+  "overall": 5.8,
+  "reasoning": "Good layering: session authentication with real credentials, POST JSON endpoint, regex-based WAF blocking keyword+space patterns, and a direction parameter adding injection surface. The cold-chain logistics theme with manifests and reporting is realistic. However, the WAF regex only blocks keywords followed by whitespace, easily bypassed with parentheses. /flag.txt not explicitly removed from container (though root-only). Error details leaked in JSON."
+}

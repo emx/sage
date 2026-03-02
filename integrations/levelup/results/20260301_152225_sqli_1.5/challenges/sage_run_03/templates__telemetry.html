@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Internal Node Telemetry</h1>
+<p>Real-time sensor data for propulsion hardware nodes.</p>
+<table>
+    <thead>
+        <tr>
+            <th>Reading ID</th>
+            <th>Sensor Type</th>
+            <th>Reading</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in data %}
+        <tr>
+            <td>{{ row.id }}</td>
+            <td>{{ row.sensor_type }}</td>
+            <td>{{ row.reading }}</td>
+            <td>{{ row.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<p><small>Note: Telemetry queries are subject to audit logging.</small></p>
+{% endblock %}

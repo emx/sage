@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Active Transit Logs</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Manifest ID</th>
+                <th>Client</th>
+                <th>Status</th>
+                <th>Last Update</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in manifests %}
+            <tr>
+                <td>{{ m.id }}</td>
+                <td>{{ m.client }}</td>
+                <td><span style="color: #2ecc71;">{{ m.status }}</span></td>
+                <td>{{ m.last_update }}</td>
+                <td><a href="/manifest/{{ m.id }}" style="color: #3498db;">View Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

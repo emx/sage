@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_34",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 5,
+  "code_quality": 7,
+  "creativity": 6,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 5,
+  "overall": 5.8,
+  "reasoning": "ORDER BY injection requiring a custom X-FMS-Debug header discovered via an API documentation page. The multi-step discovery (docs \u2192 header \u2192 injection) is well-structured. Space and keyword blocking WAF requires tab bypasses. Good API docs template."
+}

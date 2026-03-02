@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Authorized Courier Registry</h1>
+    <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Region</th><th>Status</th></tr></thead>
+        <tbody>
+            {% for courier in couriers %}
+            <tr>
+                <td>{{ courier.id }}</td>
+                <td>{{ courier.name }}</td>
+                <td>{{ courier.region }}</td>
+                <td><span class="status status-active">{{ courier.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

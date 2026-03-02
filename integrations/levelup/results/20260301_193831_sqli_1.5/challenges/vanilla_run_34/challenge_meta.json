@@ -1,0 +1,49 @@
+{
+  "run_number": 34,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloNexus Logistics: Trace & Track",
+  "description": "VeloNexus Logistics has recently upgraded their tracking system to improve customer visibility. While they claim to have implemented a robust Security Middleware (WAF) to protect their proprietary shipment data, some legacy API endpoints remain active for internal auditing purposes. Can you navigate their freight manifest and extract the high-security system integrity keys?",
+  "flag": "LEVELUP{gGyK11JDuRPff6t278M8LJU6hqSbglfp}",
+  "solution": "1. **Discovery**: Access the home page and browse to /shipments. Notice standard sorting by clicking table headers (e.g., `?sort=destination`).\n2. **Enumeration**: Visit `/docs/api` (discovered via directory brute-forcing or source code inspection). The docs reveal a hidden tracking header `X-FMS-Debug: 1` that enables 'Advanced Sorting' features on the `/api/v1/shipments` endpoint.\n3. **Vulnerability Identification**: Test the `sort` parameter on `/api/v1/shipments?sort=id`. Adding a space (`sort=id desc`) triggers a 'Security Blocked' error from the middleware.\n4. **Bypass WAF**: The WAF blocks spaces and keywords like UNION, OR, and AND. Bypass the space filter using a Tab (`%09`) or Newline (`%0A`).\n5. **Injection Point**: Confirm SQLi with a conditional: `?sort=(CASE%09WHEN%09(1=1)%09THEN%09id%09ELSE%09container_id%09END)`. Notice the row ordering changes when the condition is true vs false.\n6. **Exfiltration**: Locate the hidden table by querying `sqlite_master`. Identify the `system_audit_log` table and the `action_metadata` column. Use a blind boolean-based approach to extract the flag where `action_type='ENCRYPTION_KEY_ROTATION'`. Example payload: `?sort=(CASE%09WHEN%09(sElEcT%09hex(substr(action_metadata,1,1))%09fRoM%09system_audit_log%09wHeRe%09action_type='ENCRYPTION_KEY_ROTATION')='4C'%09THEN%09id%09ELSE%09container_id%09END)` (4C is 'L').",
+  "docker_image_tag": "levelup-challenge-1ed5050e",
+  "narrative_context": {
+    "company_name": "VeloNexus Logistics",
+    "industry": "logistics",
+    "scenario": "VeloNexus Logistics has recently expanded its operations into the EMEA region through the acquisition of a mid-sized shipping firm. As part of this merger, the IT department has been tasked with centralizing all global shipping manifests into a single, high-performance interface. The 'Global Transit Hub' was born from this necessity, serving as the primary touchpoint for logistics coordinators to locate containers, verify customs clearance status, and update delivery timelines.\n\nDespite the company's established security posture, the rapid integration of the legacy SQL database from the acquired firm has raised concerns within the CISO's office. The centralized portal now bridges modern cloud infrastructure with a series of older, complex query systems that haven't been fully audited. As an external security consultant, you have been granted access to the staging environment to evaluate the integrity of the tracking system before it goes live to the entire fleet.",
+    "app_name": "Global Transit Hub",
+    "app_purpose": "Allows logistics staff to search, filter, and monitor the status of international freight shipments using various identifiers like Container ID, Bill of Lading, or Origin Port.",
+    "data_theme": "International shipping manifests, customs clearance codes, and high-value cargo inventory.",
+    "flavor_details": {
+      "company_motto": "Synchronizing the World\u2019s Pulse.",
+      "department": "Global Operations & Integration",
+      "recent_event": "A recent internal audit flagged the 'Legacy Data Bridge' component as a potential point of failure due to mismatched data sanitization standards between the merged systems.",
+      "tech_hints": [
+        "Legacy SQL bridge",
+        "Multi-parameter search filters",
+        "Dynamic query builder"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires a blind SQL injection via an ORDER BY clause, which is inherently more complex than standard WHERE-clause injections. The WAF blocks spaces and logical operators (AND/OR/UNION), forcing the use of parentheses for token separation and CASE statements for data extraction, while the X-FMS-Debug header serves as a minor discovery step. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

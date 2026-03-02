@@ -1,0 +1,49 @@
+{
+  "run_number": 2,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherLink Orbital Manifests",
+  "description": "Welcome to AetherLink Logistics. As a logistics coordinator, you have been granted access to the OrbitalLink portal. Your objective is to ensure the integrity of the satellite manifest system. Some technicians have reported anomalies in the telemetry reporting module. Investigate the system, find any hidden vulnerabilities, and retrieve the sensitive system passphrase stored within the database to prove your success.",
+  "flag": "LEVELUP{QP6f8SC0yWzLpjRE0jBfuUHDBmQyydIg}",
+  "solution": "1. Login to the application using the guest credentials (guest:guest123) mentioned on the login page.\n2. Navigate to the 'Telemetry' section and observe that the page loads data from an API endpoint: `/api/v1/telemetry/data?sat_id=1&sort=sensor`.\n3. Test the `sort` parameter for SQL injection. Attempting `sort=sensor, (SELECT 1)` triggers a 'Security Violation' error due to a WAF filtering keywords like 'SELECT '.\n4. Observe that the WAF check is case-insensitive but specifically looks for the keyword followed by a space (e.g., 'SELECT ').\n5. Bypass the WAF by removing the space after keywords and using parentheses: `(SELECT(1))`. \n6. Construct a boolean-blind SQL injection payload using a `CASE` statement in the `ORDER BY` clause. For example: `sort=(CASE WHEN (SUBSTR((SELECT(setting_value)FROM(site_settings)WHERE(setting_name='enc_root_passphrase')),1,1)='L') THEN id ELSE sensor END)`.\n7. Compare the order of the JSON results when the condition is true vs. false. \n8. Write a script to iterate through the flag characters using this boolean-blind technique to extract the full value from the `site_settings` table.",
+  "docker_image_tag": "levelup-challenge-ed24b0cf",
+  "narrative_context": {
+    "company_name": "AetherLink Logistics",
+    "industry": "aerospace",
+    "scenario": "AetherLink Logistics recently completed a high-profile merger with StarPath Dynamics, a legacy firm specializing in orbital debris recovery. As part of the integration, the security team is tasked with consolidating multiple tracking systems into a centralized infrastructure. The security team is currently overwhelmed with the migration of over 500 microservices and has requested an external audit of the most critical legacy component inherited during the acquisition.\n\nThe target is the Orbital Freight Hub, a platform that manages launch manifests and deep-space cargo tracking. While the company maintains a robust security operations center, this specific module was developed by the acquired company's internal team years ago and has only recently been exposed to the wider enterprise network. There are concerns that the legacy code might not meet AetherLink's modern security standards, particularly in how it handles complex search queries across massive historical datasets.",
+    "app_name": "Orbital Freight Hub",
+    "app_purpose": "Allows logistics coordinators and clients to track the real-time status of satellite payloads and search through historical shipping manifests.",
+    "data_theme": "satellite serial numbers, orbital coordinates, cargo manifests, and technician maintenance logs",
+    "flavor_details": {
+      "company_motto": "Connecting Earth to the Infinite.",
+      "department": "Orbital Operations & Recovery",
+      "recent_event": "Post-merger audit phase 2 following the integration of legacy StarPath Dynamics databases.",
+      "tech_hints": [
+        "Node.js enterprise middleware",
+        "Relational data storage with complex join logic",
+        "Multi-parameter search filtering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge features a classic ORDER BY injection in an authenticated API endpoint. While it requires a boolean-based blind approach to extract data, the WAF is trivially bypassed because it only checks for keywords followed by a space (e.g., 'SELECT '), which can be avoided using parentheses or alternate whitespace. Exploitation requires logging in as a guest, identifying the sort-based side channel, and automating the extraction. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

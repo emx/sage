@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Equipment Maintenance Logs</h2>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Log ID</th>
+                    <th>Asset Tag</th>
+                    <th>Status</th>
+                    <th>Last Service</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.id }}</td>
+                    <td>{{ log.asset_tag }}</td>
+                    <td><span class="badge bg-success">{{ log.status }}</span></td>
+                    <td>{{ log.service_date }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

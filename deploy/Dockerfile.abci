@@ -1,0 +1,29 @@
+# SAGE ABCI application (Go state machine)
+# Multi-stage build: compile Go binary, copy to minimal Alpine
+
+# ── Builder ──────────────────────────────────
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+# Download dependencies first (layer caching)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build
+COPY . .
+RUN CGO_ENABLED=0 go build -o /app/amid ./cmd/amid
+
+# ── Final ────────────────────────────────────
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+COPY --from=builder /app/amid ./amid
+
+EXPOSE 8080 2112 26658
+
+CMD ["./amid"]

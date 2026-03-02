@@ -1,0 +1,59 @@
+{
+  "run_number": 2,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 1.35,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "Orbital Integrity Audit",
+  "description": "Welcome to the Aether-X Command Ledger API. As an external security consultant, your task is to audit the 'Horizon-Link' system. The company claims their command packets are secure because they use 'Military Grade AES-128-CBC encryption' with a strict integrity check. However, the telemetry anomalies suggest otherwise. Can you recover the sensitive administrator flag embedded within the archived deployment command?",
+  "flag": "LEVELUP{gfsZ6LeGiIVG93WiQlPIthZY2A4HxuHB}",
+  "solution": "The challenge implements an AES-CBC padding oracle. The '/api/ledger/validate' endpoint decrypts a hex-encoded ciphertext and returns different error messages depending on whether the PKCS7 padding is valid or if the subsequent header check fails. Specifically, if the padding is invalid, it returns 'Signal noise: Invalid padding detected'. If the padding is valid but the decrypted content doesn't start with 'AETHER_CMD:', it returns 'Signal noise: Invalid header magic'. This side-channel allows an attacker to perform a standard CBC Padding Oracle attack to decrypt the admin packet retrieved from '/api/ledger/status' block by block.",
+  "docker_image_tag": "levelup-challenge-e10de7ea",
+  "narrative_context": {
+    "company_name": "Aether-X Dynamics",
+    "industry": "aerospace",
+    "scenario": "Aether-X Dynamics is a private aerospace firm specializing in CubeSat deployment and orbital logistics. Their core revenue comes from the 'Horizon-Link' project, a proprietary mesh network of low-earth-orbit satellites providing secure communication channels for global shipping fleets. Recently, a competitor released a white paper claiming to have observed anomalies in the telemetry stream of a decommissioned satellite, suggesting that the integrity of the command-and-control ledger might be susceptible to outside observation. The internal security team is currently overwhelmed with the rollout of a new ion propulsion system, leaving the Horizon-Link audit to an external expert.\n\nThe target application, the 'Horizon-Link Command Ledger,' is a central hub where all uplink commands are archived before being broadcast. These commands are sensitive, as they contain orbital adjustment parameters and proprietary navigational logic. To ensure compliance with international space regulations, every command is encrypted at rest and during transit between the ground station and the orbital controllers. Management is confident in their 'Military Grade' implementation, but they need an independent assessment to satisfy their board of directors.",
+    "app_name": "Horizon-Link Command Ledger",
+    "app_purpose": "Archives and transmits encrypted orbital commands and telemetry data between ground stations and satellite constellations.",
+    "data_theme": "Satellite telemetry logs, orbital adjustment vectors, and encrypted command sequences.",
+    "flavor_details": {
+      "company_motto": "Connecting the Stars, Securing the Void.",
+      "department": "Orbital Operations & Cybersecurity",
+      "recent_event": "A competitor's research paper hinted at potential 'information leakage' in the satellite's downlink telemetry.",
+      "tech_hints": [
+        "Legacy block-based cipher implementation",
+        "High-frequency telemetry streams",
+        "Proprietary command padding",
+        "Python-based backend orchestration"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a textbook AES-CBC Padding Oracle attack where the padding validity is leaked via a timing side-channel. While the designer included a custom checksum and triangular jitter, the checksum logic is provided in the source (making it a trivial copy-paste into the exploit), and the 25ms timing signal is massive enough to be easily distinguishable from the noise using basic statistical averaging or a simple threshold. (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

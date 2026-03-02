@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="vanguard-header">
+    <h2>Fleet Supervisor Dashboard</h2>
+    <p class="text-muted">Welcome back. All systems currently nominal.</p>
+</div>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 mb-3 text-center">
+            <h5>Active Manifests</h5>
+            <h2 class="text-primary">1,284</h2>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 mb-3 text-center">
+            <h5>Vessels at Sea</h5>
+            <h2 class="text-success">412</h2>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 mb-3 text-center">
+            <h5>Pending Clearances</h5>
+            <h2 class="text-warning">18</h2>
+        </div>
+    </div>
+</div>
+{% endblock %}

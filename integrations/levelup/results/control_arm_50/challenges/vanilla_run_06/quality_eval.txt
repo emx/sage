@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_06 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  4.0/10  ####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The calibrated difficulty (0.85) significantly undershoots the 1.5 target — the single-pass keyword strip is a textbook recursive bypass with no layered defenses (no rate limiting, no auth, no input length checks). Code quality and realism are genuinely good — proper Flask structure, Jinja2 inheritance, parameterized-query red herring, and a plausible logistics theme — but the actual exploitation path is shallow: the JS file is globally included via base.html making discovery trivial, and the blind boolean SQLi with a single filter bypass is solvable with sqlmap and a basic tamper script.

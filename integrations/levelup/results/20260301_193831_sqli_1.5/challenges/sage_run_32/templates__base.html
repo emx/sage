@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aetheris Orbital MMS</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; }
+        nav { background: #1e293b; padding: 1rem; border-bottom: 2px solid #334155; display: flex; justify-content: space-between; }
+        nav a { color: #38bdf8; text-decoration: none; margin: 0 15px; font-weight: bold; }
+        .container { padding: 2rem; max-width: 1200px; margin: auto; }
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 8px; border: 1px solid #334155; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #334155; cursor: pointer; color: #38bdf8; }
+        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 4px; }
+        .btn { background: #38bdf8; color: #0f172a; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .alert { color: #f87171; background: rgba(248, 113, 113, 0.1); padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div>
+            <a href="/">Aetheris MMS</a>
+            {% if session.get('user') %}
+            <a href="/dashboard">Dashboard</a>
+            <a href="/manifests">Cargo Manifests</a>
+            <a href="/contractors">Contractors</a>
+            {% endif %}
+        </div>
+        <div>
+            {% if session.get('user') %}
+            <a href="/logout">Logout</a>
+            {% else %}
+            <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

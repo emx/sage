@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>System Diagnostics</h2>
+    <div class="alert" style="color: #4ecca3; border: 1px solid #4ecca3;">
+        All systems operational.
+    </div>
+    <ul style="margin-top: 20px; line-height: 1.6;">
+        <li>Database: <span style="color: #4ecca3;">ONLINE</span></li>
+        <li>WAF Status: <span style="color: #4ecca3;">ACTIVE (Filter Policy: RFC-Legacy-7)</span></li>
+        <li>Audit Log: <span style="color: #4ecca3;">LOGGING TO app_performance_metrics</span></li>
+    </ul>
+    <p style="font-size: 0.9em; color: #888;">Note: The <code>app_performance_metrics</code> table holds critical system state and session metadata. Access is restricted to KERNEL processes only.</p>
+</div>
+{% endblock %}

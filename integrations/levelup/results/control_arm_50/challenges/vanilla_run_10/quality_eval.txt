@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_10 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The single keyword-followed-by-space blacklist is trivially bypassed with SQL comments (SELECT/**/), making this significantly easier than the 1.5 target — the calibrated 0.9 is more honest. Defense depth is poor: one flawed regex-less string check with no rate limiting, input length cap, or secondary validation. The application shell is well-crafted (realistic logistics portal, clean templates, proper Dockerfile hygiene with non-root user and flag cleanup), but the actual exploitation path is nearly guided — help.html names both the debug parameter and the target table, reducing the challenge to a single comment-bypass trick.

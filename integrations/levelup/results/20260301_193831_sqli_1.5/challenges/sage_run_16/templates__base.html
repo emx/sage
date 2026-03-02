@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aetheris Logistics - Internal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        .navbar { background-color: #1a2a6c; }
+        .navbar-item, .navbar-link { color: white !important; }
+        .hero.is-primary { background-color: #b21f1f; }
+    </style>
+</head>
+<body>
+    <nav class="navbar" role="navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="/"><strong>AETHERIS</strong></a>
+            </div>
+            <div class="navbar-menu">
+                <div class="navbar-end">
+                    {% if session['user'] %}
+                    <a class="navbar-item" href="/dashboard">Dashboard</a>
+                    <a class="navbar-item" href="/shipments">Shipments</a>
+                    <a class="navbar-item" href="/stats">Stats</a>
+                    <a class="navbar-item" href="/logout">Logout ({{ session['user'] }})</a>
+                    {% else %}
+                    <a class="navbar-item" href="/login">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    <section class="section">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </section>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Manifest Details: {{ manifest.container_id }}</h2>
+    <p><strong>Origin:</strong> {{ manifest.origin }}</p>
+    <p><strong>Destination:</strong> {{ manifest.destination }}</p>
+    <p><strong>Status:</strong> {{ manifest.status }}</p>
+    <p><strong>Weight:</strong> {{ manifest.weight }} kg</p>
+    <hr>
+    <a href="/dashboard" class="btn">Back to Dashboard</a>
+</div>
+{% endblock %}

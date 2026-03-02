@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Warehouse Inventory</h1>
+<div class="card">
+    <div style="margin-bottom: 20px;">
+        <label>Filter by Category:</label>
+        <select id="category-filter" onchange="filterCategory()">
+            <option value="All">All</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Metals">Metals</option>
+        </select>
+    </div>
+    <table id="inventory-table">
+        <thead>
+            <tr>
+                <th>Item Name</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Warehouse</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+<!-- TODO: Migrate audit logic to /static/js/internal_audit_v2.js -->
+<script src="/static/js/internal_audit_v2.js"></script>
+<script>
+function filterCategory() {
+    const cat = document.getElementById('category-filter').value;
+    fetch(`/api/v1/inventory/filter?category=${cat}`)
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.querySelector('#inventory-table tbody');
+            tbody.innerHTML = '';
+            if (data.error) return;
+            data.forEach(item => {
+                const row = `<tr><td>${item.item_name}</td><td>${item.category}</td><td>${item.quantity}</td><td>${item.warehouse}</td></tr>`;
+                tbody.innerHTML += row;
+            });
+        });
+}
+filterCategory();
+</script>
+{% endblock %}

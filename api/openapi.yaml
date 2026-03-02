@@ -1,0 +1,847 @@
+openapi: 3.1.0
+info:
+  title: SAGE API
+  version: 1.0.0
+  description: >-
+    Sovereign Agent Governed Experience — REST API for memory submission,
+    validation, and query.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+# ---------------------------------------------------------------------------
+# Security — Ed25519 signature authentication via headers
+# ---------------------------------------------------------------------------
+security:
+  - ed25519Auth: []
+
+components:
+  # -----------------------------------------------------------------------
+  # Security Schemes
+  # -----------------------------------------------------------------------
+  securitySchemes:
+    ed25519Auth:
+      type: apiKey
+      in: header
+      name: X-Agent-ID
+      description: >-
+        Ed25519 authentication is conveyed through three headers sent together:
+        **X-Agent-ID** (hex-encoded public key), **X-Signature** (Ed25519
+        signature of the canonical request payload), and **X-Timestamp** (unix
+        epoch seconds). All three must be present on authenticated endpoints.
+
+  # -----------------------------------------------------------------------
+  # Parameters
+  # -----------------------------------------------------------------------
+  parameters:
+    memoryId:
+      name: memory_id
+      in: path
+      required: true
+      description: Unique memory object identifier (UUID v7).
+      schema:
+        type: string
+        format: uuid
+
+  # -----------------------------------------------------------------------
+  # Schemas
+  # -----------------------------------------------------------------------
+  schemas:
+    # -- Enums -------------------------------------------------------------
+    MemoryType:
+      type: string
+      enum:
+        - fact
+        - observation
+        - inference
+      description: Classification of the memory object.
+
+    MemoryStatus:
+      type: string
+      enum:
+        - proposed
+        - validated
+        - committed
+        - challenged
+        - deprecated
+      description: Lifecycle state of a memory object.
+
+    VoteDecisionEnum:
+      type: string
+      enum:
+        - accept
+        - reject
+        - abstain
+
+    # -- Core domain objects -----------------------------------------------
+    KnowledgeTriple:
+      type: object
+      required:
+        - subject
+        - predicate
+        - object
+      properties:
+        subject:
+          type: string
+          description: Subject entity of the triple.
+        predicate:
+          type: string
+          description: Relationship between subject and object.
+        object:
+          type: string
+          description: Object entity of the triple.
+
+    MemoryRecord:
+      type: object
+      required:
+        - memory_id
+        - submitting_agent
+        - content
+        - content_hash
+        - memory_type
+        - domain_tag
+        - confidence_score
+        - status
+        - created_at
+      properties:
+        memory_id:
+          type: string
+          format: uuid
+          description: Unique identifier (UUID v7).
+        submitting_agent:
+          type: string
+          description: Hex-encoded Ed25519 public key of the proposing agent.
+        content:
+          type: string
+          description: Natural-language memory content.
+        content_hash:
+          type: string
+          description: SHA-256 hash of content (hex-encoded).
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          description: 1536-dimensional embedding vector.
+        embedding_hash:
+          type: string
+          description: SHA-256 hash of the embedding vector (hex-encoded).
+        memory_type:
+          $ref: "#/components/schemas/MemoryType"
+        domain_tag:
+          type: string
+          description: Domain or topic tag for the memory.
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: Confidence score assigned by the proposing agent.
+        status:
+          $ref: "#/components/schemas/MemoryStatus"
+        parent_hash:
+          type: string
+          description: Hash of the parent memory (for lineage), if any.
+        knowledge_triples:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeTriple"
+          description: Extracted knowledge graph triples.
+        votes:
+          type: array
+          items:
+            type: object
+            properties:
+              voter_id:
+                type: string
+              decision:
+                $ref: "#/components/schemas/VoteDecisionEnum"
+              rationale:
+                type: string
+              voted_at:
+                type: string
+                format: date-time
+          description: Votes cast on this memory.
+        corroborations:
+          type: array
+          items:
+            type: object
+            properties:
+              agent_id:
+                type: string
+              evidence:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+          description: Corroborations supporting this memory.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the memory was proposed.
+        committed_at:
+          type: string
+          format: date-time
+          description: Timestamp when the memory reached committed status.
+
+    # -- Request bodies ----------------------------------------------------
+    MemorySubmitRequest:
+      type: object
+      required:
+        - content
+        - memory_type
+        - domain_tag
+        - confidence_score
+      properties:
+        content:
+          type: string
+          description: Natural-language memory content.
+        memory_type:
+          $ref: "#/components/schemas/MemoryType"
+        domain_tag:
+          type: string
+          description: Domain or topic tag.
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: Agent-assigned confidence (0–1).
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 1536
+          maxItems: 1536
+          description: Optional 1536-float embedding vector.
+        knowledge_triples:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeTriple"
+          description: Optional knowledge graph triples.
+        parent_hash:
+          type: string
+          description: Hash of a parent memory for lineage tracking.
+
+    MemoryQueryRequest:
+      type: object
+      required:
+        - embedding
+      properties:
+        embedding:
+          type: array
+          items:
+            type: number
+            format: float
+          minItems: 1536
+          maxItems: 1536
+          description: 1536-float query embedding for similarity search.
+        domain_tag:
+          type: string
+          description: Optional domain filter.
+        min_confidence:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: Minimum confidence threshold.
+        status_filter:
+          $ref: "#/components/schemas/MemoryStatus"
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of results to return (max 100).
+        cursor:
+          type: string
+          description: Opaque pagination cursor from a previous response.
+
+    MemoryQueryResponse:
+      type: object
+      required:
+        - results
+        - total_count
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryRecord"
+        next_cursor:
+          type: string
+          description: Cursor for the next page, absent if no more results.
+        total_count:
+          type: integer
+          description: Total number of matching memories.
+
+    VoteRequest:
+      type: object
+      required:
+        - decision
+      properties:
+        decision:
+          $ref: "#/components/schemas/VoteDecisionEnum"
+        rationale:
+          type: string
+          description: Optional rationale for the vote.
+
+    ChallengeRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          description: Reason for challenging the memory.
+        evidence:
+          type: string
+          description: Optional supporting evidence.
+
+    CorroborateRequest:
+      type: object
+      properties:
+        evidence:
+          type: string
+          description: Optional supporting evidence.
+
+    # -- Response bodies ---------------------------------------------------
+    MemorySubmitResponse:
+      type: object
+      required:
+        - memory_id
+        - tx_hash
+        - status
+      properties:
+        memory_id:
+          type: string
+          format: uuid
+        tx_hash:
+          type: string
+          description: CometBFT transaction hash (hex-encoded).
+        status:
+          $ref: "#/components/schemas/MemoryStatus"
+
+    VoteResponse:
+      type: object
+      required:
+        - message
+        - vote_id
+      properties:
+        message:
+          type: string
+        vote_id:
+          type: string
+
+    ChallengeResponse:
+      type: object
+      required:
+        - message
+        - tx_hash
+      properties:
+        message:
+          type: string
+        tx_hash:
+          type: string
+
+    CorroborateResponse:
+      type: object
+      required:
+        - message
+        - tx_hash
+      properties:
+        message:
+          type: string
+        tx_hash:
+          type: string
+
+    AgentProfile:
+      type: object
+      required:
+        - agent_id
+        - display_name
+        - domains
+        - poe_weight
+        - vote_count
+        - accuracy
+        - registered_at
+      properties:
+        agent_id:
+          type: string
+          description: Hex-encoded Ed25519 public key.
+        display_name:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+          description: Domain tags the agent has participated in.
+        poe_weight:
+          type: number
+          format: double
+          description: Current Proof-of-Experience weight.
+        vote_count:
+          type: integer
+          description: Total votes cast.
+        accuracy:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: EWMA accuracy score.
+        registered_at:
+          type: string
+          format: date-time
+
+    ValidatorScore:
+      type: object
+      required:
+        - validator_id
+        - accuracy
+        - domain_score
+        - recency_score
+        - corr_score
+        - raw_weight
+        - capped_weight
+        - normalized_weight
+      properties:
+        validator_id:
+          type: string
+        accuracy:
+          type: number
+          format: double
+        domain_score:
+          type: number
+          format: double
+        recency_score:
+          type: number
+          format: double
+        corr_score:
+          type: number
+          format: double
+        raw_weight:
+          type: number
+          format: double
+        capped_weight:
+          type: number
+          format: double
+        normalized_weight:
+          type: number
+          format: double
+
+    EpochInfo:
+      type: object
+      required:
+        - epoch_num
+        - block_height
+        - started_at
+        - scores
+      properties:
+        epoch_num:
+          type: integer
+          description: Current epoch number.
+        block_height:
+          type: integer
+          format: int64
+          description: Block height at epoch start.
+        started_at:
+          type: string
+          format: date-time
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidatorScore"
+
+    PendingMemoriesResponse:
+      type: object
+      required:
+        - memories
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryRecord"
+        next_cursor:
+          type: string
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          example: healthy
+        version:
+          type: string
+          example: 1.0.0
+
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+        - postgres
+        - cometbft
+      properties:
+        status:
+          type: string
+          example: ready
+        postgres:
+          type: boolean
+        cometbft:
+          type: boolean
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs.
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI reference identifying the problem type.
+        title:
+          type: string
+          description: Short, human-readable summary.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+        instance:
+          type: string
+          format: uri
+          description: URI reference identifying the specific occurrence.
+
+  # -----------------------------------------------------------------------
+  # Reusable responses
+  # -----------------------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Unauthorized:
+      description: Missing or invalid authentication headers.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Conflict:
+      description: Conflict (e.g. duplicate submission or already voted).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    InternalError:
+      description: Internal server error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+  # -- Memory --------------------------------------------------------------
+  /v1/memory/submit:
+    post:
+      operationId: submitMemory
+      summary: Submit a new memory for consensus validation.
+      tags:
+        - Memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemorySubmitRequest"
+      responses:
+        "201":
+          description: Memory submitted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySubmitResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/query:
+    post:
+      operationId: queryMemories
+      summary: Perform a similarity search over memories.
+      tags:
+        - Memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryQueryRequest"
+      responses:
+        "200":
+          description: Query results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryQueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/{memory_id}:
+    get:
+      operationId: getMemory
+      summary: Retrieve a single memory by ID.
+      tags:
+        - Memory
+      parameters:
+        - $ref: "#/components/parameters/memoryId"
+      responses:
+        "200":
+          description: Full memory record with votes and corroborations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryRecord"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/{memory_id}/vote:
+    post:
+      operationId: voteOnMemory
+      summary: Cast a validator vote on a proposed memory.
+      tags:
+        - Memory
+      parameters:
+        - $ref: "#/components/parameters/memoryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteRequest"
+      responses:
+        "200":
+          description: Vote recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/{memory_id}/challenge:
+    post:
+      operationId: challengeMemory
+      summary: Challenge an existing committed memory.
+      tags:
+        - Memory
+      parameters:
+        - $ref: "#/components/parameters/memoryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeRequest"
+      responses:
+        "200":
+          description: Challenge submitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/{memory_id}/corroborate:
+    post:
+      operationId: corroborateMemory
+      summary: Corroborate an existing memory with supporting evidence.
+      tags:
+        - Memory
+      parameters:
+        - $ref: "#/components/parameters/memoryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CorroborateRequest"
+      responses:
+        "200":
+          description: Corroboration recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CorroborateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # -- Agent ---------------------------------------------------------------
+  /v1/agent/me:
+    get:
+      operationId: getAgentProfile
+      summary: Retrieve the authenticated agent's profile.
+      tags:
+        - Agent
+      responses:
+        "200":
+          description: Agent profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # -- Validator -----------------------------------------------------------
+  /v1/validator/pending:
+    get:
+      operationId: getPendingMemories
+      summary: List memories awaiting validator votes.
+      tags:
+        - Validator
+      parameters:
+        - name: domain_tag
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by domain tag.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Maximum number of results.
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Opaque pagination cursor.
+      responses:
+        "200":
+          description: Pending memories.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingMemoriesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/validator/epoch:
+    get:
+      operationId: getEpochInfo
+      summary: Retrieve current epoch information and validator scores.
+      tags:
+        - Validator
+      responses:
+        "200":
+          description: Epoch info with per-validator PoE scores.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpochInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # -- Operational ---------------------------------------------------------
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Liveness probe.
+      tags:
+        - Operational
+      security: []
+      responses:
+        "200":
+          description: Service is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /ready:
+    get:
+      operationId: readinessCheck
+      summary: Readiness probe — checks PostgreSQL and CometBFT connectivity.
+      tags:
+        - Operational
+      security: []
+      responses:
+        "200":
+          description: Service is ready to accept traffic.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Service is not ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"

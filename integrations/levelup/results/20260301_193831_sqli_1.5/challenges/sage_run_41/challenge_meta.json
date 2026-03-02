@@ -1,0 +1,49 @@
+{
+  "run_number": 41,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "NebulaStream Inventory Auditor",
+  "description": "Welcome to the NebulaStream Avionics Central Hub. We've optimized our aerospace inventory system with a high-performance filtering API. As an internal auditor, your task is to verify the integrity of the system and ensure that sensitive configuration metadata remains protected from unauthorized access. The platform is running the latest version of our proprietary WAF, so it should be perfectly secure.",
+  "flag": "LEVELUP{nm20MIBCcdrKYRpvjPWYz3wWIMswOdU3}",
+  "solution": "1. Explore the application and navigate to the '/inventory' page. \n2. Observe that clicking the table headers or using the 'Dynamic Sort' buttons triggers a request to '/api/v1/inventory/filter?sort=name'.\n3. Test the 'sort' parameter for SQL injection. Notice that basic attempts like 'sort=name UNION SELECT...' are blocked by a WAF (403 Forbidden).\n4. Analyze the WAF behavior: it blocks spaces, 'UNION', '--', '/*', and common keywords. \n5. Discover a bypass: Use newline characters (%0a) instead of spaces to separate SQL tokens. \n6. Identify the injection type: It is a Boolean-based Blind SQL injection in the ORDER BY clause. If the condition is true, the items are sorted by one column (e.g., 'name'); if false, they are sorted by another (e.g., 'category').\n7. Enumerate the database schema by querying 'sqlite_master' using the bypass: `?sort=(CASE%0aWHEN%0a(SUBSTR((SELECT%0asql%0aFROM%0asqlite_master%0aLIMIT%0a1),1,1)='C')%0aTHEN%0aname%0aELSE%0acategory%0aEND)`.\n8. Locate the sensitive table 'site_config' and its columns 'config_key' and 'config_value'.\n9. Construct a final exploit to extract the flag from 'site_config' where 'config_key' is 'system_integrity_token'.",
+  "docker_image_tag": "levelup-challenge-7850afb6",
+  "narrative_context": {
+    "company_name": "NebulaStream Avionics",
+    "industry": "aerospace",
+    "scenario": "NebulaStream Avionics specializes in the logistical management of high-precision aerospace components for commercial and private jet fleets. Over the past decade, the company has expanded globally through several strategic acquisitions, resulting in a complex digital infrastructure where legacy databases are often bridged to modern web interfaces. The internal security team is currently overwhelmed with a major cloud migration project, leaving several secondary applications in a 'maintenance-only' state. \n\nTo satisfy upcoming ISO 27001 requirements, they have engaged an external auditor to perform a deep-dive assessment into their critical logistics tools. The most vital of these tools is the Flight Deck Inventory & Maintenance Portal (FDIMP). This application allows maintenance technicians at forty international hangars to locate and request specific components\u2014from minor fasteners to entire turbine assemblies. Because these parts are high-value and safety-critical, any unauthorized data access within the inventory system could lead to significant grounding of aircraft and massive financial losses.",
+    "app_name": "Flight Deck Inventory & Maintenance Portal (FDIMP)",
+    "app_purpose": "A centralized hub for tracking, searching, and requesting specialized aircraft components across multiple global warehouses.",
+    "data_theme": "aerospace parts inventory, warehouse locations, technician credentials, maintenance logs",
+    "flavor_details": {
+      "company_motto": "Precision in Every Flight, Integrity in Every Part",
+      "department": "Logistics and Fleet Operations",
+      "recent_event": "A routine internal audit flagged inconsistent query response times in the search module, raising concerns about backend data isolation and input processing.",
+      "tech_hints": [
+        "Enterprise search filter",
+        "Centralized relational data store",
+        "Dynamic component retrieval"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a classic boolean-based blind SQL injection within an ORDER BY clause. The difficulty arises from a WAF that filters spaces and keywords like 'WHERE' and 'UNION', requiring the use of alternative whitespace (such as tabs or parentheses) and subquery positioning (LIMIT/OFFSET) to extract data without the blocked keywords. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

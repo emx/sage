@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Component Inventory</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Part Name</th>
+                <th>Category</th>
+                <th>Stock</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for part in parts %}
+            <tr>
+                <td>{{ part.sku }}</td>
+                <td>{{ part.part_name }}</td>
+                <td>{{ part.category }}</td>
+                <td>{{ part.stock_level }} units</td>
+                <td><a href="/inventory/{{ part.id }}" class="btn">View Specs</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

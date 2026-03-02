@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="header-main">System Infrastructure Status</h1>
+<div class="card">
+    <h3>Health Metrics</h3>
+    <p>Status: <span class="status-badge">{{ system_status }}</span></p>
+    <p>Active Nodes: {{ nodes }}</p>
+    <p>Database Latency: 12ms</p>
+    <p>VerdantShield State: <strong>ACTIVE</strong></p>
+</div>
+{% endblock %}

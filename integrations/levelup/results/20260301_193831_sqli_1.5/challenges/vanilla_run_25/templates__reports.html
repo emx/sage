@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Custom Analytics Report</h2>
+<div class="card">
+    <p>Use the sorting feature to analyze yield trends across different metrics.</p>
+    <form method="GET">
+        <label>Sort By: </label>
+        <select name="sort" onchange="this.form.submit()">
+            <option value="crop_name" {% if current_sort == 'crop_name' %}selected{% endif %}>Crop Name</option>
+            <option value="yield" {% if current_sort == 'yield' %}selected{% endif %}>Yield</option>
+            <option value="zone" {% if current_sort == 'zone' %}selected{% endif %}>Zone</option>
+            <option value="harvest_date" {% if current_sort == 'harvest_date' %}selected{% endif %}>Harvest Date</option>
+        </select>
+    </form>
+    <table>
+        <thead>
+            <tr>
+                <th>Crop Name</th>
+                <th>Yield (Tons)</th>
+                <th>Zone</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in records %}
+            <tr>
+                <td>{{ row.crop_name }}</td>
+                <td>{{ row.yield }}</td>
+                <td>{{ row.zone }}</td>
+                <td>{{ row.harvest_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

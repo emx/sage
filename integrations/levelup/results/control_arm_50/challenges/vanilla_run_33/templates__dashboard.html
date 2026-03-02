@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Silo Analytics Dashboard</h1>
+<div class="card">
+    <h3>Ceres-Watch Telemetry: Silo-Alpha</h3>
+    <div id="status-display">
+        Checking historical logs... 
+    </div>
+    <canvas id="chart" style="width:100%; height:200px; background:#fafafa; margin-top:20px;"></canvas>
+</div>
+
+<script>
+fetch('/api/v1/silo/1/stats?period=24 hours')
+    .then(r => r.json())
+    .then(data => {
+        const display = document.getElementById('status-display');
+        if (data.length > 0) {
+            display.innerHTML = `<span class="status-badge">Active</span> Data retrieved: ${data.length} telemetry points.`;
+        } else {
+            display.innerHTML = `<span class="status-badge" style="background:#e67e22">No Data</span> No records found for the selected period.`;
+        }
+    });
+</script>
+{% endblock %}

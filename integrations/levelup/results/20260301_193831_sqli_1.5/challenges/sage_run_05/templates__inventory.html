@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Warehouse Inventory Report</h1>
+    <p>Real-time stock levels across global distribution centers.</p>
+    <table id="inventoryTable">
+        <thead>
+            <tr>
+                <th><a href="#" onclick="loadData('id')">ID</a></th>
+                <th><a href="#" onclick="loadData('item_name')">Item Name</a></th>
+                <th><a href="#" onclick="loadData('quantity')">Quantity</a></th>
+                <th><a href="#" onclick="loadData('warehouse_id')">Warehouse</a></th>
+            </tr>
+        </thead>
+        <tbody id="inventoryBody"></tbody>
+    </table>
+</div>
+<script>
+function loadData(sort) {
+    fetch(`/api/v1/inventory/report?sort=${sort}`)
+        .then(res => res.json())
+        .then(data => {
+            const body = document.getElementById('inventoryBody');
+            body.innerHTML = '';
+            data.forEach(item => {
+                body.innerHTML += `<tr>
+                    <td>${item.id}</td>
+                    <td>${item.item_name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.warehouse_id}</td>
+                </tr>`;
+            });
+        });
+}
+loadData('id');
+</script>
+{% endblock %}

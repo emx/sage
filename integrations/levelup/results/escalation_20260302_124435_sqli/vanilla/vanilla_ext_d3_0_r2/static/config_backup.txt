@@ -1,0 +1,6 @@
+# Aetheris Nexus - Internal Configuration
+# Deployment License: AETHERIS-LIC-9921-X
+# Core Signature Salt: OBSCURA_SALT_7712
+# 
+# System Mapping Schema: [system_node_mapping] -> (id, node_id, node_secret)
+# Operational Note: Diagnostic elevation requires a dynamic time-based SHA256 token (License + EpochMinute).

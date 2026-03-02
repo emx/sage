@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: cometbft
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - cometbft0:26660
+          - cometbft1:26660
+          - cometbft2:26660
+          - cometbft3:26660
+
+  - job_name: sage-abci
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - abci0:2112
+          - abci1:2112
+          - abci2:2112
+          - abci3:2112

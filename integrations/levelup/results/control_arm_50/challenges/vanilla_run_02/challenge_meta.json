@@ -1,0 +1,49 @@
+{
+  "run_number": 2,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.4,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VortexSentry Global Manifest System",
+  "description": "Welcome to the VortexSentry Global Logistics Portal. Authorized personnel only. Our system manages critical warehouse inventory and historical shipping manifests. Please log in with your corporate credentials to access the dispatch dashboard. Note: The legacy internal API is currently being phased out.",
+  "flag": "LEVELUP{EEt3GVEAxbnyLVuUAYnIiI16saDm7VP1}",
+  "solution": "1. Perform directory enumeration or check common files like /robots.txt. The robots.txt file reveals a hidden internal API path: /api/v1/vault/status.\n2. Access /api/v1/vault/status?vault_id=1 and observe the JSON response: {\"status\": \"Active\"}.\n3. Test for SQL injection: ?vault_id=1' AND '1'='1 results in 'Active', but keywords like 'AND' are stripped by a security filter. \n4. Bypass the filter by using double-keywords: ?vault_id=1' ANANDD '1'='1 (The WAF replaces 'AND' with an empty string once, resulting in 'AND').\n5. Determine the database structure. Since it is SQLite, target the 'vortex_system_meta' table found through enumeration or guessing common system table names. The flag is stored under the meta_key 'internal_access_flag'.\n6. Construct a Blind Boolean SQL injection payload: /api/v1/vault/status?vault_id=1' ANANDD (SELSELECTECT SUBSTR(meta_value,1,1) FROFROMM vortex_system_meta WHERWHEREE meta_key='internal_access_flag')='L. \n7. Automate the extraction of the flag character by character by checking if the response contains 'Active' or 'Invalid Vault ID'.",
+  "docker_image_tag": "levelup-challenge-018d9068",
+  "narrative_context": {
+    "company_name": "VortexSentry Global",
+    "industry": "logistics",
+    "scenario": "VortexSentry Global is a premier logistics firm specializing in the secure transport of high-value electronic components and aerospace hardware. Following a recent international merger, the company has been forced to consolidate several disparate tracking systems into a centralized platform. While the firm maintains a dedicated security operations center, the team is currently overwhelmed by the integration of the new partner's infrastructure, leaving many internal tools with minimal oversight during the rollout phase.\n\nThe organization relies heavily on its internal reporting and logistics engine to maintain its strict 'zero-loss' delivery guarantee. Management has expressed concern that the rapid migration of legacy data into their modern web architecture may have introduced inconsistencies in how the application handles complex queries. You have been brought in as an external security auditor to evaluate the robustness of their primary asset management interface before it becomes the backbone of their global operations.",
+    "app_name": "TrackMaster Enterprise Hub",
+    "app_purpose": "Allows dispatchers and warehouse managers to query historical shipping manifests, verify inventory levels, and generate detailed reports on high-priority transit logs.",
+    "data_theme": "shipping manifests, warehouse inventory records, transit timestamps, and client account identifiers",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Security in Every Mile.",
+      "department": "Global Operations & Distribution",
+      "recent_event": "Rapid data migration following the acquisition of a regional carrier, resulting in a complex hybrid database schema.",
+      "tech_hints": [
+        "Enterprise PostgreSQL backend",
+        "Dynamic filtering logic in the search bar",
+        "Legacy API wrappers for inventory lookup"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a boolean-based blind SQL injection on an unauthenticated endpoint found via robots.txt. The defense mechanism is a weak keyword-stripping WAF that is trivially bypassed by nesting keywords (e.g., SELSELECTECT). While blind extraction requires more effort than union-based injection, the lack of session checks on the vulnerable endpoint and the predictable table names make it a solid Medium-level challenge. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

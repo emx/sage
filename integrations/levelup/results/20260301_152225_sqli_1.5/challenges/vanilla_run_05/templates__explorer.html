@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Archive Explorer (BETA){% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Internal Archive Explorer <span style="color: #b21f1f; font-size: 0.8rem;">BETA</span></h2>
+    <p>Library Staff Tool: Advanced metadata sorting and validation.</p>
+    
+    {% if error %}
+    <div style="background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <strong>Database Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    <div style="margin-bottom: 1rem;">
+        <strong>Sort by:</strong>
+        <a href="?sort=id" style="margin-right: 10px;">ID</a>
+        <a href="?sort=title" style="margin-right: 10px;">Title</a>
+        <a href="?sort=broadcast_year" style="margin-right: 10px;">Year</a>
+        <a href="?sort=category">Category</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Year</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for clip in clips %}
+            <tr>
+                <td>{{ clip.id }}</td>
+                <td>{{ clip.title }}</td>
+                <td>{{ clip.category }}</td>
+                <td>{{ clip.broadcast_year }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

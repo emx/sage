@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Public Shipment Tracking</h2>
+    <form method="GET">
+        <input type="text" name="id" value="{{ tracking_id }}" placeholder="Enter Tracking ID" style="padding:10px; width:300px;">
+        <button type="submit" class="btn">Track</button>
+    </form>
+    {% if result %}
+    <div style="margin-top:20px; border:1px solid #ddd; padding:15px;">
+        <h3>Shipment Found</h3>
+        <p><strong>Tracking ID:</strong> {{ result.tracking_id }}</p>
+        <p><strong>Current Status:</strong> {{ result.ship_state }}</p>
+    </div>
+    {% elif tracking_id %}
+    <p style="color:red; margin-top:20px;">No shipment found with that ID.</p>
+    {% endif %}
+</div>
+{% endblock %}

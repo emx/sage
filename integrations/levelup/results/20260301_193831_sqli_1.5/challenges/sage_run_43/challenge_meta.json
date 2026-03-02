@@ -1,0 +1,52 @@
+{
+  "run_number": 43,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.4,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Aetheris Logistics: The Telemetry Leak",
+  "description": "Welcome to the Aetheris Logistics Internal Portal. Your objective is to audit the system and retrieve the emergency backup key stored within the system's integrity configuration. The developers claim they have implemented a robust WAF to block common a security vulnerability keywords. Prove them wrong.",
+  "flag": "LEVELUP{ANDJdYuZa16NUQlU8OHCVweMTniSZ8rI}",
+  "solution": "1. Explore the application to find the /manifests and /fleet pages. 2. Inspect the network traffic or source code (dashboard.js reference) to discover the hidden API endpoint: /api/v1/telemetry. 3. Test the 'device_id' parameter in /api/v1/telemetry?device_id=1. 4. Observe that the API filters keywords like 'SELECT ', 'UNION ', 'FROM ', and 'WHERE ' (with trailing spaces). 5. Bypass the filter by using SQL comments (/**/) instead of spaces. 6. Since the API only returns a boolean 'status' or specific row data, use a Boolean-based Blind SQL injection. 7. Craft a payload to check the existence of tables and then extract the 'config_value' from the 'system_integrity' table where 'config_key' is 'emergency_backup_key'. Example payload: /api/v1/telemetry?device_id=1/**/AND/**/(unicode(substr((SELECT/**/config_value/**/FROM/**/system_integrity/**/WHERE/**/config_key='emergency_backup_key'),1,1))>64). 8. Script the extraction to retrieve the full flag.",
+  "docker_image_tag": "levelup-challenge-a2afdf4e",
+  "narrative_context": {
+    "company_name": "Aetheris Logistics Solutions",
+    "industry": "logistics",
+    "scenario": "Aetheris Logistics Solutions recently completed a multi-billion dollar acquisition of a regional competitor, expanding their fleet across three continents. As part of the digital consolidation project, their IT department is tasked with migrating thousands of legacy shipping records into a unified visibility platform. While the core API is modern, the internal tools used by the warehouse dispatchers are still running on an older, hybridized infrastructure that bridges the gap between the new cloud storage and legacy on-premise databases.\n\nThe global security operations center (GSOC) at Aetheris is currently overwhelmed by the integration of two disparate network architectures. This has resulted in a significant delay in performing deep-dive security assessments on internal middleware. The leadership is concerned that the speed of the migration has prioritized availability over rigorous input sanitization, particularly in systems that handle the high-volume search queries required for daily operations.",
+    "app_name": "RouteMaster Inventory & Tracking Portal",
+    "app_purpose": "An internal dashboard used by logistics coordinators to search, filter, and audit historical shipping manifests and current fleet asset locations.",
+    "data_theme": "shipping manifests, driver credentials, vehicle maintenance logs, and high-value cargo itemized lists",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Safety in Scale.",
+      "department": "Operations & Fulfillment",
+      "recent_event": "A discrepancy in the inventory of a high-security pharmaceutical shipment was reported, but the digital trail in the portal remains suspiciously clean.",
+      "tech_hints": [
+        "Relational data mapping",
+        "Legacy query orchestration",
+        "Enterprise-grade database engine"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a multi-layered defense including a custom header requirement, a keyword/comment blacklist, and a whitespace filter. However, the use of an unquoted integer in the SQL query and the failure to block newline characters (%0a) as a whitespace alternative makes the bypass straightforward for anyone familiar with basic WAF evasion. The transition to a blind boolean-based attack is required due to the keyword filter and response masking, but this is a standard exploitation pat (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

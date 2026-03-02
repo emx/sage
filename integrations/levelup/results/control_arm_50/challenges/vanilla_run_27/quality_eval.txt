@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_27 (VANILLA)
+==================================================
+Overall: 5.0/10
+
+  difficulty_accuracy      :  6.0/10  ######
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: Solid production-realistic Flask app with proper structure, template inheritance, and a plausible logistics theme, but the defense layer is a single case-insensitive keyword blacklist with obvious gaps (CASE, AND, SUBSTR all unblocked), which is thin for a mid-range challenge. The boolean-based blind ORDER BY injection is a modest twist on standard SQLi but sqlmap with minimal tuning would likely solve it, and the guest credentials are handed to the player on the login page, reducing the overall exploit chain depth.

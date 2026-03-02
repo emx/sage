@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h1>Internal API Documentation</h1>
+    <p>Internal developers should use the following endpoints for integration.</p>
+    
+    <h3>GET /api/v1/shipments</h3>
+    <ul>
+        <li><strong>Description:</strong> Retrieve a list of active shipments.</li>
+        <li><strong>Parameters:</strong>
+            <ul>
+                <li><code>sort</code>: Sort by column (requires <code>X-FMS-Debug</code> header for advanced usage)</li>
+            </ul>
+        </li>
+        <li><strong>Headers:</strong>
+            <ul>
+                <li><code>X-FMS-Debug</code>: Set to <code>1</code> to enable extended sorting and system diagnostics.</li>
+            </ul>
+        </li>
+    </ul>
+    <div style="background: #fff3cd; padding: 1rem; border: 1px solid #ffeeba;">
+        <strong>Security Note:</strong> All API parameters are scanned by the VeloNexus Security Middleware. Standard SQL keywords and whitespace characters are strictly prohibited.
+    </div>
+</div>
+{% endblock %}

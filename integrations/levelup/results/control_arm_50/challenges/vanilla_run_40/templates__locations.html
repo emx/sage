@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Warehouses{% endblock %}
+{% block content %}
+<h1>Global Storage Facilities</h1>
+{% for warehouse in warehouses %}
+<div class="card">
+    <h3>{{ warehouse.name }}</h3>
+    <p>Location: {{ warehouse.location }}</p>
+    <p>Security Level: {{ warehouse.security_level }}</p>
+</div>
+{% endfor %}
+{% endblock %}

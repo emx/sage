@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_07 (VANILLA)
+==================================================
+Overall: 7.0/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: Well-constructed padding oracle challenge with a genuine twist: the code implements a timing-based side channel (60ms delay on valid padding) with unified error responses, yet the description incorrectly claims two distinct error codes — the actual implementation is harder than advertised. ISO 7816-4 padding instead of PKCS#7, XOR-masked CRC32 checksums, and artificial jitter add meaningful layers, though the core attack remains a standard padding oracle once the timing oracle is identified. Excellent flag isolation with build-time encryption and file removal.

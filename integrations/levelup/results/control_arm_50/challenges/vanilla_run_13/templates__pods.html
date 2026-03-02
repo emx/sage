@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Cargo Pods{% endblock %}
+{% block content %}
+<h2>Active Fleet</h2>
+<div class="row">
+    {% for pod in pods %}
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">{{ pod.pod_serial }}</h5>
+                <p class="card-text">Cargo: {{ pod.cargo_type }}<br>Origin: {{ pod.origin }}</p>
+                <a href="/pod/{{ pod.id }}" class="btn btn-sm btn-outline-primary">View Pod Details</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

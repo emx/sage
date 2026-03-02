@@ -1,0 +1,49 @@
+{
+  "run_number": 39,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Aetheron Nexus: Mission Critical Telemetry",
+  "description": "Welcome to the Aetheron Nexus platform. As a Lead Mission Engineer, you have access to the telemetry logs and hardware inventory of our active satellite constellations. We've recently migrated our sensor processing engine, but some legacy sensors still require the old synchronization protocols. Ensure you check the 'Legacy Hardware' section for the latest calibration data.",
+  "flag": "LEVELUP{BQaPHYEnjj_3VaQFZLjH58IYaLccAKh7}",
+  "solution": "1. Access the application and log in using the credentials 'engineer:aetheron2024' (hinted at or found via basic enumeration).\n2. Navigate to the 'Inventory' page. Observe the URL contains '/inventory'.\n3. Inspect the network requests or page source to find a hidden link or comment referencing '/api/v1/telemetry/sync?legacy=true'.\n4. Accessing '/api/v1/telemetry/sync?legacy=true' returns a JSON error: 'Missing X-Legacy-Sensor-ID header'.\n5. Adding the header 'X-Legacy-Sensor-ID: 1' returns a 'Sync Successful' message.\n6. Test for SQL injection in the 'X-Legacy-Sensor-ID' header. Using '1'' causes a 500 error, while '1' returns 200.\n7. The application filters 'UNION', 'OR', 'AND', and '--'. Bypass these by using boolean-based logic with 'CASE' or 'instr' that doesn't rely on the blacklisted keywords.\n8. Construct a blind boolean payload: '1 AND (SELECT 1 FROM internal_assets WHERE substr(content,1,1)=\"L\")' - but since AND/OR are blocked, use: '1 INTERSECT SELECT 1 FROM internal_assets WHERE substr(content,1,1)=\"L\"'. Alternatively, use a conditional 'ORDER BY' or 'CASE' inside the query if the backend logic allows.\n9. Script a solution to iterate through characters to extract the 'content' column from the 'internal_assets' table where asset_tag is 'MISSION_FLAG'.",
+  "docker_image_tag": "levelup-challenge-4b2bc298",
+  "narrative_context": {
+    "company_name": "Aetheron Aerospace",
+    "industry": "aerospace",
+    "scenario": "Aetheron Aerospace, a mid-sized contractor specializing in orbital satellite maintenance, recently consolidated its disparate telemetry archives into a centralized web-accessible platform. This was part of a major initiative to allow remote engineers to query historical launch data and hardware performance metrics from mission control centers worldwide. While the company prides itself on its engineering rigor, the rapid digital transformation was managed by a third-party vendor whose contract recently expired. \n\nFollowing a minor configuration leak reported by an automated scanner, the internal security team\u2014currently overwhelmed by a satellite fleet migration\u2014has flagged the telemetry portal for a deep-dive assessment. They suspect that the complex query logic used to filter through millions of sensor logs might not be as robust as the flight hardware it monitors. As an external auditor, you have been tasked with ensuring no unauthorized data can be extracted through the search interfaces.",
+    "app_name": "Chronos-7 Telemetry Archive",
+    "app_purpose": "Allows engineers to search and retrieve historical sensor data, component serial numbers, and mission-specific log files.",
+    "data_theme": "Satellite telemetry logs, orbital coordinates, hardware component specs, and mission timestamps.",
+    "flavor_details": {
+      "company_motto": "Securing the Stars for Tomorrow",
+      "department": "Aeronautics Information Systems (AIS)",
+      "recent_event": "A routine automated scan flagged 'unusual query syntax' in the application logs, prompting an immediate external audit.",
+      "tech_hints": [
+        "Dynamic SQL query generation",
+        "JSON-based search parameters",
+        "Relational database backend"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a classic Boolean-based blind SQL injection in a non-standard injection point (HTTP Header). While the WAF blocks common keywords like UNION and OR/AND, it is easily bypassed in SQLite using mathematical operators (e.g., '*' or '+') or CASE statements to perform logical checks. The discovery phase is simplified by clear error messages indicating the required header and parameter, but the lack of UNION forces a more tedious blind extraction of the 'internal_assets' table. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

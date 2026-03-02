@@ -1,0 +1,50 @@
+{
+  "run_number": 17,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.35,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Aetheria Freight Manifest System",
+  "description": "Welcome to the Aetheria Freight Solutions CMM portal. We've modernized our manifest tracking to provide real-time updates to our global carriers. Log in to manage your vessel manifests and review cargo schedules. Safety and integrity are our priorities.\n\nNote: If you are a new carrier partner, please consult the onboarding documentation provided in your terminal bundle.",
+  "flag": "LEVELUP{7kosVeoLYCWqxUOu_x21d533AUJXOirT}",
+  "solution": "1. **Discovery**: Navigate to the home page and inspect the source or linked assets. Find a comment in `/static/js/app.js` (referenced in base.html) or an HTML comment in the login page hinting at 'Guest Access' credentials for system auditing: `guest:guest_aetheria_2024`.\n2. **Authentication**: Log in to the carrier dashboard using the discovered credentials.\n3. **Enumeration**: Navigate to the 'Vessel Manifests' section (`/manifests`). Observe that clicking on table headers (Vessel, Origin, Status) appends a `sort` parameter to the URL: `/manifests?sort=vessel_name`.\n4. **Identification**: Test for SQL injection in the `sort` parameter. A payload like `sort=vessel_name, (SELECT 1)` might trigger a WAF error. \n5. **Bypass**: The WAF blocks spaces, `UNION`, `OR`, `AND`, and comments (`--`, `/*`). Bypass the space restriction by using URL-encoded tabs (`%09`).\n6. **Extraction**: Use a Boolean-blind injection technique within an `ORDER BY` clause using `CASE` statements. Since `OR` and `AND` are blocked, use nested `CASE` or numeric comparisons.\n7. **Payload Example**: `?sort=(CASE%09WHEN(SUBSTR((SELECT%09config_value%09FROM%09internal_routing_config%09LIMIT%091),1,1)='L')THEN%09id%09ELSE%09vessel_name%09END)`. If the first letter is 'L', the table sorts by `id`; otherwise, it sorts by `vessel_name`. \n8. **Full Scripting**: Automate the extraction to retrieve the flag from the `internal_routing_config` table where `config_key` is 'emergency_override_secret'.",
+  "docker_image_tag": "levelup-challenge-21aca75a",
+  "narrative_context": {
+    "company_name": "Aetheria Freight Solutions",
+    "industry": "logistics",
+    "scenario": "Aetheria Freight Solutions has recently expanded its global footprint by acquiring several regional logistics firms across Southeast Asia and Eastern Europe. To unify their operations, they launched the 'Global Waypoint Hub,' a centralized platform intended to provide real-time visibility into the movement of freight across sea, air, and land. While the platform utilizes a modern containerized architecture, it relies on a complex network of legacy relational databases inherited from the acquired companies, many of which were integrated in a high-pressure timeframe to meet quarterly performance targets.\n\nThe internal security team is currently preoccupied with a high-priority cloud migration for the company's financial processing wing, leaving the Global Waypoint Hub's search and reporting modules with minimal security review. You have been brought in as an external security auditor to evaluate the robustness of the data retrieval mechanisms within this portal, specifically focusing on how the application handles requests for sensitive cargo manifests and shipping logs.",
+    "app_name": "Global Waypoint Hub",
+    "app_purpose": "Centralized tracking and management of international freight manifests and carrier schedules.",
+    "data_theme": "shipping manifests, cargo contents, port-of-entry records, and carrier personnel IDs",
+    "flavor_details": {
+      "company_motto": "Bridging the Horizon, One Crate at a Time.",
+      "department": "Global Operations & Logistics",
+      "recent_event": "Post-merger database integration completed ahead of schedule by the 'Skyward Couriers' transition team.",
+      "tech_hints": [
+        "Modern React frontend",
+        "Express.js middleware",
+        "Legacy SQL-based record storage",
+        "Dynamic query generation for complex filtering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires bypassing a blacklist-based WAF that blocks spaces and common SQL keywords like UNION, OR, and AND using alternative characters like tabs (%09). Exploitation requires a blind SQL injection approach within an ORDER BY clause, necessitating a script to observe row ordering to exfiltrate data from a hidden table. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

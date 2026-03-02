@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_43",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 4,
+  "code_quality": 7,
+  "creativity": 5,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 5,
+  "overall": 5.5,
+  "reasoning": "ORDER BY injection in an internal API discovered via HTML comments. The word-boundary regex WAF explicitly allows CASE/WHEN \u2014 the intended bypass path. The secure parameterized search on the public endpoint is a nice red herring. Clean aerospace parts catalog."
+}

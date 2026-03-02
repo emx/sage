@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Telemetry Logs</h2>
+    <p>Sorting by: <code>{{ current_sort }}</code></p>
+    <div style="margin-bottom: 10px;">
+        <a href="/portal/telemetry?sort=c2hpcG1lbnRfaWQ=" class="btn">Sort by ID</a>
+        <a href="/portal/telemetry?sort=dGltZXN0YW1w" class="btn">Sort by Time</a>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Shipment ID</th>
+                <th>Sensor</th>
+                <th>Reading</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.shipment_id }}</td>
+                <td>{{ log.sensor_type }}</td>
+                <td>{{ log.reading }}</td>
+                <td>{{ log.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

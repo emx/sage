@@ -1,0 +1,237 @@
+package rest
+
+import (
+	"context"
+	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
+	"github.com/rs/zerolog"
+
+	"github.com/l33tdawg/sage/api/rest/middleware"
+	"github.com/l33tdawg/sage/internal/embedding"
+	"github.com/l33tdawg/sage/internal/metrics"
+	"github.com/l33tdawg/sage/internal/store"
+	"github.com/l33tdawg/sage/internal/tx"
+)
+
+// Server is the SAGE REST API server.
+type Server struct {
+	router      chi.Router
+	cometbftRPC string
+	store       store.MemoryStore
+	scoreStore  store.ValidatorScoreStore
+	badgerStore *store.BadgerStore       // On-chain state for access control
+	accessStore store.AccessStore        // PostgreSQL access control queries
+	orgStore    store.OrgStore           // Organization and federation queries
+	health      *metrics.HealthChecker
+	logger      zerolog.Logger
+	httpServer  *http.Server
+	signingKey  ed25519.PrivateKey      // Node-level key for signing on-chain txs
+	embedder    *embedding.Client       // Local Ollama embedding client
+}
+
+// NewServer creates a new REST API server.
+// It loads the node's signing key from VALIDATOR_KEY_FILE env var (CometBFT priv_validator_key.json format)
+// so that vote transactions are signed by the same identity as the CometBFT validator.
+// Falls back to a random key if the env var is not set.
+func NewServer(cometbftRPC string, memStore store.MemoryStore, scoreStore store.ValidatorScoreStore, badgerStore *store.BadgerStore, health *metrics.HealthChecker, logger zerolog.Logger) *Server {
+	signingKey := loadValidatorSigningKey(logger)
+	embedder := embedding.NewClient("", "") // Reads OLLAMA_URL from env
+	logger.Info().Str("ollama_url", os.Getenv("OLLAMA_URL")).Msg("initialized Ollama embedding client")
+
+	// Type-assert memStore to AccessStore if possible (PostgresStore implements both)
+	var accessStore store.AccessStore
+	if as, ok := memStore.(store.AccessStore); ok {
+		accessStore = as
+	}
+
+	// Type-assert memStore to OrgStore if possible (PostgresStore implements all three)
+	var orgStore store.OrgStore
+	if os, ok := memStore.(store.OrgStore); ok {
+		orgStore = os
+	}
+
+	s := &Server{
+		cometbftRPC: cometbftRPC,
+		store:       memStore,
+		scoreStore:  scoreStore,
+		badgerStore: badgerStore,
+		accessStore: accessStore,
+		orgStore:    orgStore,
+		health:      health,
+		logger:      logger,
+		signingKey:  signingKey,
+		embedder:    embedder,
+	}
+	s.router = s.setupRouter()
+	return s
+}
+
+// loadValidatorSigningKey loads the CometBFT validator private key so that
+// vote transactions are signed by the same identity in the validator set.
+// This is critical for quorum: checkAndApplyQuorum matches votes by validator ID.
+func loadValidatorSigningKey(logger zerolog.Logger) ed25519.PrivateKey {
+	keyFile := os.Getenv("VALIDATOR_KEY_FILE")
+	if keyFile == "" {
+		logger.Warn().Msg("VALIDATOR_KEY_FILE not set — generating random signing key (quorum will not work)")
+		_, sk, _ := ed25519.GenerateKey(nil)
+		return sk
+	}
+
+	data, err := os.ReadFile(keyFile)
+	if err != nil {
+		logger.Error().Err(err).Str("file", keyFile).Msg("failed to read validator key file — using random key")
+		_, sk, _ := ed25519.GenerateKey(nil)
+		return sk
+	}
+
+	// CometBFT priv_validator_key.json format:
+	// { "priv_key": { "type": "tendermint/PrivKeyEd25519", "value": "<base64 of 64-byte ed25519 key>" } }
+	var keyDoc struct {
+		PrivKey struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+		} `json:"priv_key"`
+	}
+	if err := json.Unmarshal(data, &keyDoc); err != nil {
+		logger.Error().Err(err).Msg("failed to parse validator key JSON — using random key")
+		_, sk, _ := ed25519.GenerateKey(nil)
+		return sk
+	}
+
+	keyBytes, err := base64.StdEncoding.DecodeString(keyDoc.PrivKey.Value)
+	if err != nil || len(keyBytes) != ed25519.PrivateKeySize {
+		logger.Error().Err(err).Int("key_len", len(keyBytes)).Msg("invalid validator key — using random key")
+		_, sk, _ := ed25519.GenerateKey(nil)
+		return sk
+	}
+
+	sk := ed25519.PrivateKey(keyBytes)
+	pubHex := fmt.Sprintf("%x", sk.Public().(ed25519.PublicKey))
+	logger.Info().Str("validator_id", pubHex[:16]+"...").Msg("loaded CometBFT validator signing key")
+	return sk
+}
+
+// setupRouter configures the chi router with middleware and routes.
+func (s *Server) setupRouter() chi.Router {
+	r := chi.NewRouter()
+
+	// Global middleware
+	r.Use(middleware.RequestLogger)
+	r.Use(middleware.RateLimitMiddleware())
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "X-Agent-ID", "X-Signature", "X-Timestamp"},
+		ExposedHeaders:   []string{"X-Request-ID"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
+
+	// Public endpoints (no auth)
+	r.Get("/health", s.health.HealthHandler)
+	r.Get("/ready", s.health.ReadinessHandler)
+
+	// Authenticated API routes
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Ed25519AuthMiddleware)
+
+		// Memory endpoints
+		r.Post("/v1/memory/submit", s.handleSubmitMemory)
+		r.Post("/v1/memory/query", s.handleQueryMemory)
+		r.Get("/v1/memory/{memory_id}", s.handleGetMemory)
+		r.Post("/v1/memory/{memory_id}/vote", s.handleVoteMemory)
+		r.Post("/v1/memory/{memory_id}/challenge", s.handleChallengeMemory)
+		r.Post("/v1/memory/{memory_id}/corroborate", s.handleCorroborateMemory)
+
+		// Agent endpoints
+		r.Get("/v1/agent/me", s.handleGetAgent)
+
+		// Validator endpoints
+		r.Get("/v1/validator/pending", s.handleGetPending)
+		r.Get("/v1/validator/epoch", s.handleGetEpoch)
+
+		// Embedding endpoint (local Ollama, no cloud)
+		r.Post("/v1/embed", s.handleEmbed)
+
+		// Access control endpoints
+		r.Post("/v1/access/request", s.handleAccessRequest)
+		r.Post("/v1/access/grant", s.handleAccessGrant)
+		r.Post("/v1/access/revoke", s.handleAccessRevoke)
+		r.Get("/v1/access/grants/{agent_id}", s.handleListGrants)
+		r.Post("/v1/domain/register", s.handleDomainRegister)
+		r.Get("/v1/domain/{name}", s.handleGetDomain)
+
+		// Organization endpoints
+		r.Post("/v1/org/register", s.handleOrgRegister)
+		r.Get("/v1/org/{org_id}", s.handleGetOrg)
+		r.Get("/v1/org/{org_id}/members", s.handleListOrgMembers)
+		r.Post("/v1/org/{org_id}/member", s.handleOrgAddMember)
+		r.Delete("/v1/org/{org_id}/member/{agent_id}", s.handleOrgRemoveMember)
+		r.Post("/v1/org/{org_id}/clearance", s.handleOrgSetClearance)
+
+		// Federation endpoints
+		r.Post("/v1/federation/propose", s.handleFederationPropose)
+		r.Post("/v1/federation/{fed_id}/approve", s.handleFederationApprove)
+		r.Post("/v1/federation/{fed_id}/revoke", s.handleFederationRevoke)
+		r.Get("/v1/federation/{fed_id}", s.handleGetFederation)
+		r.Get("/v1/federation/active/{org_id}", s.handleListFederations)
+
+		// Department endpoints
+		r.Post("/v1/org/{org_id}/dept", s.handleDeptRegister)
+		r.Get("/v1/org/{org_id}/dept/{dept_id}", s.handleGetDept)
+		r.Get("/v1/org/{org_id}/depts", s.handleListOrgDepts)
+		r.Post("/v1/org/{org_id}/dept/{dept_id}/member", s.handleDeptAddMember)
+		r.Delete("/v1/org/{org_id}/dept/{dept_id}/member/{agent_id}", s.handleDeptRemoveMember)
+		r.Get("/v1/org/{org_id}/dept/{dept_id}/members", s.handleListDeptMembers)
+	})
+
+	return r
+}
+
+// embedAgentAuth copies the authenticated agent's cryptographic proof from the
+// request context into the ParsedTx. This allows ABCI to independently verify
+// the agent's identity on-chain — no trust in REST payload fields needed.
+func embedAgentAuth(ctx context.Context, ptx *tx.ParsedTx) {
+	proof := middleware.ContextAgentAuth(ctx)
+	if proof == nil {
+		return
+	}
+	ptx.AgentPubKey = proof.PubKey
+	ptx.AgentSig = proof.Signature
+	ptx.AgentTimestamp = proof.Timestamp
+	ptx.AgentBodyHash = proof.BodyHash
+}
+
+// Router returns the underlying chi router for testing.
+func (s *Server) Router() chi.Router {
+	return s.router
+}
+
+// Start begins listening on the given address.
+func (s *Server) Start(addr string) error {
+	s.httpServer = &http.Server{
+		Addr:         addr,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	s.logger.Info().Str("addr", addr).Msg("starting REST API server")
+	return s.httpServer.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the server.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer != nil {
+		return s.httpServer.Shutdown(ctx)
+	}
+	return nil
+}

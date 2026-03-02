@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Component Inventory</h2>
+<table>
+    <thead><tr><th>Serial</th><th>Component Name</th><th>Manufacturer</th><th>Weight (kg)</th></tr></thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.serial_no }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.manufacturer }}</td>
+            <td>{{ item.weight }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

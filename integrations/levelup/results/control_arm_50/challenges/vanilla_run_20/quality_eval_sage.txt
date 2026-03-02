@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_20 (SAGE)
+==================================================
+Overall: 6.0/10
+
+  difficulty_accuracy      :  6.0/10  ######
+  defense_depth            :  4.0/10  ####
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Multi-step exploit chain (HTML comment discovery → cookie spoofing → ORDER BY blind injection via CASE WHEN) elevates this above single-trick challenges and roughly matches the 1.5 difficulty target. However, the WAF remains a single-layer keyword blacklist — albeit broader than most seen at this tier — leaving defense_depth weak per SAGE norms. The logistics theme, realistic multi-page app with parameterized queries on non-vulnerable endpoints, and proper Dockerfile hygiene (flag cleanup, non-root user) show solid production quality, but the core defense mechanism needed another orthogonal layer (rate limiting, input length restriction, or allowlist validation) to score above average on depth.

@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_06 (SAGE)
+==================================================
+Overall: 7.6/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  8.0/10  ########
+  creativity               :  8.0/10  ########
+  realism                  :  7.0/10  #######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  8.0/10  ########
+
+Reasoning: A well-constructed CBC padding oracle with three genuine defense layers: IV-dependent XOR-masked custom padding (not standard PKCS#7), nibble-swapped CRC32 integrity verification, and notably subtle oracle differentiation via JSON key ordering and trace ID casing rather than HTTP status codes. The attacker must reverse-engineer the custom padding scheme, identify a non-obvious oracle signal, and implement a modified padding oracle accounting for the dynamic mask — a meaningful multi-step attack chain. Flag isolation is excellent with build-time encryption, file deletion, and privilege dropping.

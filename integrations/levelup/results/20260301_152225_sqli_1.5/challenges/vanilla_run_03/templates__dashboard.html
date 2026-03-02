@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, {{ session.username }}</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Shipment Statistics</h3>
+        <p>Total Managed: <b>{{ stats.total }}</b></p>
+        <p>Active In-Transit: <b>{{ stats.active }}</b></p>
+    </div>
+    <div class="card">
+        <h3>System Health</h3>
+        <p>Database: <span style="color: green;">Online</span></p>
+        <p>API Status: <span style="color: green;">Operational</span></p>
+    </div>
+</div>
+{% endblock %}

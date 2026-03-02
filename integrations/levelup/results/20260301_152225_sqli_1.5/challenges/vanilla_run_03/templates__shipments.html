@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Active Shipments</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Tracking #</th><th>Origin</th><th>Destination</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.tracking_number }}</td>
+                <td>{{ item.origin }}</td>
+                <td>{{ item.destination }}</td>
+                <td>{{ item.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,2 @@
+# Ignore dry-run results (not real data)
+*_DRYRUN/

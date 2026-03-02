@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Harvest Yield Records</h2>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Crop Name</th>
+                <th>Yield (Tons)</th>
+                <th>Zone</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in records %}
+            <tr>
+                <td>{{ row.crop_name }}</td>
+                <td>{{ row.yield }}</td>
+                <td>{{ row.zone }}</td>
+                <td>{{ row.harvest_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Our Global Portfolio</h2>
+<div style="margin-bottom: 20px;">
+    <input type="text" id="searchBox" placeholder="Filter by location...">
+    <select id="sortOrder">
+        <option value="name">Name (A-Z)</option>
+        <option value="price">Price (Low-High)</option>
+    </select>
+    <button onclick="search()">Refresh</button>
+</div>
+<div id="estateList">
+    {% for estate in estates %}
+    <div class="card">
+        <h3>{{ estate.name }}</h3>
+        <p>{{ estate.location }} | From ${{ estate.price }}/night</p>
+        <a href="/estates/{{ estate.id }}" style="color: #d4af37;">View Details</a>
+    </div>
+    {% endfor %}
+</div>
+<script>
+function search() {
+    const filter = document.getElementById('searchBox').value;
+    const sort = document.getElementById('sortOrder').value;
+    fetch('/api/v1/estates/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filter, sort })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const container = document.getElementById('estateList');
+        container.innerHTML = '';
+        data.forEach(e => {
+            container.innerHTML += `<div class="card"><h3>${e.name}</h3><p>${e.location} | From $${e.price}/night</p><a href="/estates/${e.id}" style="color: #d4af37;">View Details</a></div>`;
+        });
+    });
+}
+</script>
+{% endblock %}

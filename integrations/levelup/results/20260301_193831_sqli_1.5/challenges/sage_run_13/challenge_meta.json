@@ -1,0 +1,50 @@
+{
+  "run_number": 13,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.95,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Vertex-Kestrel Aerospace: Propulsion Tracking Portal",
+  "description": "Welcome to the Vertex-Kestrel Propulsion Portal. As a logistics manager, you have been granted access to monitor the deployment of our Tier-1 propulsion units. Our system ensures that every serial number is accounted for and every maintenance cycle is logged. Explore the dashboard, review the unit inventory, and ensure that our global facilities are operating at peak efficiency. Note: Some advanced diagnostic tools are restricted to senior staff and accessible only via our internal API documentation.",
+  "flag": "LEVELUP{L7Ij4XzhVyjCV6CNAYg5iWHKhRd9f7mI}",
+  "solution": "1. Login to the application using the guest credentials provided on the login page (guest/guest1234).\n2. Navigate to the '/dashboard' and notice the 'API Documentation' link in the footer, or find references to `/api/v1/logistics/search` in the site's JavaScript.\n3. Access `/docs/api` to understand the structure of the logistics search API. It expects a POST request with a JSON body containing 'facility_id'.\n4. Test the API with a standard request: `curl -X POST -H 'Content-Type: application/json' -d '{\"facility_id\": \"FAC-01\"}' http://localhost:5000/api/v1/logistics/search`.\n5. Attempt a simple SQL injection: `{\"facility_id\": \"' OR 1=1 --\"}`. Observe a 403 Security Violation error. This indicates a WAF is active.\n6. Enumerate the WAF: Keywords like 'SELECT', 'UNION', 'OR', 'AND' are blocked. However, testing shows the WAF only inspects the first 100 characters of the raw request body.\n7. Bypass the WAF by padding the JSON object with a large dummy field: `{\"junk\": \"[100+ characters]\", \"facility_id\": \"' OR 1=1 --\"}`. This pushes the SQL payload past the WAF's inspection zone.\n8. Since the API returns specific unit data, use Boolean-based Blind SQLi to extract data from the database. The flag is stored in the `vault_metadata` table under the key `maintenance_access_key`.\n9. Use a script to iterate through the flag characters using payloads like: `{\"padding\":\"...\", \"facility_id\": \"FAC-01' AND (SELECT SUBSTR(config_value,1,1) FROM vault_metadata WHERE config_name='maintenance_access_key')='L\"}`.\n10. Reconstruct the full flag: LEVELUP{L7Ij4XzhVyjCV6CNAYg5iWHKhRd9f7mI}.",
+  "docker_image_tag": "levelup-challenge-4b19be25",
+  "narrative_context": {
+    "company_name": "Vertex-Kestrel Aerospace",
+    "industry": "aerospace",
+    "scenario": "Vertex-Kestrel Aerospace has recently expanded its operations into the unmanned aerial vehicle (UAV) sector following a high-profile acquisition of a regional satellite firm. To streamline global operations, the engineering team has launched a centralized portal to manage the distribution of specialized propulsion components and maintenance logs across their assembly hubs. While the company maintains a robust primary security infrastructure, the rapid integration of legacy assets from the acquisition has created a fragmented digital landscape.\n\nThe internal security operations center (SOC) is currently overwhelmed by a multi-region cloud migration project, leaving the newly deployed logistics portal with minimal oversight. There are growing concerns among the senior architects that the rushed development schedule, meant to meet aggressive quarterly production targets, might have resulted in bypassed code review protocols for the portal's search and filtering engines.",
+    "app_name": "FlightPath Logistical Interface (FLI)",
+    "app_purpose": "Allows logistics managers and authorized technicians to search for specific component availability, view maintenance history, and track high-altitude drone propulsion units across global facilities.",
+    "data_theme": "Propulsion unit serial numbers, alloy specifications, technician clearance levels, and shipment tracking codes",
+    "flavor_details": {
+      "company_motto": "Precision in every orbit.",
+      "department": "Supply Chain & Avionics",
+      "recent_event": "An internal whistleblower reported that legacy database connectors used during the merger were integrated into the new web front-end without proper sanitization audits.",
+      "tech_hints": [
+        "Node.js backend",
+        "Dynamic filtering system",
+        "Relational data mapping",
+        "Legacy inventory API integration"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a textbook SQL injection vulnerability mitigated only by a flawed WAF that inspects the first 100 characters of the request body. Exploitation simply requires authenticating (credentials provided in source) and padding the JSON payload with garbage keys to push the 'UNION SELECT' keywords past the inspection zone. This is a single-bypass, 3-step chain that falls squarely into the Medium category. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

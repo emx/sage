@@ -1,0 +1,50 @@
+{
+  "run_number": 2,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Veridian Kelp & Mariculture Archive",
+  "description": "Welcome to the Veridian Kelp & Mariculture Internal Data Portal. You have been granted access to the harvest history and vessel tracking system. Explore our regional oceanic metrics and telemetry logs. Note: Some advanced reporting features are currently under maintenance, but the telemetry API remains active for historical analysis.",
+  "flag": "LEVELUP{naobiUUyRFc9fhWtOVmZuMQSx1cPkvWw}",
+  "solution": "1. Explore the application and identify the `/api/v1/harvest/history` endpoint used on the Harvests page.\n2. Observe that the endpoint accepts a 'sort' parameter: `/api/v1/harvest/history?sort=harvest_date`.\n3. Test for SQL injection in the 'sort' parameter. Standard `ORDER BY` injection works, but a WAF is in place.\n4. The WAF blocks spaces, 'OR', 'AND', and '--'. Bypass spaces using comments `/**/` and logical operators using `||` or `&&` (though not needed for ORDER BY).\n5. Use a CASE statement for boolean inference: `sort=(CASE/**/WHEN/**/(1=1)/**/THEN/**/harvest_date/**/ELSE/**/kelp_type/**/END)`.\n6. Enumerate the database schema. Discover the hidden table `vessel_archive_registry` and its column `registry_key`.\n7. Construct a boolean-based blind payload to extract the key bit by bit: `sort=(CASE/**/WHEN/**/((SELECT/**/SUBSTR(registry_key,1,1)/**/FROM/**/vessel_archive_registry/**/LIMIT/**/1)='L')/**/THEN/**/harvest_date/**/ELSE/**/kelp_type/**/END)`. \n8. If the first character is 'L', the results are sorted by date. If not, they are sorted alphabetically by kelp type.\n9. Automate this process to retrieve the full flag `LEVELUP{naobiUUyRFc9fhWtOVmZuMQSx1cPkvWw}`.",
+  "docker_image_tag": "levelup-challenge-6bb0c818",
+  "narrative_context": {
+    "company_name": "Veridian Kelp & Mariculture",
+    "industry": "agriculture",
+    "scenario": "Veridian Kelp & Mariculture has rapidly expanded its operations from small-scale coastal farming to a global network of autonomous open-ocean kelp forests. To manage the immense volume of bio-data and shipping logs generated daily, the IT department developed a central hub for logistics coordination. While the company maintains a standard security posture, the recent acquisition of a smaller competitor necessitated a quick integration of several legacy database systems into their primary fleet management platform.\n\nThe current platform is used by hundreds of vessel captains and regional logistics managers to track nutrient saturation levels and harvest schedules. The security team, currently preoccupied with a large-scale cloud migration, has requested a third-party review of the logistics engine's search and reporting capabilities. They are particularly concerned about how the system handles complex queries across their newly unified data architecture.",
+    "app_name": "Hydro-Sync Logistics Engine",
+    "app_purpose": "Centralized tracking and historical reporting for oceanic harvest batches and distribution vessel telemetry.",
+    "data_theme": "oceanic harvest batch records, nutrient salinity metrics, vessel ID numbers, and regional coordinator logs.",
+    "flavor_details": {
+      "company_motto": "Harvesting the Future, Protecting the Tides.",
+      "department": "Global Supply Chain Operations",
+      "recent_event": "Recent acquisition of 'AquaLogic Systems' forced a hasty merger of legacy inventory databases into the primary Hydro-Sync portal.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic search filtering",
+        "ASP.NET based enterprise framework",
+        "Multi-tenant data isolation"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a standard ORDER BY SQL injection with a basic blacklist filter. While the WAF blocks spaces and logical operators, it is easily bypassed using SQL comments (/**/) or tabs, and the application leaks raw database errors which simplifies a blind-to-error or boolean-sorting exploitation approach. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

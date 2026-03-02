@@ -1,0 +1,49 @@
+{
+  "run_number": 24,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.8,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Aetheria Skyworks: Procurement Nexus",
+  "description": "Welcome to the Aetheria Skyworks Procurement Nexus. As an engineer, you can search for parts and request quotes. Our system is designed with security in mind, featuring a proprietary firewall (AetheriaWAF v1.0) to prevent unauthorized database access. We are confident our internal audit logs and system configurations are safe from prying eyes.\n\nNote: The internal audit system is restricted to authenticated staff, but legacy components may still be accessible to those who know where to look.",
+  "flag": "LEVELUP{JLPIOvqJoKKfVzuq9mB1oJ1iUTVN7DTy}",
+  "solution": "1. Explore the application and discover the /inventory page and the 'Request Quote' functionality.\n2. Observe that 'Request Quote' sends a POST request with an 'X-Warehouse-Ref' header. Inspecting the source or robots.txt reveals a hidden /admin/audit-logs endpoint.\n3. Accessing /admin/audit-logs requires a 'staff_access' cookie set to '1'.\n4. The audit page displays previous quote requests. It attempts to resolve the 'Warehouse Reference' to a location name. This is done via a second query: `SELECT location FROM warehouses WHERE code = '<stored_header_value>'`.\n5. The WAF (AetheriaWAF) blocks 'UNION' and '--' strings in headers. However, it does not block 'SELECT' in a subquery or other SQL operators.\n6. Use a Second-Order Blind SQL Injection. Inject into the 'X-Warehouse-Ref' header during a quote request: `WH-001' AND (ABS(1/(CASE WHEN (SUBSTR((SELECT key_value FROM system_config WHERE key_name='internal_master_secret'),1,1)='L') THEN 1 ELSE 0 END))) AND '1'='1`.\n7. When viewing /admin/audit-logs, if the condition is false, the application will encounter a division-by-zero error, causing the 'Status' for that row to show as 'Error' or the location to be empty/different. By automating this boolean/error-based check, you can extract the flag from the system_config table character by character.",
+  "docker_image_tag": "levelup-challenge-bc4fed2d",
+  "narrative_context": {
+    "company_name": "Aetheria Skyworks",
+    "industry": "aerospace",
+    "scenario": "Aetheria Skyworks is a premier aerospace engineering firm specializing in high-performance turbine components and satellite propulsion systems. Following a rapid global expansion and the acquisition of several smaller regional manufacturing plants, the company has struggled to maintain a unified security posture across its diverse digital ecosystem. The internal IT team has prioritized cloud migration, leaving many of their on-premise inventory management systems running in a 'maintenance-only' state. Despite having a dedicated security operations center, the staff is currently stretched thin due to the integration of a new biometric access system at their primary hangar facility in Toulouse.\n\nYour firm has been contracted to perform a targeted security assessment of the legacy engineering tools. One specific system, the parts catalog, has been identified as a critical asset because it contains sensitive specifications for proprietary alloy compositions. While the application is behind an enterprise firewall, it is accessible to thousands of employees and contractors globally. A recent internal audit flagged the application as having 'unclear data sanitation practices' during its last update three years ago.",
+    "app_name": "SkyLogistics Engineering Portal",
+    "app_purpose": "Allows engineers and procurement officers to search for specific aircraft parts, check stock levels across global warehouses, and view detailed technical specifications for specialized hardware.",
+    "data_theme": "aircraft parts, warehouse locations, stock levels, and engineering specifications",
+    "flavor_details": {
+      "company_motto": "Precision in every orbit.",
+      "department": "Supply Chain & Engineering Systems",
+      "recent_event": "A whistleblower suggested that a competitor was able to predict Aetheria's manufacturing capacity, leading to suspicions of an information leak via internal search tools.",
+      "tech_hints": [
+        "Relational database backend",
+        "Complex multi-parameter search filters",
+        "Legacy architecture with integrated middleware"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: This is a classic second-order SQL injection where the payload is delivered via a non-standard HTTP header (X-Warehouse-Ref), stored in the database, and then executed when an admin views the audit logs. Exploitation requires bypassing a regex-based WAF that blocks common keywords like UNION and SLEEP, necessitating the use of alternative SQL operators like INTERSECT or EXCEPT, and discovering the hidden admin endpoint via robots.txt. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

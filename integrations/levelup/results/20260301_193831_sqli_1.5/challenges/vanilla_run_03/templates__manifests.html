@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Active Shipping Manifests</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Origin</th><th>Destination</th><th>Cargo Type</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for m in manifests %}
+            <tr>
+                <td>{{ m.id }}</td>
+                <td>{{ m.origin }}</td>
+                <td>{{ m.destination }}</td>
+                <td>{{ m.cargo_type }}</td>
+                <td>{{ m.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

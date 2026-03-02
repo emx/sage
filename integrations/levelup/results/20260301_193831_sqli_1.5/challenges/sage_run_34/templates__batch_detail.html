@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="header-accent">Batch Detail: #{{ batch.batch_id }}</h2>
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Genetic Strain:</strong> {{ batch.strain_name }}</p>
+                <p><strong>Germination Rate:</strong> 94%</p>
+                <p><strong>Moisture Level:</strong> {{ batch.moisture }}%</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Storage Warehouse:</strong> {{ batch.warehouse }}</p>
+                <p><strong>Tracking Status:</strong> In Transit</p>
+                <p><strong>Manager:</strong> distribution_node_42</p>
+            </div>
+        </div>
+    </div>
+</div>
+<a href="/inventory" class="btn btn-secondary mt-3">Back to Inventory</a>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Shipping Manifests</h2>
+<div class="card">
+    <p>Click table headers to sort records using the dynamic auditing engine.</p>
+    <table>
+        <thead>
+            <tr>
+                <th onclick="loadData('id')">ID</th>
+                <th onclick="loadData('origin')">Origin</th>
+                <th onclick="loadData('destination')">Destination</th>
+                <th onclick="loadData('weight')">Weight (kg)</th>
+                <th onclick="loadData('status')">Status</th>
+            </tr>
+        </thead>
+        <tbody id="manifest-body">
+            <!-- Loaded via API -->
+        </tbody>
+    </table>
+</div>
+<script>
+function loadData(sortCol) {
+    fetch('/api/v1/shipping/query?sort=' + encodeURIComponent(sortCol))
+    .then(r => r.json())
+    .then(data => {
+        const body = document.getElementById('manifest-body');
+        body.innerHTML = '';
+        data.forEach(row => {
+            body.innerHTML += `<tr>
+                <td>${row.id}</td>
+                <td>${row.origin}</td>
+                <td>${row.destination}</td>
+                <td>${row.weight}</td>
+                <td>${row.status}</td>
+            </tr>`;
+        });
+    });
+}
+loadData('id');
+</script>
+{% endblock %}

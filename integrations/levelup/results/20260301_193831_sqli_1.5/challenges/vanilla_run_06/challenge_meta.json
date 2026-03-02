@@ -1,0 +1,50 @@
+{
+  "run_number": 6,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantPath Logistics Grain Audit",
+  "description": "Welcome to the VerdantPath Logistics management portal. As a newly contracted security auditor, your goal is to explore the application and verify if sensitive grain shipment metadata is properly secured. The company has heard rumors of a hidden API used by the automated silo sensors that might not be as secure as the main portal.",
+  "flag": "LEVELUP{xIsYj0hsNRnQpfzdTNmt7WXM4rEUo2XR}",
+  "solution": "1. Browse the application to discover the '/shipments' page. \n2. View the page source or inspect network traffic to find a reference to a hidden JavaScript file: '/static/js/inventory_tracker.js'.\n3. The JS file reveals an undocumented POST endpoint: '/api/v1/inventory/check' which accepts a JSON body like {'item_id': '...'}.\n4. Testing the 'item_id' field for SQL injection reveals a filter that removes keywords like 'SELECT', 'UNION', 'WHERE', and 'AND'.\n5. Bypass the filter using recursive keywords (e.g., 'SELSELECTECT') because the filter is not applied recursively.\n6. The endpoint returns '{\"status\": \"exists\"}' if a record is found and '{\"status\": \"missing\"}' otherwise, indicating a Boolean-based Blind SQL injection.\n7. Use a script to exfiltrate the flag from the 'inventory_meta' table, specifically the 'meta_value' where 'meta_key' is 'system_integrity_token'.\n8. Payload example: 1' ANANDD (SELSELECTECT 1 FROM inventory_meta WHEWHERE RE meta_key='system_integrity_token' ANANDD meta_value LIKE 'LEVELUP{x%')--",
+  "docker_image_tag": "levelup-challenge-5e64e405",
+  "narrative_context": {
+    "company_name": "VerdantPath Logistics",
+    "industry": "logistics",
+    "scenario": "VerdantPath Logistics recently expanded its operations by acquiring several regional grain cooperatives across the Midwest. To unify their supply chain, they've fast-tracked the integration of a legacy inventory tracking tool into their primary enterprise cloud. This tool, now rebranded as the GrainChain Management System, is responsible for monitoring real-time silo levels and coordinating multi-modal transport schedules between farms and processing plants.\n\nDespite VerdantPath's robust corporate security posture, the internal IT team struggled to reconcile the legacy codebase with modern authentication standards. The application was pushed into production just days before the peak harvest season to ensure that logistics coordinators could search for available shipping containers and verify grain quality certificates across the new territories. The corporate security team, currently overwhelmed by the merger's infrastructure migration, has flagged this specific portal for an immediate external review.",
+    "app_name": "GrainChain Management System",
+    "app_purpose": "Managing bulk grain shipment logistics, tracking silo capacities, and searching historical inspection records for compliance.",
+    "data_theme": "Shipment IDs, silo moisture levels, carrier license numbers, and harvest timestamps.",
+    "flavor_details": {
+      "company_motto": "From Soil to Silo",
+      "department": "Supply Chain Operations",
+      "recent_event": "A whistleblower report suggested that unauthorized users might be viewing confidential shipment contracts through the public-facing search interface.",
+      "tech_hints": [
+        "PostgreSQL backend",
+        "Legacy PHP integration",
+        "Dynamic query building",
+        "JSON-based API responses"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a classic non-recursive keyword stripping filter which is trivially bypassed using nested keywords like 'SELSELECTECT'. Discovery of the undocumented API via a static JS file and the requirement for boolean-based blind injection (or truthy UNION results) puts this at the lower end of the Medium spectrum, but the defense is far too weak to justify the designer's 1.5 rating. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

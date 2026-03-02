@@ -1,0 +1,49 @@
+{
+  "run_number": 1,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Veridian Gilt Logistics: Operational Oversight",
+  "description": "Welcome to the Veridian Gilt Logistics Portal. As a Guest Coordinator, you can view our public inventory and check the health of our global storage facilities. Our security team prides itself on our robust Web Application Firewall (WAF) that filters out common malicious patterns. Feel free to explore our logistics dashboards.",
+  "flag": "LEVELUP{Fk6gmQmQycn_IJvhNxgqcDW9htUENbgt}",
+  "solution": "1. Explore the application and navigate to the 'Facility Status' page. \n2. Inspect the network traffic or page source to find a call to an undocumented API: `/api/v1/telemetry?facility_id=1&sort=timestamp`.\n3. Test the `sort` parameter for SQL injection. Notice that `sort=timestamp DESC` and `sort=timestamp ASC` work. \n4. Attempt a UNION-based injection and observe that the WAF blocks common keywords like 'UNION', 'OR', 'AND', and comment markers '--'.\n5. Use an error-based or conditional-based injection within the `ORDER BY` clause. Since the WAF is restrictive, use `CASE` statements.\n6. Discover the flag location by enumerating tables. A table named `global_config` contains a column `config_value` where `config_name = 'master_vault_token'`.\n7. Construct a payload that triggers a detectable difference (like a division by zero error which results in a 500 Internal Server Error) to leak the flag character by character: `/api/v1/telemetry?facility_id=1&sort=(CASE WHEN (SELECT SUBSTR(config_value,1,1) FROM global_config WHERE config_name='master_vault_token')='L' THEN timestamp ELSE 1/0 END)`.\n8. Automate the extraction to retrieve 'LEVELUP{Fk6gmQmQycn_IJvhNxgqcDW9htUENbgt}'.",
+  "docker_image_tag": "levelup-challenge-5c6ceef4",
+  "narrative_context": {
+    "company_name": "Veridian Gilt Logistics",
+    "industry": "logistics",
+    "scenario": "Veridian Gilt Logistics is a premier firm specializing in the global transport and secure storage of high-value cultural artifacts, including Renaissance paintings and archaeological finds. Recently, the company underwent an aggressive digital transformation to modernize their tracking systems. However, the integration of multiple legacy systems from smaller acquisitions has created a sprawling infrastructure that the small internal security team is struggling to monitor effectively.\n\nOne such integration is 'The Vault Ledger,' a comprehensive management tool used by regional logistics coordinators. The application acts as a bridge between the old-school paper ledgers and the new digital tracking system, allowing employees to query massive datasets regarding container status, temperature logs, and specialized handling requirements. The transition has been rocky, and the security team is concerned that the speed of deployment may have overlooked fundamental data handling protections.",
+    "app_name": "The Vault Ledger",
+    "app_purpose": "Enables logistics coordinators to search, filter, and manage high-value inventory records across global storage facilities.",
+    "data_theme": "artifact descriptions, provenance records, climate logs, and shipping manifest IDs",
+    "flavor_details": {
+      "company_motto": "Preserving History Through Precision.",
+      "department": "Heritage Operations & Logistics",
+      "recent_event": "A recent internal audit flagged the legacy search module for failing to meet the company's new 'zero-trust' data input standards.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic query generation",
+        "Legacy PHP search interface"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a classic ORDER BY injection where the application's WAF uses a weak, space-sensitive blacklist that is easily bypassed using standard subqueries or SQLite functions. Because the application explicitly returns database error messages to the user, an attacker can use error-based extraction (e.g., forcing a subquery to return multiple rows) to exfiltrate the flag without needing complex time-based or blind techniques. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,256 @@
+# SAGE Phase 1 — 4-validator CometBFT network + PostgreSQL
+# Usage: docker compose up -d
+# Full stack with monitoring: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+
+services:
+  # ─────────────────────────────────────────────
+  # PostgreSQL + pgvector (off-chain storage)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sage}
+      POSTGRES_USER: ${POSTGRES_USER:-sage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sage_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sage -d sage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - sagenet
+
+  # ─────────────────────────────────────────────
+  # ABCI Application Nodes (Go state machine)
+  # ─────────────────────────────────────────────
+  abci0:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.abci
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "2112:2112"
+    environment:
+      POSTGRES_URL: "postgres://sage:${POSTGRES_PASSWORD:-sage_dev_password}@postgres:5432/sage?sslmode=disable"
+      NODE_ID: node0
+      REST_ADDR: ":8080"
+      METRICS_ADDR: ":2112"
+      BADGER_PATH: /data/sage.db
+      ABCI_ADDR: "tcp://0.0.0.0:26658"
+      COMET_RPC: "http://cometbft0:26657"
+      VALIDATOR_KEY_FILE: /validator/priv_validator_key.json
+      OLLAMA_URL: "http://ollama:11434"
+    volumes:
+      - abci0_data:/data
+      - ./genesis/node0/config:/validator:ro
+    networks:
+      - sagenet
+
+  abci1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.abci
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+      - "2113:2112"
+    environment:
+      POSTGRES_URL: "postgres://sage:${POSTGRES_PASSWORD:-sage_dev_password}@postgres:5432/sage?sslmode=disable"
+      NODE_ID: node1
+      REST_ADDR: ":8080"
+      METRICS_ADDR: ":2112"
+      BADGER_PATH: /data/sage.db
+      ABCI_ADDR: "tcp://0.0.0.0:26658"
+      COMET_RPC: "http://cometbft1:26657"
+      VALIDATOR_KEY_FILE: /validator/priv_validator_key.json
+      OLLAMA_URL: "http://ollama:11434"
+    volumes:
+      - abci1_data:/data
+      - ./genesis/node1/config:/validator:ro
+    networks:
+      - sagenet
+
+  abci2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.abci
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+      - "2114:2112"
+    environment:
+      POSTGRES_URL: "postgres://sage:${POSTGRES_PASSWORD:-sage_dev_password}@postgres:5432/sage?sslmode=disable"
+      NODE_ID: node2
+      REST_ADDR: ":8080"
+      METRICS_ADDR: ":2112"
+      BADGER_PATH: /data/sage.db
+      ABCI_ADDR: "tcp://0.0.0.0:26658"
+      COMET_RPC: "http://cometbft2:26657"
+      VALIDATOR_KEY_FILE: /validator/priv_validator_key.json
+      OLLAMA_URL: "http://ollama:11434"
+    volumes:
+      - abci2_data:/data
+      - ./genesis/node2/config:/validator:ro
+    networks:
+      - sagenet
+
+  abci3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.abci
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8080"
+      - "2115:2112"
+    environment:
+      POSTGRES_URL: "postgres://sage:${POSTGRES_PASSWORD:-sage_dev_password}@postgres:5432/sage?sslmode=disable"
+      NODE_ID: node3
+      REST_ADDR: ":8080"
+      METRICS_ADDR: ":2112"
+      BADGER_PATH: /data/sage.db
+      ABCI_ADDR: "tcp://0.0.0.0:26658"
+      COMET_RPC: "http://cometbft3:26657"
+      VALIDATOR_KEY_FILE: /validator/priv_validator_key.json
+      OLLAMA_URL: "http://ollama:11434"
+    volumes:
+      - abci3_data:/data
+      - ./genesis/node3/config:/validator:ro
+    networks:
+      - sagenet
+
+  # ─────────────────────────────────────────────
+  # Ollama — local embedding model (sovereign, no cloud)
+  # ─────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+    networks:
+      - sagenet
+
+  # Pull the embedding model on first start
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "OLLAMA_HOST=http://ollama:11434 ollama pull nomic-embed-text && ollama pull qwen2.5:1.5b && echo 'Models ready'"]
+    restart: "no"
+    networks:
+      - sagenet
+
+  # ─────────────────────────────────────────────
+  # CometBFT Validator Nodes (consensus layer)
+  # ─────────────────────────────────────────────
+  cometbft0:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.node
+    depends_on:
+      abci0:
+        condition: service_started
+    ports:
+      - "26656:26656"
+      - "26657:26657"
+      - "26660:26660"
+    environment:
+      CMTHOME: /cometbft
+    volumes:
+      - ./genesis/node0:/cometbft
+    networks:
+      - sagenet
+
+  cometbft1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.node
+    depends_on:
+      abci1:
+        condition: service_started
+    ports:
+      - "26756:26656"
+      - "26757:26657"
+      - "26761:26660"
+    environment:
+      CMTHOME: /cometbft
+    volumes:
+      - ./genesis/node1:/cometbft
+    networks:
+      - sagenet
+
+  cometbft2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.node
+    depends_on:
+      abci2:
+        condition: service_started
+    ports:
+      - "26856:26656"
+      - "26857:26657"
+      - "26862:26660"
+    environment:
+      CMTHOME: /cometbft
+    volumes:
+      - ./genesis/node2:/cometbft
+    networks:
+      - sagenet
+
+  cometbft3:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.node
+    depends_on:
+      abci3:
+        condition: service_started
+    ports:
+      - "26956:26656"
+      - "26957:26657"
+      - "26963:26660"
+    environment:
+      CMTHOME: /cometbft
+    volumes:
+      - ./genesis/node3:/cometbft
+    networks:
+      - sagenet
+
+# ─────────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────────
+volumes:
+  postgres_data:
+  ollama_data:
+  abci0_data:
+  abci1_data:
+  abci2_data:
+  abci3_data:
+
+# ─────────────────────────────────────────────
+# Network
+# ─────────────────────────────────────────────
+networks:
+  sagenet:
+    driver: bridge

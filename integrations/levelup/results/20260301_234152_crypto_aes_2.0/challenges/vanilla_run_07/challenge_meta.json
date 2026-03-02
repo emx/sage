@@ -1,0 +1,56 @@
+{
+  "run_number": 7,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 1.7,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "SkyLink Telemetry Vault",
+  "description": "Welcome to the VeloSync Aerodynamics SkyLink Telemetry Vault. As a security consultant, your objective is to audit the vault's telemetry verification system. We've recovered an encrypted telemetry packet from the Stratosphere-9 drone. The legacy verification service (running on port 5000) provides detailed integrity feedback for diagnostic purposes. Can you exploit this system to recover the proprietary telemetry data and the project flag?",
+  "flag": "LEVELUP{PVh_j1miI0MLarMIJCwNw0DRkh7R29ZU}",
+  "solution": "The challenge implements an AES-CBC padding oracle vulnerability. The service provides two distinct error messages: 'ERR_INTEGRITY_01' when the PKCS#7 padding is invalid, and 'ERR_INTEGRITY_02' when the padding is valid but the CRC32 checksum fails. By sending modified ciphertexts and observing which error is returned, an attacker can perform a standard padding oracle attack. 1. Access /api/vault/archive/latest to retrieve the IV and encrypted flag. 2. Target each block of the ciphertext. 3. For each byte in a block, iterate through all 256 possible values, modifying the previous block (or IV for the first block). 4. A response of 'ERR_INTEGRITY_02' indicates the padding is correct for the current guess. 5. Decrypt all blocks to recover the JSON-formatted telemetry data containing the flag.",
+  "docker_image_tag": "levelup-challenge-2b53036c",
+  "narrative_context": {
+    "company_name": "VeloSync Aerodynamics",
+    "industry": "aerospace",
+    "scenario": "VeloSync Aerodynamics is a leading manufacturer of high-altitude long-endurance (HALE) drones used for environmental monitoring and tactical surveillance. Their crown jewel, the Stratosphere-9 project, generates massive amounts of proprietary telemetry data that must be securely transmitted from the craft to ground-based data centers across the globe. To protect intellectual property from competitors and nation-state actors, every data packet is encrypted before transmission.\n\nTo facilitate this, the company developed the SkyLink Telemetry Vault. This application acts as the central hub for receiving, encrypting, and archiving every flight second of data. However, the system's architecture was designed by a legacy engineering firm that focused more on transmission speed and hardware efficiency than modern cryptographic implementation standards. The internal security team, currently stretched thin by a massive infrastructure migration, has flagged the vault for an urgent security review.",
+    "app_name": "SkyLink Telemetry Vault",
+    "app_purpose": "Provides a secure interface for flight engineers to upload, store, and retrieve encrypted telemetry logs and sensor data from remote drone missions.",
+    "data_theme": "Flight logs, GPS coordinates, altitude sensor readings, and experimental propulsion metrics.",
+    "flavor_details": {
+      "company_motto": "Precision in every pulse.",
+      "department": "R&D Defense Division",
+      "recent_event": "A competitor recently announced a drone with suspiciously similar specifications, prompting an urgent audit of all sensitive data egress points.",
+      "tech_hints": [
+        "High-throughput data streaming",
+        "Deterministic block processing",
+        "Standardized 128-bit block size",
+        "Custom binary transmission protocol"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a textbook CBC Timing-based Padding Oracle. While it uses ISO/IEC 7816-4 padding and unified error responses to hide the flaw, the 60ms timing side-channel is significantly larger than the 8ms jitter, making exploitation straightforward with a standard automated script. (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

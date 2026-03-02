@@ -1,0 +1,50 @@
+{
+  "run_number": 19,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.8,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloPath Logistics Manifest Manager",
+  "description": "Welcome to the VeloPath Logistics Internal Portal. As a junior logistics coordinator, you have access to the shipping manifest system. Explore the manifests, track high-value containers, and generate shipping reports. Our security team claims the system is hardened against common attacks, but some believe the custom report sorting engine has a subtle flaw. Can you prove them right and recover the 'vault_access_token' from the system registry?",
+  "flag": "LEVELUP{Gg6CmVuiqFw4wB3CGpL8zoBtb11nf6yL}",
+  "solution": "1. Log into the application using the guest credentials (guest:guest123) found via common enumeration or provided.\n2. Navigate to the 'Manifest Reports' section and select 'Create New Report'.\n3. Observe that you can provide a custom 'Report Name' and a 'Sorting Preference'.\n4. Submit a report with a 'Sorting Preference' that contains a SQL injection payload. Since the application uses this value directly in an ORDER BY clause in the 'View Report' page, it is a Second-Order SQL injection.\n5. The WAF blocks keywords like 'UNION', '--', and '/*'. Use a boolean-based blind approach within a CASE statement.\n6. First, identify the hidden table. Inject: (CASE WHEN (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='system_registry')=1 THEN origin ELSE destination END). If the results are sorted by origin, the table exists.\n7. Identify the column and key: (CASE WHEN (SELECT SUBSTR(registry_value,1,1) FROM system_registry WHERE registry_key='vault_access_token')='L' THEN origin ELSE destination END).\n8. Automate the extraction of the flag character by character by observing the sort order of the manifest rows in the response.",
+  "docker_image_tag": "levelup-challenge-0694e433",
+  "narrative_context": {
+    "company_name": "VeloPath Logistics",
+    "industry": "logistics",
+    "scenario": "VeloPath Logistics is a global leader in freight management, recently expanding its reach through the acquisition of SwiftShip, a regional courier service. The integration process has been frantic, requiring the VeloPath IT team to merge disparate systems into their centralized Global Freight Orchestrator (GFO). While VeloPath maintains a dedicated Security Operations Center, they are currently overwhelmed by the sheer volume of assets inherited from the acquisition.\n\nYou have been brought in as a third-party security auditor to evaluate the 'Advanced Shipment Search' module\u2014a legacy feature from SwiftShip that was recently patched into the GFO portal. The tool allows customers and operations staff to query historical shipping data across multiple international databases. The internal team is confident in their perimeter firewall, but they worry the legacy code might not handle complex queries with the same rigor as their modern internal stack.",
+    "app_name": "Global Freight Orchestrator (GFO)",
+    "app_purpose": "Managing international shipping manifests and tracking high-value cargo across multiple transit modes.",
+    "data_theme": "shipping manifests, container numbers, bill of lading records, and customs clearance statuses",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Safety in Transit.",
+      "department": "Global Operations & Supply Chain IT",
+      "recent_event": "A whistleblower from the acquired company suggested that database sanitization wasn't a priority during the rapid scale-up of the SwiftShip legacy portal.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic query construction",
+        "Legacy PHP integration",
+        "Verbose error messaging enabled"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: This is a second-order SQL injection where the payload is stored via a POST request and executed later in an ORDER BY clause. The exploit requires bypassing a keyword-based WAF that blocks UNION and comments, forcing the attacker to use boolean-based inference by observing the sorting order of the returned dataset. While the WAF is basic, the combination of stored injection and the ORDER BY context elevates it beyond a standard Medium rating. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Maintenance and Hardware Logs</h2>
+    <p>Click column headers to sort logs. Use this data for hardware integrity auditing.</p>
+    <table>
+        <thead>
+            <tr>
+                <th><a href="/logs?sort=id">Log ID</a></th>
+                <th><a href="/logs?sort=drone_id">Drone ID</a></th>
+                <th><a href="/logs?sort=technician_id">Technician</a></th>
+                <th><a href="/logs?sort=log_entry">Log Entry</a></th>
+                <th><a href="/logs?sort=timestamp">Timestamp</a></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.id }}</td>
+                <td>{{ log.drone_id }}</td>
+                <td>{{ log.technician_id }}</td>
+                <td>{{ log.log_entry }}</td>
+                <td>{{ log.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

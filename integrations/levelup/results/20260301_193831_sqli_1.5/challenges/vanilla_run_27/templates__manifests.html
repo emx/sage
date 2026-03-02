@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Shipping Manifests</h2>
+<p>Use the sorting engine to prioritize manifests based on destination, weight, or status.</p>
+<div style="margin-bottom: 1rem;">
+    <strong>Sort By:</strong>
+    <a href="?sort=destination" class="btn" style="background: #95a5a6; font-size: 0.8rem;">Destination</a>
+    <a href="?sort=weight" class="btn" style="background: #95a5a6; font-size: 0.8rem;">Weight</a>
+    <a href="?sort=status" class="btn" style="background: #95a5a6; font-size: 0.8rem;">Status</a>
+</div>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Tracking Number</th>
+            <th>Destination</th>
+            <th>Weight (kg)</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in manifests %}
+        <tr>
+            <td>{{ m.id }}</td>
+            <td>{{ m.tracking_no }}</td>
+            <td>{{ m.destination }}</td>
+            <td>{{ m.weight }}</td>
+            <td>{{ m.status }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

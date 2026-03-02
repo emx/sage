@@ -1,0 +1,49 @@
+{
+  "run_number": 40,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.7,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherBound Logistics: Manifest Override",
+  "description": "Welcome to the AetherBound Logistics Manifest Portal. Authorized personnel only. Our systems track everything from low-earth orbit supplies to deep-space research modules. If you are looking for the 'Legacy Manifest Export' utility, please consult the internal developer documentation or check your dashboard for access.",
+  "flag": "LEVELUP{_8fbHcYfYmCi2TXDkrJ6B4tLDG3XrKE_}",
+  "solution": "1. Navigate to the application and explore the public 'Tracking' page. Notice there's a login requirement for advanced features.\n2. Log in using common guest credentials (guest/guest) or find the 'dispatcher_alpha/Payload123' credentials hidden in a developer comment in the HTML source of the dashboard.\n3. On the dashboard, find the 'Advanced Reporting' link which points to /api/v1/reports?sort=payload_name.\n4. Observe that the 'sort' parameter controls the order of the JSON response. Test for SQL injection by using a conditional: ?sort=(CASE+WHEN+(1=1)+THEN+id+ELSE+weight+END) vs ?sort=(CASE+WHEN+(1=2)+THEN+id+ELSE+weight+END). Notice the results are sorted differently.\n5. The application has a WAF that blocks spaces and UNION. Bypass the space filter using horizontal tabs (%09) or newlines (%0A).\n6. Discover the flag table by querying sqlite_master. The table is 'system_node_diagnostics' and the column is 'diag_payload'.\n7. Use Boolean Blind SQLi to exfiltrate the flag character by character: /api/v1/reports?sort=(CASE%09WHEN%09(SELECT%09SUBSTR(diag_payload,1,1)%09FROM%09system_node_diagnostics%09WHERE%09node_id='ORD-MANIFEST-01')='L'%09THEN%09id%09ELSE%09weight%09END). If the first character is 'L', the JSON list will be sorted by ID.",
+  "docker_image_tag": "levelup-challenge-b27c5ff0",
+  "narrative_context": {
+    "company_name": "AetherBound Logistics",
+    "industry": "logistics",
+    "scenario": "AetherBound Logistics is a premier global provider of low-earth orbit cargo management and terrestrial supply chain solutions for the aerospace sector. In the wake of a recent merger with a regional drone-delivery startup, the company has been rapidly integrating legacy tracking systems into its modern infrastructure. While the core platform is robust, the IT team has struggled to keep pace with the influx of older modules now connected to the centralized data warehouse.\n\nThe application, CargoTrace Enterprise, serves as the primary interface for logistics coordinators to monitor high-value satellite components and rocket propulsion hardware as they move from manufacturing plants to launch sites. Because even minor scheduling conflicts can result in multi-million dollar delays, the platform is designed for rapid information retrieval across thousands of shipment records and manifest logs.",
+    "app_name": "CargoTrace Enterprise",
+    "app_purpose": "Centralized tracking, inventory management, and manifest retrieval for orbital payload components and terrestrial supply chains.",
+    "data_theme": "shipping manifests, payload specifications, launch pad coordinates, and logistics coordinator credentials",
+    "flavor_details": {
+      "company_motto": "Bridging the Gap Between Earth and Orbit",
+      "department": "Orbital Supply Chain Operations",
+      "recent_event": "A post-merger compliance audit following the acquisition of SkyLink Drones.",
+      "tech_hints": [
+        "Legacy PHP search modules",
+        "Enterprise SQL data warehouse",
+        "Asynchronous search result rendering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires exploiting an ORDER BY injection while bypassing a WAF that blocks spaces and several keywords (UNION, OR, AND). Exploitation is non-trivial as it necessitates a Boolean-blind approach where the attacker must observe the change in JSON sort order to extract data character-by-character from a hidden table, while substituting spaces with tabs or newlines. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

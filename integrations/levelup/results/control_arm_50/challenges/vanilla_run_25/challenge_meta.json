@@ -1,0 +1,49 @@
+{
+  "run_number": 25,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantReach Harvest Intelligence",
+  "description": "Welcome to the VerdantReach Solutions management portal. You have been granted access as a guest auditor. Explore the historical harvest data and soil mineral analysis reports. Your goal is to find a way to access the internal system registry and retrieve the emergency override key (the flag).",
+  "flag": "LEVELUP{iGHXeu8iVzmCWCVbrozbr20hCPcg5u9_}",
+  "solution": "1. Browse the application and discover the 'Custom Analytics Report' at /reports.\n2. Observe that the report allows sorting by clicking column headers or selecting from a dropdown, which updates a 'sort' GET parameter.\n3. Test the 'sort' parameter for SQL injection. Inputting a single quote `'` results in a 500 error or is caught by the WAF.\n4. Analyze the WAF behavior: it blocks common SQL keywords like 'SELECT', 'UNION', 'WHERE', and 'FROM' only when followed by whitespace characters.\n5. Bypass the WAF using SQL comments `/**/` instead of spaces: `?sort=crop_name,(SeLeCt/**/1)`.\n6. Since the injection is in an ORDER BY clause, use a CASE statement for boolean-based blind extraction: `?sort=(CASE/**/WHEN/**/(1=1)/**/THEN/**/yield/**/ELSE/**/crop_name/**/END)`. If the condition is true, the list sorts numerically by yield; if false, it sorts alphabetically by crop name.\n7. Enumerate tables via `sqlite_master`. Discover the hidden table `verdant_internal_registry`.\n8. Use the boolean logic to extract the `registry_data` where `registry_key='emergency_override_key'`. A sample payload to check the first character: `?sort=(CASE/**/WHEN/**/(SUBSTR((SeLeCt/**/registry_data/**/fRoM/**/verdant_internal_registry/**/WhErE/**/registry_key='emergency_override_key'),1,1)='L')/**/THEN/**/yield/**/ELSE/**/crop_name/**/END)`. \n9. Automate the extraction to retrieve the full flag.",
+  "docker_image_tag": "levelup-challenge-e878a980",
+  "narrative_context": {
+    "company_name": "VerdantReach Solutions",
+    "industry": "agriculture",
+    "scenario": "VerdantReach Solutions is a global leader in precision agriculture, providing data-driven insights to massive farming cooperatives across three continents. Following the rapid acquisition of 'TerraPulse', a boutique soil-analytics firm, the engineering team was tasked with merging their disparate data silos into the main VerdantReach infrastructure within a single sprint. The security team, currently overwhelmed by a high-priority SOC2 compliance audit, has flagged the newly integrated search modules as a potential area of concern due to the legacy code inherited from the startup.\n\nThe application serves as the primary touchpoint for regional managers to assess land productivity. While the interface has been updated to match the corporate branding, the underlying logic connecting the dashboard to the historical harvest databases remains largely untouched. As a security auditor, you have been granted access to the internal staging environment to verify if a user with limited regional access can bypass data boundaries.",
+    "app_name": "Cultivator Insights Engine (CIE)",
+    "app_purpose": "A centralized platform where farm managers search historical harvest yields, analyze soil mineral content, and track pesticide application records across multiple geographic zones.",
+    "data_theme": "crop yield records, soil pH levels, fertilizer schedules, and field manager credentials",
+    "flavor_details": {
+      "company_motto": "Seeding the Future with Data.",
+      "department": "Global Logistics & Research",
+      "recent_event": "A recent internal audit noted that the legacy TerraPulse search module lacked the rigorous input validation standards usually enforced by VerdantReach core applications.",
+      "tech_hints": [
+        "PHP 7.4 backend",
+        "Legacy relational database integration",
+        "Dynamic query construction for filtering results"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The WAF is trivial to bypass because it specifically looks for keywords followed by a space, which is easily circumvented using SQL comments (/**/) or tabs. The ORDER BY injection is a standard blind exploitation scenario where the attacker must observe the resulting row order to exfiltrate data character-by-character from the internal registry table. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

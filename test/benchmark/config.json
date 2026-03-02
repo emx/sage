@@ -1,0 +1,29 @@
+{
+    "profiles": {
+        "smoke": {
+            "description": "Quick smoke test - verify endpoints work",
+            "duration": "10s",
+            "vus": 1,
+            "rate": 5
+        },
+        "load": {
+            "description": "Normal load test - sustained traffic",
+            "duration": "5m",
+            "vus": 50,
+            "rate": 50
+        },
+        "stress": {
+            "description": "Stress test - find breaking point",
+            "duration": "10m",
+            "vus": 200,
+            "rate": 200
+        }
+    },
+    "thresholds": {
+        "submit_p95_ms": 500,
+        "query_p95_ms": 200,
+        "error_rate": 0.01,
+        "min_throughput_per_sec": 50
+    },
+    "target_url": "http://localhost:8080"
+}

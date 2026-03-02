@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Operations Dashboard</h1>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Manifests</h3>
+        <p>Current high-priority shipments: 14</p>
+        <a href="/manifests">View All Manifests</a>
+    </div>
+    <div class="card">
+        <h3>Fleet Status</h3>
+        <p>Vehicles online: 102/105</p>
+        <a href="/telemetry">View Telemetry Map</a>
+    </div>
+</div>
+<div class="card">
+    <h3>System Network Health</h3>
+    <table id="network-table">
+        <thead>
+            <tr>
+                <th>Node Name</th>
+                <th>Status</th>
+                <th>Last Ping</th>
+            </tr>
+        </thead>
+        <tbody id="network-data">
+            <!-- Loaded via internal API -->
+        </tbody>
+    </table>
+</div>
+<script>
+    fetch('/api/v1/network_status?sort=node_name')
+        .then(r => r.json())
+        .then(data => {
+            const body = document.getElementById('network-data');
+            data.forEach(node => {
+                const row = `<tr><td>${node.node_name}</td><td class="status-ok">${node.status}</td><td>${node.last_ping}</td></tr>`;
+                body.innerHTML += row;
+            });
+        });
+</script>
+{% endblock %}

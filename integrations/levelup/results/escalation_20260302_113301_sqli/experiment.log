@@ -1,0 +1,104 @@
+[11:33:01] ============================================================
+[11:33:01] Difficulty Escalation Experiment
+[11:33:01] ============================================================
+[11:33:01]   Category:      sqli
+[11:33:01]   Type:          web
+[11:33:01]   Difficulties:  1.0 1.25 1.5 1.75 2.0 2.25 2.5 2.75 3.0
+[11:33:01]   Runs per tier: 1
+[11:33:01]   Mode:          --vanilla-only
+[11:33:01]   Result dir:    results/escalation_20260302_113301_sqli
+[11:33:01]   Start:         Mon Mar  2 11:33:01 +08 2026
+[11:33:01] 
+[11:33:01] 
+[11:33:01] === VANILLA ARM (cold, no memory) ===
+[11:33:01] 
+[11:33:01] --- [1] vanilla_d1_0_r1 (difficulty=1.0) ---
+[11:39:13]     COMPLETE: 'VerdantPath Yield Analytics' (target=1.0, cal=0.7, gap=0.3)
+[11:39:15] --- [2] vanilla_d1_25_r1 (difficulty=1.25) ---
+[11:43:27]     COMPLETE: 'VeloPath Inventory Tracker' (target=1.25, cal=1.1, gap=0.15)
+[11:43:29] --- [3] vanilla_d1_5_r1 (difficulty=1.5) ---
+[11:51:45]     COMPLETE: 'Vanguardia Logistics Audit System' (target=1.5, cal=2.5, gap=1.0)
+[11:51:47] --- [4] vanilla_d1_75_r1 (difficulty=1.75) ---
+[11:58:20]     COMPLETE: 'AetherFlow Logistics Portal' (target=1.75, cal=1.6, gap=0.15)
+[11:58:22] --- [5] vanilla_d2_0_r1 (difficulty=2.0) ---
+[12:04:43]     COMPLETE: 'AuraGlow Bio-Systems - Logistics Control' (target=2.0, cal=1.4, gap=0.6)
+[12:04:45] --- [6] vanilla_d2_25_r1 (difficulty=2.25) ---
+[12:11:50]     COMPLETE: 'The Kepler Protocol' (target=2.25, cal=2.2, gap=0.05)
+[12:11:52] --- [7] vanilla_d2_5_r1 (difficulty=2.5) ---
+[12:20:08]     COMPLETE: 'Aetheris Orbital Dynamics: Legacy Manifest API' (target=2.5, cal=1.9, gap=0.6)
+[12:20:10] --- [8] vanilla_d2_75_r1 (difficulty=2.75) ---
+[12:29:24]     COMPLETE: 'Aetheris Dynamics: Orbital Sync Audit' (target=2.75, cal=2.25, gap=0.5)
+[12:29:26] --- [9] vanilla_d3_0_r1 (difficulty=3.0) ---
+[12:41:17]     COMPLETE: 'Aetheris Orbital Dynamics: Legacy Telemetry Vault' (target=3.0, cal=2.7, gap=0.3)
+[12:41:19] 
+[12:41:19] Vanilla arm complete: 9 completed, 0 failed out of 9
+[12:41:19] 
+[12:41:19] === ANALYSIS ===
+
+================================================================================
+  DIFFICULTY ESCALATION EXPERIMENT — CALIBRATION ACCURACY ANALYSIS
+================================================================================
+
+  Vanilla runs: 9
+  SAGE runs:    0
+
+  Difficulty   Vanilla Gap      SAGE Gap     Delta      Winner
+  -----------------------------------------------------------------
+        1.00         0.300           N/A                      
+        1.25         0.150           N/A                      
+        1.50         1.000           N/A                      
+        1.75         0.150           N/A                      
+        2.00         0.600           N/A                      
+        2.25         0.050           N/A                      
+        2.50         0.600           N/A                      
+        2.75         0.500           N/A                      
+        3.00         0.300           N/A                      
+
+  CALIBRATION GAP TREND (does gap increase with difficulty?)
+  -----------------------------------------------------------------
+  Vanilla: gap = 0.386 + +0.010 * difficulty  (R²=0.001)
+    Slope: +0.010 (positive = gap grows with difficulty, bad)
+    At difficulty 1.0: predicted gap = 0.396
+    At difficulty 3.0: predicted gap = 0.416
+
+  SAGE: insufficient data
+
+  PIPELINE COMPLETION RATE
+  -----------------------------------------------------------------
+  Vanilla: 9/9 (100%)
+    d=1.00: 1/1
+    d=1.25: 1/1
+    d=1.50: 1/1
+    d=1.75: 1/1
+    d=2.00: 1/1
+    d=2.25: 1/1
+    d=2.50: 1/1
+    d=2.75: 1/1
+    d=3.00: 1/1
+  SAGE: N/A
+
+  REPAIR ATTEMPTS (lower = cleaner generation)
+  -----------------------------------------------------------------
+  Vanilla: mean=0.22, total=2, max=1
+
+  VISUAL: Calibration Gap by Difficulty Tier
+  -----------------------------------------------------------------
+   Diff     Vanilla        SAGE  Chart (V=vanilla gap, S=sage gap)
+   1.00       0.300       0.000  VVV  S
+   1.25       0.150       0.000  V  S
+   1.50       1.000       0.000  VVVVVVVVVV  S
+   1.75       0.150       0.000  V  S
+   2.00       0.600       0.000  VVVVVV  S
+   2.25       0.050       0.000  V  S
+   2.50       0.600       0.000  VVVVVV  S
+   2.75       0.500       0.000  VVVVV  S
+   3.00       0.300       0.000  VV  S
+
+================================================================================
+
+  Report saved to results/escalation_20260302_113301_sqli/escalation_report.json
+[12:41:20] 
+[12:41:20] ============================================================
+[12:41:20] Experiment Complete: Mon Mar  2 12:41:20 +08 2026
+[12:41:20] Results: results/escalation_20260302_113301_sqli
+[12:41:20] ============================================================

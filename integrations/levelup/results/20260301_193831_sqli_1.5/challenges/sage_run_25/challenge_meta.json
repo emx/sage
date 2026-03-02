@@ -1,0 +1,49 @@
+{
+  "run_number": 25,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantPath Harvest Insights",
+  "description": "Welcome to the VerdantPath Analytics portal. We've recently upgraded our Harvest Insights platform to provide real-time sorting and filtering of regional data. Farm managers can now analyze yield trends and soil health more efficiently than ever. Can you find the hidden system integrity token used for cross-region validation?",
+  "flag": "LEVELUP{R3CtacjZOP7hY6USY9gPiHZbHbfmbbjC}",
+  "solution": "1. Log into the application using the guest credentials (guest/guest) provided in the footer or discovered via exploration.\n2. Navigate to the 'Harvest Analytics' page.\n3. Observe the sorting functionality. The 'Sort By' dropdown triggers a GET request to `/api/v1/yield_data?region_id=1&sort=year`.\n4. Test the `sort` parameter for SQL injection. Attempts like `sort=year UNION SELECT ...` are blocked by a WAF that filters keywords like UNION, JOIN, OR, AND, and comment characters (#, --).\n5. Confirm injection using a conditional CASE statement: `sort=(CASE WHEN (1=1) THEN year ELSE yield_amount END)`. This will change the sort order based on the condition.\n6. Use this boolean-blind technique to enumerate the database schema. Query `sqlite_master` to find interesting tables: `sort=(CASE WHEN (SUBSTR((SELECT name FROM sqlite_master WHERE type='table' LIMIT 1),1,1)='a') THEN year ELSE yield_amount END)`.\n7. Discover the `system_settings` table and its columns.\n8. Extract the flag from the `setting_value` column where `setting_name` is 'integrity_verification_token' using a script or manual binary search.",
+  "docker_image_tag": "levelup-challenge-c46e073a",
+  "narrative_context": {
+    "company_name": "VerdantPath Analytics",
+    "industry": "agriculture",
+    "scenario": "VerdantPath Analytics has recently expanded its portfolio by acquiring several smaller ag-tech startups, leading to a fragmented IT infrastructure. FieldSync Pro, the flagship management platform from the most recent acquisition, was rapidly integrated into the corporate cloud environment to meet stakeholder deadlines. However, the integration process has been messy, with legacy code being wrapped in modern containers without a full security review.\n\nThe enterprise security team is currently stretched thin, managing the migration of multiple disparate systems simultaneously. Consequently, FieldSync Pro has been deployed to a select group of high-value industrial farming clients despite concerns regarding its data filtering mechanisms. The business is under pressure to ensure that sensitive soil composition data and proprietary yield forecasts remain strictly confidential between different agricultural cooperatives.",
+    "app_name": "FieldSync Pro Dashboard",
+    "app_purpose": "Allows farm managers to search, filter, and export historical crop yield data and soil sensor readings across multiple geographic regions.",
+    "data_theme": "Crop yield statistics, soil pH and nitrogen levels, sensor IDs, and harvest timelines.",
+    "flavor_details": {
+      "company_motto": "Rooted in Data, Growing the Future",
+      "department": "Precision Agronomy Division",
+      "recent_event": "A whistleblower from an acquired startup suggested that the legacy search feature was 'never designed for a multi-tenant environment'.",
+      "tech_hints": [
+        "PHP 7.4 legacy backend",
+        "Custom query builder middleware",
+        "Relational database storage"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The vulnerability is a blind SQL injection in an ORDER BY clause, which requires a more sophisticated approach than standard WHERE-clause injections. The WAF effectively blocks UNION-based attacks and simple logical operators (AND/OR), forcing the attacker to use CASE statements or other conditional functions for data extraction. However, the application leaks raw database error messages, which significantly simplifies the process of discovery and payload debugging. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

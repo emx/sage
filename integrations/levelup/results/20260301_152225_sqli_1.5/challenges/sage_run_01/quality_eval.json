@@ -1,0 +1,13 @@
+{
+  "run_id": "sage_run_01",
+  "arm": "sage",
+  "difficulty_accuracy": 5,
+  "defense_depth": 3,
+  "code_quality": 6,
+  "creativity": 5,
+  "realism": 6,
+  "flag_isolation": 7,
+  "exploit_complexity": 5,
+  "overall": 5.1,
+  "reasoning": "Standard ORDER BY injection in a sort parameter with a simple 6-keyword blacklist and no authentication on the vulnerable endpoint. The space-blocking WAF adds minor friction but the lack of auth and shallow defense make this below the target difficulty of 1.5. Clean Flask structure with proper templates but the vulnerability pattern is cookie-cutter."
+}

@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_44
+==================================================
+Arm: vanilla
+Overall: 4.9/10
+
+  difficulty_accuracy      :  4.0/10  ####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  4.0/10  ####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: String injection in vessel metrics with a keyword+space WAF. Calibrated at 0.8 — the easiest in the set. The WAF bypass is trivial (use comments instead of spaces). The app has good realism with vessels and manifests but the challenge offers minimal resistance.

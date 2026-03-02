@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Facility Overview: North Quad</h2>
+<div class="card">
+    <h3>Silo Capacity Report</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Silo ID</th>
+                <th>Location</th>
+                <th>Crop Variety</th>
+                <th>Fill Level (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for silo in silos %}
+            <tr>
+                <td>#{{ silo.id }}</td>
+                <td>{{ silo.location }}</td>
+                <td>{{ silo.crop_type }}</td>
+                <td>{{ silo.capacity }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- <script src="/static/js/telemetry_beta.js"></script> -->
+{% endblock %}

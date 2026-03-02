@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Active Vessel Manifests</h3>
+        <span class="badge bg-info">Carrier View</span>
+    </div>
+    <table class="table table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th><a href="?sort=id" class="text-white text-decoration-none">ID #</a></th>
+                <th><a href="?sort=tracking_number" class="text-white text-decoration-none">Tracking Number</a></th>
+                <th><a href="?sort=vessel_name" class="text-white text-decoration-none">Vessel Name</a></th>
+                <th><a href="?sort=origin_port" class="text-white text-decoration-none">Origin</a></th>
+                <th><a href="?sort=cargo_type" class="text-white text-decoration-none">Cargo Type</a></th>
+                <th><a href="?sort=status" class="text-white text-decoration-none">Status</a></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.tracking_number }}</td>
+                <td>{{ item.vessel_name }}</td>
+                <td>{{ item.origin_port }}</td>
+                <td>{{ item.cargo_type }}</td>
+                <td><span class="badge bg-secondary">{{ item.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

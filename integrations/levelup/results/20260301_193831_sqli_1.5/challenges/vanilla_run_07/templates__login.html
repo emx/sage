@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: auto;">
+    <h2>Partner Portal Login</h2>
+    {% if error %}<p style="color: red;">{{ error }}</p>{% endif %}
+    <form method="POST">
+        <div style="margin-bottom: 15px;">
+            <label>Username</label><br>
+            <input type="text" name="username" style="width: 100%; padding: 8px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Password</label><br>
+            <input type="password" name="password" style="width: 100%; padding: 8px;">
+        </div>
+        <button type="submit" class="btn">Enter Portal</button>
+    </form>
+    <!-- DEBUG: Partner guest access enabled for migration testing: guest / guest_aether2024 -->
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Global Vessel Registry</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Vessel Name</th>
+                <th>Registry</th>
+                <th>Capacity (TEU)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in vessels %}
+            <tr>
+                <td>{{ v.name }}</td>
+                <td>{{ v.registry }}</td>
+                <td>{{ v.capacity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

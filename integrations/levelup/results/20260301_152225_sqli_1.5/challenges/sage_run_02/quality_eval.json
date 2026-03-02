@@ -1,0 +1,13 @@
+{
+  "run_id": "sage_run_02",
+  "arm": "sage",
+  "difficulty_accuracy": 4,
+  "defense_depth": 3,
+  "code_quality": 7,
+  "creativity": 5,
+  "realism": 7,
+  "flag_isolation": 7,
+  "exploit_complexity": 4,
+  "overall": 5.1,
+  "reasoning": "The WAF only blocks keywords when followed by a space (e.g., 'SELECT '), making it trivially bypassed with parentheses or no trailing space. Authentication exists but credentials are given directly on the login page. The app is well-structured with session management, profiles, and logs, but the defense is paper-thin. Same ORDER BY injection pattern as sage_run_01 with a satellite theme swap."
+}

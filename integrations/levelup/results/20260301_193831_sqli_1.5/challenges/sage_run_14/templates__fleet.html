@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Fleet Management</h2>
+<p>Monitor and sort active carrier vessels.</p>
+<div class="mb-3">
+    <label class="me-2">Sort By:</label>
+    <select id="sortSelect" class="form-select d-inline-block w-auto" onchange="loadVessels()">
+        <option value="vessel_name">Vessel Name</option>
+        <option value="capacity">Capacity</option>
+        <option value="registry_code">Registry Code</option>
+    </select>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Vessel Name</th>
+            <th>Registry</th>
+            <th>Capacity (TEU)</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody id="vesselTableBody">
+        <!-- Loaded via AJAX -->
+    </tbody>
+</table>
+
+<script>
+function loadVessels() {
+    const sort = document.getElementById('sortSelect').value;
+    fetch(`/api/v1/vessels/filter?sort=${encodeURIComponent(sort)}`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        const body = document.getElementById('vesselTableBody');
+        body.innerHTML = '';
+        data.forEach(v => {
+            body.innerHTML += `<tr><td>${v.id}</td><td>${v.vessel_name}</td><td>${v.registry_code}</td><td>${v.capacity}</td><td>${v.status}</td></tr>`;
+        });
+    });
+}
+window.onload = loadVessels;
+</script>
+{% endblock %}

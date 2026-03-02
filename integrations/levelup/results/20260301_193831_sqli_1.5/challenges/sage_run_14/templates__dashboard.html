@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Dispatcher Dashboard</h2>
+<p>Welcome back, Coordinator. Here is your operational overview.</p>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">Active Shipments</div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr><th>Manifest ID</th><th>Origin</th><th>Destination</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><a href="/manifest/7721-XA">7721-XA</a></td><td>Port of Singapore</td><td>Rotterdam</td><td><span class="badge bg-success">In Transit</span></td></tr>
+                        <tr><td><a href="/manifest/9942-BC">9942-BC</a></td><td>Shanghai</td><td>Los Angeles</td><td><span class="badge bg-warning">Delayed</span></td></tr>
+                        <tr><td><a href="/manifest/1023-KF">1023-KF</a></td><td>Dubai (Jebel Ali)</td><td>Hamburg</td><td><span class="badge bg-primary">Docking</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="list-group">
+            <a href="#" class="list-group-item list-group-item-action active">System Notifications</a>
+            <a href="#" class="list-group-item list-group-item-action">Weather alert: South China Sea typhoon expected.</a>
+            <a href="/fleet" class="list-group-item list-group-item-action">Fleet Maintenance: Check vessel statuses.</a>
+            <a href="#" class="list-group-item list-group-item-action">API Update: New endpoint for port availability.</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{
+  "run_number": 9,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "StratosVane Orbital Logistics Management",
+  "description": "Welcome to the StratosVane Logistics Portal. As a logistics manager, you have access to inventory and shipment schedules. Explore the platform, understand its internal workings, and see if you can find a way to access the restricted system registry. The flag is stored as a configuration value in a legacy table.",
+  "flag": "LEVELUP{_OAT24n03kyolmG5IdsazsZYDFmQor54}",
+  "solution": "1. Enumerate the application to find the '/docs' page, which mentions an internal API endpoint: '/api/v1/telemetry/search'.\n2. The endpoint accepts a POST request with a JSON body: {'tag': 'sensor_v1'}.\n3. Testing for SQLi in the 'tag' field reveals it is vulnerable, but a WAF is in place. The WAF blocks common SQL keywords like SELECT, UNION, WHERE, and spaces using a case-insensitive regex with word boundaries.\n4. Bypass the WAF space filter by using a Tab character (\\t) or a Newline (\\n) instead of a space. Bypass the keyword filter by concatenating strings or using specific SQLite functions if needed, though the regex \\b (word boundary) often allows keywords if they are immediately followed by a parenthesis, e.g., SELECT(1).\n5. Use Boolean-based blind SQL injection to enumerate tables. Discover the 'legacy_system_registry' table.\n6. Brute-force the 'registry_entry' column for the row where 'registry_key' is 'master_control_key'.\nExample Payload (in JSON): {\"tag\": \"'\\tOR\\t(SELECT(1)FROM(legacy_system_registry)\\tWHERE\\tregistry_key='master_control_key'\\tAND\\tregistry_entry\\tLIKE\\t'LEVELUP{%')--\"}",
+  "docker_image_tag": "levelup-challenge-19e177b8",
+  "narrative_context": {
+    "company_name": "StratosVane Logistics",
+    "industry": "aerospace",
+    "scenario": "StratosVane Logistics is a premier coordinator for low-earth orbit supply chains, managing the movement of satellite components across six continents. Following the rapid acquisition of a propulsion startup, IonDrive Systems, the IT department was tasked with merging two legacy inventory management systems into a single unified interface. This integration was accelerated to meet the strict launch window for the upcoming Vanguard-9 mission.\n\nWhile the company maintains high security standards for flight control software, the logistical web portals are often managed by a separate, smaller team that is currently overwhelmed by the merger. The internal security department is occupied with a mandatory regulatory audit of ground station hardware, leaving the newly integrated OrbitTrack module with only a cursory automated scan. You have been brought in as an external security auditor to perform a targeted assessment of the data retrieval layers.",
+    "app_name": "OrbitTrack Fleet Monitor",
+    "app_purpose": "A centralized interface for logistics managers to query the location, maintenance history, and warehouse status of satellite propulsion units and telemetric sensors.",
+    "data_theme": "Satellite part manifests, orbital delivery windows, warehouse inventory counts, and technician clearance levels.",
+    "flavor_details": {
+      "company_motto": "Precision from Earth to Orbit.",
+      "department": "Global Supply Chain Operations",
+      "recent_event": "Post-acquisition database migration and system consolidation.",
+      "tech_hints": [
+        "Legacy database connectors",
+        "Enterprise Search API",
+        "Dynamic filtering systems"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a WAF that blacklists all whitespace and specific 'keyword + space' patterns, which effectively stops standard payloads. However, the use of parentheses as a separator is a well-known SQLite bypass for whitespace restrictions, and the application's decision to return raw database error messages to the user significantly lowers the difficulty by providing a feedback loop for debugging the payload. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

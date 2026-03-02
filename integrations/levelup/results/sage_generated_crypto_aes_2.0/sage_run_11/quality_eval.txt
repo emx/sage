@@ -1,0 +1,13 @@
+Quality Evaluation: sage_run_11 (VANILLA)
+==================================================
+Overall: 6.0/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  6.0/10  ######
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  6.0/10  ######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Solid CBC padding oracle with creative obfuscation layers — the signature-based oracle, custom inverted-ISO padding, and unique Request-ID requirement add genuine friction beyond textbook implementations. However, the oracle obfuscation is breakable by precomputing SHA-256(rid+candidate_status) for a small set of guesses, reducing it to a standard padding oracle once calibrated. Flag isolation is excellent (build-time encryption, file deletion, non-root user), but the target difficulty of 2.0 overshoots — the calibrated 1.25 is more honest, as the core attack is well-documented and the defensive layers are obfuscation rather than fundamentally harder cryptographic barriers.

@@ -1,0 +1,43 @@
+{
+  "run_number": 35,
+  "arm": "sage",
+  "terminal_state": "DISCARD",
+  "quality_score": null,
+  "calibrated_difficulty": null,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "The Orbital Query",
+  "description": "Welcome to the Aetheris Orbitals network. Your objective is the Horizon Logistics Hub. The client is concerned that the telemetry search function might be exposing more than just satellite positions. Navigate the dashboard and ensure that the manifest query system is resilient against unauthorized data retrieval.",
+  "flag": null,
+  "solution": null,
+  "docker_image_tag": null,
+  "narrative_context": {
+    "company_name": "Aetheris Orbitals",
+    "industry": "aerospace",
+    "scenario": "Aetheris Orbitals is a rapidly growing private aerospace firm specializing in micro-satellite deployment and orbital debris management. As private spaceflight becomes more accessible, the company has seen a 300% increase in payload manifest requests over the last fiscal year. To keep up with client demand, the engineering department rushed the deployment of their centralized logistics platform, which handles everything from launch window scheduling to real-time orbital telemetry.\n\nThe internal security team, while competent, has been preoccupied with securing the physical launch site infrastructure and the satellite control uplinks. This has left the web-facing logistics portal under-reviewed. Management has brought you in to perform a deep-dive assessment of the 'Horizon Logistics Hub' before the next major launch window opens in three weeks.",
+    "app_name": "Horizon Logistics Hub",
+    "app_purpose": "Provides clients with a searchable interface for tracking payload status, viewing historical launch data, and querying orbital coordinate availability for future missions.",
+    "data_theme": "Satellite launch manifests, payload weight specifications, orbital coordinates, and client account identifiers.",
+    "flavor_details": {
+      "company_motto": "Reaching Higher, Cleaning Faster",
+      "department": "Logistics and Payload Management",
+      "recent_event": "A competitor recently released a whitepaper claiming they could predict Aetheris's launch capacity with 'frightening accuracy,' leading to suspicions of a data leak.",
+      "tech_hints": [
+        "Relational database backend",
+        "Complex search filters",
+        "Dynamic query generation"
+      ]
+    }
+  },
+  "calibration_notes": null,
+  "verification_level": null,
+  "static_analysis_passed": null,
+  "smoke_test_passed": null,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "DISCARD"
+  ]
+}

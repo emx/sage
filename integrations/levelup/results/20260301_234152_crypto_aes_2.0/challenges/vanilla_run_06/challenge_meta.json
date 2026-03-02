@@ -1,0 +1,59 @@
+{
+  "run_number": 6,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 1.25,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "Orion-Link Gateway Integrity",
+  "description": "As a security consultant for NebulaOrbit Logistics & Defense, you have gained access to the Orion-Link relay simulator. This high-security bridge handles critical satellite telemetry. Your objective is to audit the system's integrity. We've managed to intercept an encrypted system configuration packet from the gateway's configuration endpoint, but the relay's processing logic seems to have a subtle flaw in how it handles malformed signals. Can you recover the Master Access Token (the flag) from the encrypted configuration?",
+  "flag": "LEVELUP{PM1AlhbdCw6Sihqse9r3iVLDtgZMvfdm}",
+  "solution": "The challenge implements an AES-CBC decryption service that is vulnerable to a Padding Oracle attack. The `/api/v1/relay/process` endpoint decrypts a hex-encoded IV+Ciphertext and returns different error codes: 'ERR_SIG_SYNC' (0x01) for invalid PKCS#7 padding, and 'ERR_INT_FAIL' (0x02) for valid padding but an incorrect CRC32 checksum. This side-channel allows an attacker to recover the plaintext block-by-block. 1. Access `/api/v1/relay/config` to get the encrypted configuration (IV + Ciphertext). 2. Use the `/api/v1/relay/process` endpoint as a padding oracle: modify the ciphertext bytes and observe if the response is ERR_SIG_SYNC or ERR_INT_FAIL. 3. Systematically recover the plaintext of each block by iterating through possible byte values for the preceding block. 4. The recovered plaintext will contain the NOLD header, the flag, and the CRC32 checksum.",
+  "docker_image_tag": "levelup-challenge-8385631c",
+  "narrative_context": {
+    "company_name": "NebulaOrbit Logistics & Defense",
+    "industry": "aerospace",
+    "scenario": "NebulaOrbit Logistics & Defense (NOLD) has recently expanded its constellation of Low Earth Orbit (LEO) satellites to provide high-speed data relay for agricultural and maritime clients. To manage the massive influx of sensitive telemetry and command data, they developed the Orion-Link system. This system acts as a high-security bridge between ground-based mission control and the orbital assets, ensuring that command sequences are not intercepted or tampered with during transit. \n\nWhile NOLD maintains a standard security operations center, the majority of their personnel have been diverted to a new government-mandated cloud integration project. This shift has left the Orion-Link gateway\u2014a critical component of their secure infrastructure\u2014under-monitored. As an external security consultant, you have been granted access to a simulated environment of the Orion-Link relay to verify the integrity of their encrypted data handling and communication protocols before the next satellite launch window.",
+    "app_name": "Orion-Link Telemetry Relay",
+    "app_purpose": "Managing the encrypted distribution of mission-critical instructions and the secure storage of sensitive sensor telemetry from satellite payloads.",
+    "data_theme": "satellite telemetry logs, orbital coordinates, encrypted command sequences, mission specialist credentials",
+    "flavor_details": {
+      "company_motto": "Precision Beyond the Atmosphere.",
+      "department": "Orbital Communications Division",
+      "recent_event": "A scheduled ISO/IEC 27001 audit has flagged the legacy command relay system as a high-priority review item due to its age.",
+      "tech_hints": [
+        "Fixed-size data blocks",
+        "Standardized message headers",
+        "Symmetric block processing",
+        "High-throughput encrypted storage"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a standard AES-CBC Padding Oracle attack, made slightly more complex by a dynamic mask applied to the padding values and a subtle side-channel (JSON key ordering and string casing). However, the source code contains explicit comments labeling the oracle cases ('Oracle Case: Incorrect padding'), which trivializes the discovery of the side-channel and reduces the effort to primarily script-writing for the oracle. The integrity check (nibble-swapped CRC32) acts as a stable  (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

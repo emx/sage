@@ -1,0 +1,49 @@
+{
+  "run_number": 39,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantAxis Grain Management",
+  "description": "Welcome to the VerdantAxis Centralized Inventory Portal. Authorized personnel can monitor crop batch IDs, silo moisture levels, and chemical treatment logs. Security is our top priority; all telemetry queries are passed through our proprietary 'VerdantShield' logic filter. Explore our silo network and ensure the harvest is secure.",
+  "flag": "LEVELUP{miqJxXKb3cpjGG6Hnl6RP6aCfroWXNJq}",
+  "solution": "1. Explore the application and find the Silo Detail page: `/silo/<id>`. \n2. Test the `id` parameter for SQL injection. Observe that common keywords like `UNION`, `AND`, `OR` are blocked by a 'VerdantShield' filter.\n3. Discover that the injection point allows arithmetic operations. Testing `id=1+0` works, while `id=1+1` shows a different silo, confirming numeric injection.\n4. Since `AND` and `OR` are blocked, use SQLite's `INTERSECT` or subqueries within arithmetic to perform Boolean-based blind injection.\n5. Enumerate the database schema using `sqlite_master`. The table `node_configuration_v2` contains a `setting_value` column.\n6. Construct a payload to leak the flag character by character: `/silo/1+(SELECT(CASE WHEN(SUBSTR((SELECT(setting_value)FROM(node_configuration_v2)LIMIT(1)),1,1)='L')THEN(0)ELSE(999)END))`. \n7. If the character is correct, the ID remains 1 (1+0). If incorrect, it becomes 1000 (1+999), leading to a 404 or different silo data.\n8. Automate this process to extract the full flag.",
+  "docker_image_tag": "levelup-challenge-4b57cdf5",
+  "narrative_context": {
+    "company_name": "VerdantAxis Analytics",
+    "industry": "agriculture",
+    "scenario": "VerdantAxis Analytics is a pioneer in precision agriculture, providing real-time data to thousands of farm cooperatives across three continents. Recently, the company acquired a regional logistics firm and rushed the integration of their legacy supply chain tracking software into the flagship platform. The internal security team is currently focused on a massive compliance audit for their international branches, leaving the newly integrated modules with minimal oversight.\n\nThe FieldView Inventory Optimizer is now the central hub for managing millions of dollars in agricultural commodities. You have been brought in as a third-party security auditor to ensure that the legacy code hasn't introduced cracks in the corporate armor. The application serves as a high-traffic portal where regional managers filter through specific crop batches, check silo capacities, and verify shipping manifests. Because the system bridges old and new infrastructure, the CISO is concerned about how the application handles data retrieval from the unified backend.",
+    "app_name": "FieldView Inventory Optimizer",
+    "app_purpose": "Centralized management of grain inventory, pesticide logs, and machinery distribution for global agricultural cooperatives.",
+    "data_theme": "Crop batch IDs, silo moisture levels, GPS coordinates of distribution centers, and chemical treatment logs.",
+    "flavor_details": {
+      "company_motto": "Data-driven growth, root to branch.",
+      "department": "Supply Chain & Logistics",
+      "recent_event": "A recent merger led to a 'lift-and-shift' migration of legacy inventory modules into the modern corporate stack.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic filtering on multi-column search views",
+        "Unified data access layer"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a SQL injection vulnerability via string concatenation with a keyword-based blacklist filter. While the filter blocks 'UNION', 'OR', and 'AND', it is easily bypassed using 'INTERSECT', 'EXCEPT', or subqueries within the WHERE clause. The application's decision to display the raw database error ('debug=str(e)') significantly lowers the difficulty by allowing for easy error-based exfiltration or debugging of the blind injection. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

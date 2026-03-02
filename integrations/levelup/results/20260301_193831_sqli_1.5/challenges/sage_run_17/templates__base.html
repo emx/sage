@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VeloceStream Logistics</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; color: #333; }
+        nav { background: #2c3e50; color: white; padding: 1rem; display: flex; justify-content: space-between; }
+        nav a { color: #ecf0f1; text-decoration: none; margin: 0 10px; }
+        .container { padding: 2rem; max-width: 1000px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .btn { background: #3498db; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div><strong>VeloceStream Logistics</strong></div>
+        <div>
+            <a href="/">Home</a>
+            <a href="/tracking">Public Tracking</a>
+            {% if session['user'] %}
+                <a href="/dashboard">Dashboard</a>
+                <a href="/analytics">Fleet Analytics</a>
+                <a href="/logout">Logout</a>
+            {% else %}
+                <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

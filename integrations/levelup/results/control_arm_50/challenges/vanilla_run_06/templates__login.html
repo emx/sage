@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 4rem auto;">
+    <h2>Administrator Login</h2>
+    <form onsubmit="return false;">
+        <div style="margin-bottom: 1rem;">
+            <label>Username</label><br>
+            <input type="text" style="width: 100%; padding: 8px;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label>Password</label><br>
+            <input type="password" style="width: 100%; padding: 8px;">
+        </div>
+        <button type="submit" style="width: 100%; padding: 10px; background: #2c3e50; color: white; border: none; cursor: not-allowed;">Login (Disabled)</button>
+    </form>
+    <p style="color: #d9534f; font-size: 0.8rem; margin-top: 1rem;">Remote admin login is currently disabled for security maintenance. Please use the local terminal.</p>
+</div>
+{% endblock %}

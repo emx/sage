@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Veridian Forge Aerospace - Logistics</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0f19; color: #e0e0e0; margin: 0; }
+        nav { background: #161d2b; padding: 1rem; border-bottom: 2px solid #2a3a5a; display: flex; justify-content: space-between; }
+        nav a { color: #4a9eff; text-decoration: none; margin: 0 1rem; font-weight: bold; }
+        .container { padding: 2rem; max-width: 1000px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 12px; border: 1px solid #2a3a5a; text-align: left; }
+        th { background: #1c263a; color: #4a9eff; }
+        tr:nth-child(even) { background: #121826; }
+        .btn { background: #4a9eff; color: white; padding: 0.5rem 1rem; border: none; cursor: pointer; text-decoration: none; border-radius: 4px; }
+        .alert { background: #3d1a1a; border: 1px solid #ff4a4a; padding: 1rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div>
+            <span style="color: #4a9eff; font-size: 1.2rem;">VERIDIAN FORGE</span>
+            <a href="/">Home</a>
+            <a href="/inventory">Inventory</a>
+            <a href="/facilities">Facilities</a>
+        </div>
+        <div>
+            <small>User: guest_officer | Node: VF-G1</small>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_24 (VANILLA)
+==================================================
+Overall: 6.0/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  4.0/10  ####
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: The second-order injection via a stored HTTP header is a genuinely clever attack surface, and the multi-step exploit chain (discover endpoint, set cookie, inject via header, trigger on audit page) provides real structure. However, defense_depth is weak — the WAF blocks UNION/comments but leaves SELECT, FROM, single quotes, and subqueries wide open, making bypass trivial via nested subqueries without touching any blacklisted keyword. The cookie auth ('staff_access=1') is spelled out in the 401 response and the audit page is linked directly in the navbar, removing any real discovery challenge.

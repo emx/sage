@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Operations Dashboard</h1>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <div class="card">
+        <h3>Active Manifests</h3>
+        <p style="font-size: 2em; margin: 0;">124</p>
+    </div>
+    <div class="card">
+        <h3>Fleet Readiness</h3>
+        <p style="font-size: 2em; margin: 0;">94%</p>
+    </div>
+    <div class="card">
+        <h3>System Status</h3>
+        <p style="font-size: 2em; margin: 0; color: green;">Healthy</p>
+    </div>
+</div>
+<div class="card">
+    <h3>Recent System Alerts</h3>
+    <ul>
+        <li>[INFO] Geo-fence triggered for Atlas-01</li>
+        <li>[WARN] Maintenance overdue for Boreas-04</li>
+        <li>[DEBUG] Legacy telemetry API ping received</li>
+    </ul>
+</div>
+{% endblock %}

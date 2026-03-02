@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Technical Support</h2>
+<p>Contact the VeloceFreight IT desk for assistance with the logistics portal.</p>
+<div class="card mb-4">
+    <div class="card-body">
+        <form>
+            <div class="mb-3"><label>Subject</label><input type="text" class="form-control"></div>
+            <div class="mb-3"><label>Message</label><textarea class="form-control" rows="4"></textarea></div>
+            <button type="button" class="btn btn-primary" onclick="alert('Support ticket submitted successfully.')">Submit Ticket</button>
+        </form>
+    </div>
+</div>
+<h5>Internal Documentation</h5>
+<p>Note: Dispatchers should refer to the <code>v_sys_routing_meta</code> registry for sensitive API keys and internal routing flags.</p>
+{% endblock %}

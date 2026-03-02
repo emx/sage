@@ -1,0 +1,49 @@
+{
+  "run_number": 1,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.65,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantAxis Logistics: Cargo Manifest Audit",
+  "description": "Welcome to the VerdantAxis Logistics Global Portal. As an external security consultant, your objective is to audit the 'Cargo Inventory' system. The company maintains a high-security 'Internal Audit' configuration within their database that contains a sensitive security hash\u2014which also happens to be our target flag. Explore the application, bypass their security filters, and extract the internal security hash. Note: The application is protected by an 'Advanced Logic Filter' (ALF) that blocks common SQL keywords and comment syntaxes.",
+  "flag": "LEVELUP{JfrRH2_KOEbpj36CdMJ21sdn2zhx2aa0}",
+  "solution": "1. Explore the application and find the /inventory page. 2. Observe that searching or sorting triggers a request to /api/v1/cargo/search. 3. Test the 'sort' parameter for SQL injection. 4. Discover the 'Advanced Logic Filter' (ALF) which blocks 'UNION', 'SELECT', 'OR', 'AND', '--', '/*', and spaces (ASCII 32). 5. Bypass the space filter using Tab (%09) or Newline (%0A) characters. 6. Bypass keyword filtering by noting the filter checks for keywords followed by spaces (e.g., 'SELECT ') or specific patterns. Use 'SELECT(column)' syntax to avoid spaces after keywords. 7. Use a Boolean-based or Error-based injection within a CASE statement in the ORDER BY clause. For example: `ORDER=(CASE WHEN (SELECT(SUBSTR(config_value,1,1))FROM(internal_audit)WHERE(config_key='security_check_hash'))='L' THEN id ELSE weight END)`. 8. Automate the extraction of the 'config_value' from the 'internal_audit' table where 'config_key' is 'security_check_hash'.",
+  "docker_image_tag": "levelup-challenge-d9ae7f78",
+  "narrative_context": {
+    "company_name": "VerdantAxis Logistics",
+    "industry": "logistics",
+    "scenario": "VerdantAxis Logistics is a rapidly expanding global shipping firm that has recently undergone a series of aggressive acquisitions. To maintain operational efficiency, they have consolidated their diverse fleet management tools into a single, centralized web application called FleetTrack Pro. This platform is the backbone of their operations, handling everything from real-time GPS coordinates of long-haul trucks to sensitive customs documentation for international freight.\n\nThe internal security team is currently preoccupied with a massive migration to a hybrid-cloud architecture, leaving the latest updates to FleetTrack Pro under-reviewed. The developers, pressured by tight deadlines to integrate legacy databases from the acquired companies, have implemented new search features and filtering systems to help warehouse managers locate specific cargo across their global network.",
+    "app_name": "FleetTrack Pro Dashboard",
+    "app_purpose": "Centralized management of global logistics, including shipment tracking, cargo inventory search, and driver assignment manifests.",
+    "data_theme": "Shipment tracking IDs, cargo manifests, warehouse inventory records, and driver contact information.",
+    "flavor_details": {
+      "company_motto": "Connecting the World, One Crate at a Time",
+      "department": "Global Supply Chain Operations",
+      "recent_event": "Recent integration of a legacy database from a regional carrier acquisition 'Swift-Link Express'.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic query building for shipment filters",
+        "RESTful API endpoints for inventory lookup"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a restrictive 'ORDER BY' injection point combined with a custom WAF that blocks spaces and specific SQL keywords. Exploitation requires bypassing the whitespace filter using alternative characters like newlines (%0a) and performing boolean-based blind injection by observing the sorting order of returned JSON objects. The blacklist is easily bypassed using CASE statements and subquery grouping, but the non-standard whitespace requirement and context move it into the 'Hard (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

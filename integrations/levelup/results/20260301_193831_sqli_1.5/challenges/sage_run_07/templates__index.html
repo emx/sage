@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>Global Logistics Overview</h2>
+        <div class="card mt-4 p-4">
+            <h5>Active Operations</h5>
+            <p class="text-muted">Real-time status of current global routing segments.</p>
+            <div class="row text-center mt-3">
+                <div class="col-4"><div class="display-6 text-primary">42</div><small>Ships at Sea</small></div>
+                <div class="col-4"><div class="display-6 text-success">128</div><small>Ports Active</small></div>
+                <div class="col-4"><div class="display-6 text-warning">12</div><small>Customs Alerts</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-4">
+            <h6>System Status</h6>
+            <hr>
+            <p><span class="badge bg-success">ONLINE</span> Core Database</p>
+            <p><span class="badge bg-success">ONLINE</span> Tracking API</p>
+            <p><span class="badge bg-info">SECURE</span> WAF Middleware v2.4</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{
+  "run_number": 33,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.1,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Veridian Kinetic: Legacy Portal",
+  "description": "Welcome to the Veridian Kinetic regional logistics hub. As a Tier-1 Logistics Coordinator, your job is to manage cargo manifests and track warehouse telemetry. Our legacy archival systems are still online to ensure zero downtime during the 2024 infrastructure upgrade. Please report any anomalies in the manifest search or telemetry reporting tools to the IT Security team immediately.",
+  "flag": "LEVELUP{wzA2sDAcI9n13uaJ9GTmqAjwUMKbFFmm}",
+  "solution": "1. Enumerate the application: Notice a commented-out script in the source of /dashboard that points to a hidden legacy API endpoint: /api/v1/logistics/telemetry?unit_id=101.\n2. Test for SQL injection: The unit_id parameter in /api/v1/logistics/telemetry is vulnerable. Standard UNION-based injection is blocked by a keyword WAF (SELECT, UNION, FROM, WHERE, and spaces are filtered).\n3. Bypass the WAF: Use `/**/` as a replacement for spaces and capitalize or vary the casing of keywords (the WAF is case-sensitive or fails to handle multi-line/commented syntax). Alternatively, since it is a boolean-based context, use logical operators like `||` and `&&`.\n4. Blind Extraction: Craft a boolean payload to leak the table names from sqlite_master. Discover the 'internal_vault' table.\n5. Extract the Flag: Use the boolean payload to leak the 'secret_value' from the 'internal_vault' table where 'secret_key' is 'system_integrity_hash'. Sample payload: `101'/**/AND/**/(SELECT/**/hex(substr(secret_value,1,1))/**/FROM/**/internal_vault)='4c'/**/AND/**/'1'='1`.",
+  "docker_image_tag": "levelup-challenge-dd61ec12",
+  "narrative_context": {
+    "company_name": "Veridian Kinetic Solutions",
+    "industry": "logistics",
+    "scenario": "Veridian Kinetic Solutions is a premier global logistics firm specializing in the transport of high-value aerospace components and medical isotopes. Following the rapid acquisition of a smaller regional courier, 'SwiftRoute Logistics,' Veridian has been working to integrate disparate tracking systems into their flagship 'Global Asset Orchestrator' platform. While the core architecture is robust, the integration of legacy database schemas has created a patchwork of service layers that are still being synchronized.\n\nYour firm has been contracted to perform a targeted assessment of the newly integrated 'Regional Transit Module' before it is fully exposed to the global API mesh. The Veridian security team is currently preoccupied with a massive SOC2 audit and a cloud migration project, meaning they need a comprehensive external review of the asset search functionality to ensure that internal routing data remains isolated from unauthorized personnel and that the legacy bridge remains stable under scrutiny.",
+    "app_name": "Global Asset Orchestrator - Regional Transit Module",
+    "app_purpose": "Allows logistics coordinators to search for and manage cargo shipments by origin, destination, and manifest ID across legacy regional databases.",
+    "data_theme": "Manifest logs, tracking numbers, warehouse locations, and transit coordinator profiles.",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Security in Transit.",
+      "department": "Global Operations & Logistics IT",
+      "recent_event": "A recent internal audit flagged 'unexpected data verbosity' during high-load periods in the transit module.",
+      "tech_hints": [
+        "Legacy SQL integration",
+        "Node.js middleware",
+        "Asynchronous database queries",
+        "Relational data structures"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge contains an unauthenticated SQL injection vulnerability in a 'legacy' API endpoint. Although a WAF is present, it uses a simple substring blacklist that is trivially bypassed by inserting inline comments into keywords (e.g., 'SEL/**/ECT') and using comments for whitespace. The lack of session validation on the vulnerable route reduces the complexity significantly compared to the designer's target. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

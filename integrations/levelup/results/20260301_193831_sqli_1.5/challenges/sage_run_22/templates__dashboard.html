@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Manager Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Shipments</h3>
+        <p style="font-size: 2rem; color: #2980b9;">1,248</p>
+        <a href="/shipments">View All</a>
+    </div>
+    <div class="card">
+        <h3>System Integrity</h3>
+        <p style="color: green;">WAF Filtering: ENABLED</p>
+        <p style="color: green;">Registry Status: SECURE</p>
+    </div>
+</div>
+<div class="card">
+    <h3>Quick Verification</h3>
+    <p>Use the <a href="/verify">Verification Tool</a> to validate manifest serial numbers against the global registry.</p>
+</div>
+{% endblock %}

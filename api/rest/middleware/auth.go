@@ -1,0 +1,151 @@
+package middleware
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/l33tdawg/sage/internal/auth"
+	"github.com/rs/zerolog/log"
+)
+
+type contextKey string
+
+const (
+	agentIDKey  contextKey = "agent_id"
+	agentAuthKey contextKey = "agent_auth" // Raw agent auth proof for on-chain embedding
+)
+
+// AgentAuthProof holds the raw cryptographic material from the agent's request
+// authentication, to be embedded in transactions for on-chain verification.
+type AgentAuthProof struct {
+	PubKey    []byte // Ed25519 public key (32 bytes)
+	Signature []byte // Ed25519 signature (64 bytes)
+	Timestamp int64  // Unix seconds used in signing
+	BodyHash  []byte // SHA-256 of request body (32 bytes)
+}
+
+// skipAuthPaths lists paths that bypass authentication.
+var skipAuthPaths = map[string]bool{
+	"/health": true,
+	"/ready":  true,
+}
+
+// maxTimestampSkew is the maximum allowed clock drift for request timestamps.
+const maxTimestampSkew = 5 * time.Minute
+
+// Ed25519AuthMiddleware validates Ed25519 signature authentication via headers:
+//   - X-Agent-ID:  hex-encoded Ed25519 public key
+//   - X-Signature: hex-encoded Ed25519 signature
+//   - X-Timestamp: unix epoch seconds
+//
+// The signed message is SHA-256(body) + timestamp (big-endian int64).
+func Ed25519AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for health/readiness probes.
+		if skipAuthPaths[r.URL.Path] {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		agentID := strings.TrimSpace(r.Header.Get("X-Agent-ID"))
+		sigHex := strings.TrimSpace(r.Header.Get("X-Signature"))
+		tsStr := strings.TrimSpace(r.Header.Get("X-Timestamp"))
+
+		if agentID == "" || sigHex == "" || tsStr == "" {
+			writeProblem(w, http.StatusUnauthorized, "Missing authentication headers",
+				"X-Agent-ID, X-Signature, and X-Timestamp headers are required.")
+			return
+		}
+
+		// Parse and validate timestamp.
+		tsUnix, err := strconv.ParseInt(tsStr, 10, 64)
+		if err != nil {
+			writeProblem(w, http.StatusUnauthorized, "Invalid timestamp",
+				"X-Timestamp must be a valid unix epoch in seconds.")
+			return
+		}
+
+		now := time.Now().Unix()
+		diff := now - tsUnix
+		if diff < 0 {
+			diff = -diff
+		}
+		if time.Duration(diff)*time.Second > maxTimestampSkew {
+			writeProblem(w, http.StatusUnauthorized, "Timestamp expired",
+				"X-Timestamp is outside the acceptable 5-minute window.")
+			return
+		}
+
+		// Decode public key from agent ID.
+		pubKey, err := auth.AgentIDToPublicKey(agentID)
+		if err != nil {
+			writeProblem(w, http.StatusUnauthorized, "Invalid agent ID",
+				"X-Agent-ID must be a valid hex-encoded Ed25519 public key.")
+			return
+		}
+
+		// Decode signature.
+		sig, err := hex.DecodeString(sigHex)
+		if err != nil {
+			writeProblem(w, http.StatusUnauthorized, "Invalid signature encoding",
+				"X-Signature must be hex-encoded.")
+			return
+		}
+
+		// Read and buffer the request body for signature verification.
+		var body []byte
+		if r.Body != nil {
+			body, err = io.ReadAll(r.Body)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to read request body for auth")
+				writeProblem(w, http.StatusInternalServerError, "Internal error",
+					"Failed to read request body.")
+				return
+			}
+			// Replace the body so downstream handlers can read it.
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
+
+		// Verify Ed25519 signature.
+		if !auth.VerifyRequest(pubKey, body, tsUnix, sig) {
+			writeProblem(w, http.StatusUnauthorized, "Invalid signature",
+				"Ed25519 signature verification failed.")
+			return
+		}
+
+		// Compute body hash for on-chain embedding.
+		bodyHash := sha256.Sum256(body)
+
+		// Store agent ID and raw auth proof in context for downstream handlers.
+		proof := &AgentAuthProof{
+			PubKey:    []byte(pubKey),
+			Signature: sig,
+			Timestamp: tsUnix,
+			BodyHash:  bodyHash[:],
+		}
+		ctx := context.WithValue(r.Context(), agentIDKey, agentID)
+		ctx = context.WithValue(ctx, agentAuthKey, proof)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// ContextAgentID extracts the authenticated agent ID from the request context.
+// Returns an empty string if no agent ID is present (e.g. unauthenticated paths).
+func ContextAgentID(ctx context.Context) string {
+	v, _ := ctx.Value(agentIDKey).(string)
+	return v
+}
+
+// ContextAgentAuth extracts the raw agent auth proof from the request context.
+// Returns nil if not present.
+func ContextAgentAuth(ctx context.Context) *AgentAuthProof {
+	v, _ := ctx.Value(agentAuthKey).(*AgentAuthProof)
+	return v
+}

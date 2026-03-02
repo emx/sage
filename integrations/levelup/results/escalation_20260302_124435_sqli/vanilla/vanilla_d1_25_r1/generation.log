@@ -1,0 +1,3 @@
+app.agents.static_analysis WARNING: Auto-fixed Dockerfile flag leak: injected 'RUN rm -f Dockerfile' after context COPY to prevent players from reading the flag via 'cat Dockerfile'.
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (160.2s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 210s, verification=smoke_tested

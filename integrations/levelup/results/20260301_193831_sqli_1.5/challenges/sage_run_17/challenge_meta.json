@@ -1,0 +1,53 @@
+{
+  "run_number": 17,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 90.0,
+  "calibrated_difficulty": 1.7,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VeloceStream: Global Insights",
+  "description": "VeloceStream Logistics prides itself on precision. Their new fleet analytics portal allows managers to sort through thousands of shipments in real-time. However, the internal API used for sorting seems to have some custom security middleware. Can you bypass their filters and recover the master system seal hidden within their logs?",
+  "flag": "LEVELUP{3Gg4vBxTRlhQoYike2RS3vmA3eweKbLn}",
+  "solution": "1. Explore the application and log in using the credentials found in the dashboard source code or via common enumeration (e.g., driver_admin / Veloce2024). 2. Navigate to the 'Fleet Analytics' page. 3. Observe the network traffic and notice the call to `/api/v1/shipments/analytics?sort=id`. 4. Test for SQL injection in the `sort` parameter. A simple `'` or `UNION` triggers a WAF error. 5. Analyze the WAF: it blocks `union`, `or`, `and`, `--`, `/*`, and spaces (case-insensitive). 6. Bypass the space filter using newlines (`%0a`) or tabs (`%09`). 7. Bypass the `AND/OR` filter by using the multiplication trick `(condition1)*(condition2)` or using nested `CASE` statements. 8. Since the output is the sorted list of shipments, use a Blind Boolean technique in the `ORDER BY` clause: `(CASE%0aWHEN%0a(subquery)%0aTHEN%0aid%0aELSE%0asource_city%0aEND)`. 9. If the subquery is true, the list is sorted by `id` (numeric); if false, it is sorted by `source_city` (alphabetical). 10. Extract the table names from `sqlite_master` and discover `fleet_logs`. 11. Extract the `report_data` from `fleet_logs` where `record_cat='system_seal'` to retrieve the flag.",
+  "docker_image_tag": "levelup-challenge-be05e862",
+  "narrative_context": {
+    "company_name": "VeloceStream Logistics",
+    "industry": "logistics",
+    "scenario": "VeloceStream Logistics is a global leader in high-value asset transport, managing everything from semiconductor shipments to rare art. Following a series of mergers, the company is consolidating its disparate regional tracking systems into a unified platform called FleetPulse. The transition has been overseen by a capable but overwhelmed security team that prioritizes the new mobile-facing APIs over internal management tools.\n\nAs the company prepares for an annual ISO 27001 certification, a third-party auditor has flagged the 'Archive Search' module. This specific module was carried over from a legacy system to allow veteran regional managers to query historical manifest data. It interacts directly with the primary database to pull records spanning the last decade, and the integration was completed during a weekend sprint to meet a critical operational deadline.",
+    "app_name": "FleetPulse Global Dashboard",
+    "app_purpose": "Provides real-time and historical tracking data for international shipments, including driver credentials and customs documentation.",
+    "data_theme": "shipping manifests, driver logs, cargo manifests, and port-of-entry records",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Security in Every Mile.",
+      "department": "Global Operations & Compliance",
+      "recent_event": "A scheduled ISO 27001 compliance audit is looming in two weeks, and the legacy integration modules have not been properly hardened.",
+      "tech_hints": [
+        "Legacy MariaDB back-end",
+        "Server-side dynamic query generation",
+        "PHP 7.4 runtime environment",
+        "Internal-only management interface"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires bypassing a WAF that filters spaces and logical keywords (AND/OR/UNION) within an ORDER BY injection context. Exploitation necessitates a blind extraction technique by observing changes in the returned JSON's sort order, using alternative whitespace like tabs (%09) and CASE statements to circumvent the filter. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

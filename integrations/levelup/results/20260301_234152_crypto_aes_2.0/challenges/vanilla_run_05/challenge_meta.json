@@ -1,0 +1,52 @@
+{
+  "run_number": 5,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 1.85,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "AetherLink Telemetry Bridge",
+  "description": "Welcome to the NebulaStrand Orbital Ground Control. Your mission is to audit the AetherLink Telemetry Bridge. We've captured an encrypted administrative command log that we suspect contains the master telemetry access flag. The system's 'Frame Verification' endpoint is highly sensitive to alignment\u2014perhaps too sensitive. Can you recover the flag from the encrypted log?\n\nConnect to the service to begin your audit.",
+  "flag": "LEVELUP{ffLwrk7vyWZi23dg4WcbNOXwDxaW5R9T}",
+  "solution": "The challenge implements an AES-CBC Padding Oracle. The '/api/v1/telemetry/verify' endpoint decrypts the provided ciphertext and returns different error messages depending on whether the PKCS7 padding is valid. Specifically, a padding failure returns 'MALFORMED_FRAME_ALIGNMENT', while a successful padding but invalid protocol header (missing 'NEBULA:') returns 'INVALID_PROTOCOL_HEADER'. This side-channel allows an attacker to decrypt the flag block-by-block. 1. Access '/api/v1/telemetry/capture' to get the encrypted flag (IV + Ciphertext). 2. Use the 'verify' endpoint as an oracle: for each byte of a block, iterate through all 256 values (0-255) for the corresponding byte in the previous block (or IV) until the server returns something other than 'MALFORMED_FRAME_ALIGNMENT'. 3. Calculate the plaintext byte using the XOR of the original byte, the manipulated byte, and the padding value. 4. Repeat for all blocks.",
+  "docker_image_tag": "levelup-challenge-d909bb75",
+  "narrative_context": {
+    "company_name": "NebulaStrand Orbital",
+    "industry": "aerospace",
+    "scenario": "NebulaStrand Orbital operates a growing constellation of environmental monitoring satellites. To manage the vast influx of sensitive orbital telemetry and command logs, they developed the AetherLink Telemetry Bridge. This system serves as the primary gateway between the ground stations and the long-term data repository, ensuring that every packet is cryptographically protected before it touches the disk or crosses the public backhaul.\n\nFollowing a series of aggressive acquisitions, the engineering team had to rapidly integrate a variety of proprietary telemetry protocols. To maintain performance across these disparate sources, they implemented a standardized block-cipher pipeline for all incoming streams. The internal security team, currently preoccupied with a massive infrastructure migration, has flagged the AetherLink encryption subsystem for a deep-dive review to ensure it meets the rigorous standards of aerospace data integrity.",
+    "app_name": "AetherLink Telemetry Bridge",
+    "app_purpose": "Aggregates, encrypts, and archives real-time satellite telemetry and command history for orbital assets.",
+    "data_theme": "orbital coordinates, sensor readings, command logs, and satellite health status",
+    "flavor_details": {
+      "company_motto": "Connecting the Earth to the Infinite.",
+      "department": "Orbital Operations & Data Security",
+      "recent_event": "The integration of the 'Legacy-V' telemetry module from a recent acquisition has introduced suspicious patterns in the encrypted archives.",
+      "tech_hints": [
+        "High-throughput block cipher processing",
+        "Standardized Initialization Vector generation",
+        "Stream-to-block alignment"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a classic AES-CBC Padding Oracle, but adds complexity through a session-based XOR scramble layer and strict rate limiting. Exploitation requires 'transcoding' the initial flag (encrypted with a known 'BOOT' token) into the attacker's session-specific mask, and standard IV-flickering for the first block is neutralized because the mask is derived from the IV\u2014forcing the attacker to use block-prepending or clever session management. The requirement to solve a PoW and rotate (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

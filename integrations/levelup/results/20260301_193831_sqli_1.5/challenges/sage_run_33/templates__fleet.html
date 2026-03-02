@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Active Fleet Inventory</h2>
+    <table>
+        <thead>
+            <tr><th>Asset Name</th><th>Type</th><th>Current Location</th></tr>
+        </thead>
+        <tbody>
+            {% for s in ships %}
+            <tr>
+                <td>{{ s.asset_name }}</td>
+                <td>{{ s.asset_type }}</td>
+                <td>{{ s.location }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Global Shipping Manifests</h2>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Origin Hub</th>
+            <th>Destination</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in manifests %}
+        <tr>
+            <td>{{ m.id }}</td>
+            <td>{{ m.origin }}</td>
+            <td>{{ m.destination }}</td>
+            <td>{{ m.status }}</td>
+            <td><a href="/manifest/{{ m.id }}" class="btn btn-primary">View Details</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

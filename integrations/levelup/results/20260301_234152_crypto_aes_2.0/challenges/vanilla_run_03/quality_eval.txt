@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_03 (VANILLA)
+==================================================
+Overall: 7.4/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  8.0/10  ########
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: A well-constructed timing-based padding oracle challenge with multiple defensive layers — integrity signatures via leaked instance_id, ISO/IEC 7816-4 padding instead of PKCS#7, and CRC32 checksums — that genuinely elevate it above a textbook CBC padding oracle. The 250ms timing gap is generous for detection but the non-standard padding forces custom tooling and the per-request X-Integrity-Sig adds real friction to automation. Flag isolation is excellent: build-time encryption with source and flag file removal in the Docker layer.

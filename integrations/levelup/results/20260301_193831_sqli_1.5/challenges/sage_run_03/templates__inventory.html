@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Silo Level Monitoring</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Serial</th>
+                <th>Location</th>
+                <th>Capacity</th>
+                <th>Fill Level</th>
+                <th>Commodity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for silo in silos %}
+            <tr>
+                <td>{{ silo.silo_serial }}</td>
+                <td>{{ silo.location }}</td>
+                <td>{{ silo.capacity }} Tons</td>
+                <td>{{ silo.fill_level }}%</td>
+                <td>{{ silo.commodity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
+app.agents.exploit WARNING: [replay] Timeout after 368.8s
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (368.8s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 300s, verification=smoke_tested
+sage_bridge INFO: SAGE observation submitted: 899f46dc-529e-488c-8215-92da03bbc1c4

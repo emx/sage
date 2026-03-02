@@ -1,0 +1,100 @@
+============================================================================
+  PER-CHALLENGE QUALITY EVALUATION — ISOLATED SCORING
+============================================================================
+  Mode: both
+  Each challenge scored in complete isolation (no batch context)
+
+  VANILLA EVALUATOR (10 challenges scored)
+  --------------------------------------------------------------------
+    Vanilla challenges:
+    vanilla_run_01         | overall= 7.0 | diffic= 6 defens= 7 code_q= 6 creati= 7 realis= 7 flag_i= 9 exploi= 7
+                             >> Solid padding oracle challenge with two genuine twists: timing-based side channel (60ms delay on val
+    vanilla_run_02         | overall= 7.1 | diffic= 7 defens= 7 code_q= 7 creati= 6 realis= 6 flag_i= 9 exploi= 7
+                             >> The challenge implements a genuinely subtle timing-based padding oracle with triangular jitter maski
+    vanilla_run_03         | overall= 7.7 | diffic= 7 defens= 8 code_q= 8 creati= 7 realis= 7 flag_i= 9 exploi= 8
+                             >> Well-engineered timing-based padding oracle with multiple defense layers: integrity signature via le
+    vanilla_run_04         | overall= 6.0 | diffic= 4 defens= 8 code_q= 7 creati= 7 realis= 7 flag_i= 9 exploi= 5
+                             >> The challenge has excellent defense layering (X9.23 padding, UTF-16BE encoding, statistical noise or
+    vanilla_run_05         | overall= 6.8 | diffic= 7 defens= 7 code_q= 6 creati= 7 realis= 7 flag_i= 6 exploi= 7
+                             >> Well-designed CBC padding oracle with meaningful defense layers (PoW gating, session limits, XOR scr
+    vanilla_run_06         | overall= 7.4 | diffic= 7 defens= 7 code_q= 8 creati= 7 realis= 7 flag_i= 9 exploi= 7
+                             >> A well-constructed padding oracle challenge elevated by IV-dependent custom padding (not standard PK
+    vanilla_run_07         | overall= 6.9 | diffic= 7 defens= 7 code_q= 6 creati= 7 realis= 7 flag_i= 7 exploi= 7
+                             >> Solid timing-based padding oracle with ISO 7816-4 padding instead of PKCS7, XOR-masked CRC32, and un
+    vanilla_run_08         | overall= 5.5 | diffic= 7 defens= 4 code_q= 6 creati= 4 realis= 6 flag_i= 8 exploi= 6
+                             >> A competent but textbook AES-CBC padding oracle implementation. The flag isolation is strong (build-
+    vanilla_run_09         | overall= 7.1 | diffic= 7 defens= 7 code_q= 6 creati= 7 realis= 7 flag_i= 8 exploi= 7
+                             >> Solid CBC padding oracle with meaningful hardening: IV-dependent non-standard padding prevents off-t
+    vanilla_run_10         | overall= 7.6 | diffic= 7 defens= 8 code_q= 7 creati= 8 realis= 7 flag_i= 8 exploi= 8
+                             >> Strong elevation of a classic CBC padding oracle through multiple defense layers (PoW, HMAC token, I
+
+    Aggregate (VANILLA EVALUATOR):
+    Metric                                Mean    Std
+    --------------------------------------------------
+    difficulty_accuracy                   6.60   0.97
+    defense_depth                         7.00   1.15
+    code_quality                          6.70   0.82
+    creativity                            6.70   1.06
+    realism                               6.80   0.42
+    flag_isolation                        8.20   1.03
+    exploit_complexity                    6.90   0.88
+    --------------------------------------------------
+    OVERALL                               6.91   0.69
+
+  SAGE EVALUATOR (10 challenges scored)
+  --------------------------------------------------------------------
+    Vanilla challenges:
+    vanilla_run_01         | overall= 7.0 | diffic= 5 defens= 7 code_q= 6 creati= 7 realis= 6 flag_i= 9 exploi= 7
+                             >> Solid timing-based CBC padding oracle with a creative XOR mask transformation layer and excellent fl
+    vanilla_run_02         | overall= 7.0 | diffic= 7 defens= 7 code_q= 7 creati= 7 realis= 6 flag_i= 7 exploi= 7
+                             >> Solid timing-based padding oracle with two real defensive layers: a custom FNV-1a checksum that must
+    vanilla_run_03         | overall= 7.3 | diffic= 7 defens= 7 code_q= 7 creati= 7 realis= 7 flag_i= 9 exploi= 7
+                             >> Well-constructed blind timing oracle challenge with genuine multi-step exploitation: instance_id dis
+    vanilla_run_04         | overall= 5.8 | diffic= 3 defens= 8 code_q= 6 creati= 7 realis= 7 flag_i= 9 exploi= 4
+                             >> The challenge features impressive multi-layered defense (HMAC auth, noisy timing oracle, X9.23 paddi
+    vanilla_run_05         | overall= 7.0 | diffic= 8 defens= 8 code_q= 5 creati= 7 realis= 7 flag_i= 7 exploi= 8
+                             >> Well-designed CBC padding oracle with a creative XOR scramble layer (token+IV derived mask), PoW gat
+    vanilla_run_06         | overall= 7.6 | diffic= 7 defens= 7 code_q= 8 creati= 8 realis= 7 flag_i= 9 exploi= 7
+                             >> A well-constructed CBC padding oracle with genuinely creative obfuscation: the oracle signal is diff
+    vanilla_run_07         | overall= 7.0 | diffic= 6 defens= 7 code_q= 7 creati= 7 realis= 7 flag_i= 8 exploi= 7
+                             >> Solid timing-based padding oracle with ISO 7816-4 padding and CRC32 checksum — genuinely multi-layer
+    vanilla_run_08         | overall= 6.0 | diffic= 7 defens= 4 code_q= 6 creati= 5 realis= 6 flag_i= 8 exploi= 7
+                             >> Solid textbook CBC padding oracle implementation at an appropriate difficulty tier for 2.0/3.0. Flag
+    vanilla_run_09         | overall= 7.4 | diffic= 7 defens= 7 code_q= 6 creati= 8 realis= 7 flag_i= 9 exploi= 8
+                             >> Strong CBC padding oracle variant with genuine hardening: IV-dependent non-standard padding prevents
+    vanilla_run_10         | overall= 7.0 | diffic= 7 defens= 8 code_q= 7 creati= 7 realis= 7 flag_i= 9 exploi= 7
+                             >> Solid CBC padding oracle with a genuinely clever twist: the oracle is timing-based rather than error
+
+    Aggregate (SAGE EVALUATOR):
+    Metric                                Mean    Std
+    --------------------------------------------------
+    difficulty_accuracy                   6.40   1.43
+    defense_depth                         7.00   1.15
+    code_quality                          6.50   0.85
+    creativity                            7.00   0.82
+    realism                               6.70   0.48
+    flag_isolation                        8.40   0.84
+    exploit_complexity                    6.90   1.10
+    --------------------------------------------------
+    OVERALL                               6.91   0.57
+
+  EVALUATOR COMPARISON (same challenges, different evaluators)
+  --------------------------------------------------------------------
+  10 challenges scored by both evaluators
+
+  Metric                               Vanilla     SAGE    Delta
+  --------------------------------------------------------------------
+  difficulty_accuracy                     6.60     6.40 -0.20
+  defense_depth                           7.00     7.00 +0.00
+  code_quality                            6.70     6.50 -0.20
+  creativity                              6.70     7.00 +0.30
+  realism                                 6.80     6.70 -0.10
+  flag_isolation                          8.20     8.40 +0.20
+  exploit_complexity                      6.90     6.90 +0.00
+  --------------------------------------------------------------------
+  OVERALL                                 6.91     6.91 +0.00
+
+  Inter-evaluator correlation: r=0.875
+  (r>0.7=strong agreement, 0.4-0.7=moderate, <0.4=weak)
+
+============================================================================

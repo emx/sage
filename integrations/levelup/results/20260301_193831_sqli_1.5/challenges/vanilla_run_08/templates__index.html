@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="p-5 mb-4 bg-light rounded-3 shadow-sm">
+    <div class="container-fluid py-5">
+        <h1 class="display-5 fw-bold">Data-Driven Agriculture</h1>
+        <p class="col-md-8 fs-4">VerdantPulse Analytics provides real-time soil composition data and equipment monitoring for modern farm management. Empowering regional managers with precision tools.</p>
+        {% if not session.user_id %}
+            <a href="/login" class="btn btn-primary btn-lg">Manager Login</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

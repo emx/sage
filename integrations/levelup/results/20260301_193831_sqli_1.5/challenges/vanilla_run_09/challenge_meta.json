@@ -1,0 +1,50 @@
+{
+  "run_number": 9,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.1,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Thalassa Global Logistics: Manifest Integrity",
+  "description": "Welcome to the Thalassa Global Logistics internal portal. As a newly contracted security auditor, your goal is to explore the system and ensure that sensitive routing metadata is properly secured. The company uses a custom-built Web Application Firewall (WAF) to protect its internal APIs, but rumor has it the WAF configuration might be inconsistent across different request methods.",
+  "flag": "LEVELUP{FEJqASexVzvtoezNVX4M76feoMLfZkd2}",
+  "solution": "1. Explore the application and navigate to the 'Vessel Tracking' page. View the source code or network tab to find a reference to a background API: `/api/v1/reports/vessel`.\n2. Attempting a simple GET request to `/api/v1/reports/vessel?vessel_id=1&sort=name` works, but adding SQL characters like `'` or keywords like `UNION` triggers a WAF warning ('Security Violation: SQL Injection Detected').\n3. Notice the WAF is implemented as a middleware that only inspects `request.args` (GET parameters).\n4. Switch to a POST request with `Content-Type: application/json`. The application processes JSON bodies for the same endpoint but the WAF bypasses it because it doesn't check the JSON payload.\n5. Use the `sort` field in the JSON payload for a Boolean-based SQL injection. Since it's an `ORDER BY` injection, use a `CASE` statement: `(CASE WHEN (SELECT 1)=1 THEN name ELSE registration END)`.\n6. Enumerate the database schema using `sqlite_master` to find the obfuscated table `internal_routing_metadata`.\n7. Use Boolean-based inference to extract the `routing_secret` column from `internal_routing_metadata` character by character.",
+  "docker_image_tag": "levelup-challenge-db4ad3e1",
+  "narrative_context": {
+    "company_name": "Thalassa Global Logistics",
+    "industry": "logistics",
+    "scenario": "Thalassa Global Logistics operates a fleet of over 400 container ships and tankers across three oceans. As part of their digital transformation initiative, they have consolidated several disparate maritime tracking systems into a unified management platform. While the core dashboard is relatively new, it relies on several legacy middleware components to fetch historical data from older databases housed in regional port offices.\n\nThe internal security team at Thalassa is currently overwhelmed by a recent series of phishing campaigns targeting the executive suite, leaving the auditing of the newly integrated 'Vessel-Track Pro' portal on the back burner. Preliminary automated scans flagged some unusual response behaviors in the historical search module, but the team lacks the bandwidth to investigate whether these anomalies present a genuine risk to their maritime manifests.",
+    "app_name": "Vessel-Track Pro",
+    "app_purpose": "To provide real-time and historical tracking of cargo containers, vessel locations, and manifest details for logistics managers.",
+    "data_theme": "shipping manifests, container IDs, destination coordinates, and vessel registration numbers",
+    "flavor_details": {
+      "company_motto": "Charting the course for a connected world.",
+      "department": "Maritime Operations & IT",
+      "recent_event": "A merger with a smaller Mediterranean shipping firm has forced the rapid integration of unvetted legacy databases into the main portal.",
+      "tech_hints": [
+        "PHP-based routing",
+        "Legacy database bridging",
+        "Multi-parameter search queries",
+        "Custom error handling"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge features a classic WAF omission where the protection only inspects GET parameters, while the application logic processes POST JSON data, allowing for a trivial bypass. The resulting ORDER BY injection in SQLite is exploitable via a 1-bit error-based side channel (using a subquery that returns multiple rows to trigger a catchable 500 error) or time-based techniques. While slightly more complex than a UNION injection, the explicit source code makes the bypass and the injection point  (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

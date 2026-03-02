@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 400px; margin: auto;">
+    <h2>Member Access</h2>
+    {% if error %}<p style="color: red;">{{ error }}</p>{% endif %}
+    <form method="POST" class="card">
+        <div style="margin-bottom: 10px;">
+            <label>Username</label><br>
+            <input type="text" name="username" style="width: 100%;">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label>Password</label><br>
+            <input type="password" name="password" style="width: 100%;">
+        </div>
+        <button type="submit" style="width: 100%;">Enter</button>
+    </form>
+</div>
+{% endblock %}

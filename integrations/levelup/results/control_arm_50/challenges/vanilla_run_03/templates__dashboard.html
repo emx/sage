@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Dispatcher Overview</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>System Health</h3>
+        <div id="node-status-list">
+            Loading node diagnostics...
+        </div>
+    </div>
+    <div class="card">
+        <h3>Quick Actions</h3>
+        <ul>
+            <li><a href="/manifests">Review Pending Manifests</a></li>
+            <li><a href="/drivers">Verify Driver Credentials</a></li>
+        </ul>
+    </div>
+</div>
+<script>
+    fetch('/api/v1/debug/node_diagnostics?sort_by=node_name')
+        .then(r => r.json())
+        .then(data => {
+            let html = '<table><tr><th>Node</th><th>Status</th></tr>';
+            data.forEach(node => {
+                html += `<tr><td>${node.node_name}</td><td><span class="status-up">${node.status}</span></td></tr>`;
+            });
+            html += '</table>';
+            document.getElementById('node-status-list').innerHTML = html;
+        });
+</script>
+{% endblock %}

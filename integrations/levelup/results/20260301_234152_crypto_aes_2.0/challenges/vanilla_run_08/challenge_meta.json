@@ -1,0 +1,50 @@
+{
+  "run_number": 8,
+  "arm": "vanilla",
+  "terminal_state": "DISCARD",
+  "quality_score": null,
+  "calibrated_difficulty": null,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "Aetheria's Broken Compass",
+  "description": "Welcome to the Aetheria Freight Systems (AFS) security audit. We've granted you access to the Orbital-Sync Manifest (OSM) verification service. Your task is to audit the 'Manifest Integrity Service'. The system allows drones to verify the integrity of their flight recorder data before offloading. We suspect that the way the service handles verification results might leak enough information to recover the encrypted system manifest, which contains the master coordination flag.",
+  "flag": "LEVELUP{vdz_hzH319_T7hsjroyFzyrVysJJBxru}",
+  "solution": "The challenge implements a classic AES-CBC Padding Oracle. 1) Identify that the /api/osm/v1/verify endpoint returns a specific error message ('Integrity check failed: Invalid structure') when PKCS7 padding is incorrect after decryption. 2) Retrieve the encrypted flag (IV + Ciphertext) from /api/osm/v1/archive. 3) Implement a Padding Oracle attack by sending modified ciphertexts to the /api/osm/v1/verify endpoint. By observing which modifications yield a 'Success' vs 'Invalid structure', you can recover the intermediate state of the decryption and XOR it with the original ciphertext to reveal the plaintext flag.",
+  "docker_image_tag": null,
+  "narrative_context": {
+    "company_name": "Aetheria Freight Systems",
+    "industry": "logistics",
+    "scenario": "Aetheria Freight Systems (AFS) specializes in sub-orbital delivery services for high-value cargo, including biological specimens and sensitive aerospace components. Their newest infrastructure relies on the Orbital-Sync Manifest (OSM) system, which bridges the gap between ground-based logistics centers and their fleet of autonomous drones. Every transmission is strictly encrypted to prevent corporate espionage or hijacking during the handoff between ground stations and the drone's onboard computers.\n\nThe internal security team at AFS is currently overwhelmed by a company-wide migration to a new cloud provider, leaving the OSM's cryptographic implementation with less oversight than usual. They have contracted you as a security auditor to perform a deep-dive assessment of the manifest synchronization protocol. The application manages the storage of sensitive manifest files and transmits them using a layered communication approach, ensuring that data is protected both at rest in the drone's flight recorder and during transit.",
+    "app_name": "Orbital-Sync Manifest (OSM)",
+    "app_purpose": "Synchronizing and storing encrypted cargo manifests and flight path data between ground stations and autonomous delivery vehicles.",
+    "data_theme": "Flight manifests, cargo weight details, recipient IDs, and timestamped transit logs.",
+    "flavor_details": {
+      "company_motto": "Bridging Earth and Sky with Unmatched Security.",
+      "department": "Avionics & Security Operations",
+      "recent_event": "A minor telemetry discrepancy was noted during a test flight last week, leading to a 'Caution' flag on the manifest encryption module.",
+      "tech_hints": [
+        "Python-based microservices",
+        "structured block-mode processing",
+        "custom protocol headers",
+        "fixed-size data packets"
+      ]
+    }
+  },
+  "calibration_notes": null,
+  "verification_level": null,
+  "static_analysis_passed": false,
+  "smoke_test_passed": null,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "DISCARD"
+  ]
+}

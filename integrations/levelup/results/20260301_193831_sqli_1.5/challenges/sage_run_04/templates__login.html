@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class='card' style='max-width: 400px; margin: auto;'>
+    <h2>Terminal Access</h2>
+    <form method='POST'>
+        <div style='margin-bottom: 15px;'>
+            <label>Employee ID / Username</label><br>
+            <input type='text' name='username' style='width: 90%;' required>
+        </div>
+        <div style='margin-bottom: 15px;'>
+            <label>Security Key / Password</label><br>
+            <input type='password' name='password' style='width: 90%;' required>
+        </div>
+        {% if error %}<p style='color: #ff5555;'>{{ error }}</p>{% endif %}
+        <button type='submit'>Authenticate</button>
+    </form>
+</div>
+{% endblock %}

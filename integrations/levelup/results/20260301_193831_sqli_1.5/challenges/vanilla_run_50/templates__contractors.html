@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Certified Transit Partners</h1>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    {% for p in partners %}
+    <div class="card">
+        <h3>{{ p.name }}</h3>
+        <p><strong>Mission Scope:</strong> {{ p.mission_type }}</p>
+        <p><strong>Contact:</strong> {{ p.email }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_05
+==================================================
+Arm: vanilla
+Overall: 6.2/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  5.0/10  #####
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: Most sophisticated WAF design in the set: class-based SecurityShield with 15+ blacklisted keywords using regex replacement (not blocking), enabling nested keyword bypass (SELSELECTECT). Error messages fully suppressed forcing true blind extraction. Artificial 200ms delay penalizes time-based approaches. Hidden endpoint via commented script tag. Media archive theme with catalog, licensing, and detail pages is highly plausible. The combination of replacement-based WAF, suppressed errors, and extensive keyword list creates genuine defensive depth despite single-pass vulnerability.

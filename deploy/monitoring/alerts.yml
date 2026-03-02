@@ -1,0 +1,47 @@
+groups:
+  - name: sage_alerts
+    rules:
+      - alert: ValidatorDown
+        expr: up{job="cometbft"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Validator {{ $labels.instance }} is down"
+          description: "CometBFT validator {{ $labels.instance }} has been unreachable for 30 seconds."
+
+      - alert: ConsensusStalled
+        expr: rate(cometbft_consensus_height[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consensus has stalled"
+          description: "No new blocks have been produced in the last 2 minutes."
+
+      - alert: HighRejectRate
+        expr: rate(sage_tx_rejected_total[5m]) / rate(sage_tx_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High transaction rejection rate"
+          description: "More than 50% of transactions are being rejected over the last 5 minutes."
+
+      - alert: HighQueryLatency
+        expr: histogram_quantile(0.95, rate(sage_query_latency_seconds_bucket[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High query latency (P95)"
+          description: "95th percentile query latency exceeds 200ms for the last 5 minutes."
+
+      - alert: LowValidatorParticipation
+        expr: cometbft_consensus_missing_validators > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low validator participation"
+          description: "More than 1 validator is missing from consensus for over 1 minute."

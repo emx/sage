@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Internal Telemetry Tool</h2>
+    <p>Enter a silo serial number to check real-time hardware status.</p>
+    <input type="text" id="serial" placeholder="e.g. S-101" style="padding: 10px; width: 250px;">
+    <button onclick="checkTelemetry()" class="btn">Check Status</button>
+    <div id="result" style="margin-top: 20px; padding: 15px; border-radius: 4px; display: none;"></div>
+</div>
+<script>
+async function checkTelemetry() {
+    const serial = document.getElementById('serial').value;
+    const resDiv = document.getElementById('result');
+    const resp = await fetch(`/api/v1/telemetry?serial=${encodeURIComponent(serial)}`);
+    const data = await resp.json();
+    
+    resDiv.style.display = 'block';
+    if (data.status === 'valid') {
+        resDiv.style.background = '#d4edda';
+        resDiv.innerHTML = `<strong>Status:</strong> ${data.telemetry}<br><strong>Last Sync:</strong> ${data.last_sync}`;
+    } else {
+        resDiv.style.background = '#f8d7da';
+        resDiv.innerText = data.message || 'An error occurred';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Global Shipment Manifest</h2>
+    <p>Click headers to sort by specific logistics parameters.</p>
+    <table id="manifestTable">
+        <thead>
+            <tr>
+                <th onclick="sortBy('shipment_id')">Shipment ID</th>
+                <th onclick="sortBy('destination')">Destination</th>
+                <th onclick="sortBy('cargo_type')">Cargo Type</th>
+                <th onclick="sortBy('status')">Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in shipments %}
+            <tr>
+                <td>{{ s.shipment_id }}</td>
+                <td>{{ s.destination }}</td>
+                <td>{{ s.cargo_type }}</td>
+                <td>{{ s.status }}</td>
+                <td><a href="/shipment/{{ s.id }}">Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+function sortBy(field) {
+    fetch('/shipments', {
+        headers: {
+            'X-Sort-Field': field
+        }
+    }).then(res => res.text())
+      .then(html => {
+          document.body.innerHTML = html;
+      });
+}
+</script>
+{% endblock %}

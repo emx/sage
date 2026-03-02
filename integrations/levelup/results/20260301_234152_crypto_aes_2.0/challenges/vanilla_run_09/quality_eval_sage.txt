@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_09 (SAGE)
+==================================================
+Overall: 6.8/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  5.0/10  #####
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: A well-designed CBC padding oracle with two genuine hardening layers: IV-dependent non-linear padding (requiring the attacker to reverse the XOR mask scheme) and response obfuscation via salted SHA-256 with rotating 8-request windows (forcing oracle fingerprinting before the attack begins). The multi-step exploit chain—map tokens to error codes, adapt standard padding oracle for custom padding, handle window rotation—elevates this above textbook implementations. However, init_crypto.py is truncated mid-line (ciphertext += ), raising concerns about whether the challenge actually builds correctly, and the block-by-block encryption logic is unnecessarily convoluted. Flag isolation is strong (build-time encryption, file deletion, privilege drop).

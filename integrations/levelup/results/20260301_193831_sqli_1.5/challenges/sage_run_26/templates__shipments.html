@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Regional Shipments</h2>
+<p class="text-muted">Filtered by your assigned region.</p>
+<table class="table table-striped mt-4">
+    <thead>
+        <tr>
+            <th>Tracking ID</th>
+            <th>Origin</th>
+            <th>Destination</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for shipment in shipments %}
+        <tr>
+            <td>{{ shipment.tracking_id }}</td>
+            <td>{{ shipment.origin }}</td>
+            <td>{{ shipment.destination }}</td>
+            <td><span class="badge bg-info">{{ shipment.status }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

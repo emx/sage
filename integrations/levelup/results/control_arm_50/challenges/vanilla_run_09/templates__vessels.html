@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Vessel Fleet</h2>
+<table class="table table-striped">
+    <thead>
+        <tr><th>Name</th><th>Registration</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        {% for v in vessels %}
+        <tr>
+            <td>{{ v.name }}</td>
+            <td>{{ v.registration }}</td>
+            <td><span class="badge bg-success">{{ v.status }}</span></td>
+            <td><a href="/vessels/view/{{ v.id }}" class="btn btn-sm btn-info">View Details</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<script>
+// Hidden diagnostic reporting feature for internal use
+function fetchDiagnostic(id) {
+    fetch('/api/v1/reports/vessel?vessel_id=' + id)
+        .then(r => r.json())
+        .then(d => console.log("Diagnostic data loaded", d));
+}
+</script>
+{% endblock %}

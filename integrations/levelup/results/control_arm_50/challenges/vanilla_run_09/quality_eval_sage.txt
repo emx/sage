@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_09 (SAGE)
+==================================================
+Overall: 5.2/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  5.0/10  #####
+
+Reasoning: The GET-only WAF bypass via POST is essentially a single-trick challenge — per SAGE calibration norms, difficulty 1.5 should require 2+ bypass techniques, and while ORDER BY injection adds a second skill requirement, the WAF circumvention itself is trivial (just switch HTTP method). Defense depth is weak: one middleware layer with a known-pattern blacklist that ignores an entire request method class, with no allowlist on the sort field and no secondary validation. The code quality and maritime logistics theme are above average, with realistic Flask structure, proper templates, and a plausible business scenario, but the core security challenge lacks the layered defense expected at this difficulty tier.

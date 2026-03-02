@@ -1,0 +1,47 @@
+{
+  "vanilla_n": 9,
+  "sage_n": 0,
+  "overall_calibration_gap": {
+    "vanilla_mean": null,
+    "sage_mean": null,
+    "cohens_d": null
+  },
+  "per_tier": {
+    "1.0": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "1.25": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "1.5": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "1.75": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "2.0": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "2.25": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "2.5": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "2.75": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    },
+    "3.0": {
+      "vanilla_gap": null,
+      "sage_gap": null
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Welcome, {{ session.username }}</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <h3>Active Satellites</h3>
+        <p style="font-size: 2em; color: #68d391;">24 / 24</p>
+        <p>All units reporting nominal status.</p>
+    </div>
+    <div class="card">
+        <h3>Subscription Level</h3>
+        <p style="font-size: 1.2em; color: #cbd5e0;">SILVER TIER</p>
+        <p>Access to Horizon-1 constellation only.</p>
+    </div>
+</div>
+{% endblock %}

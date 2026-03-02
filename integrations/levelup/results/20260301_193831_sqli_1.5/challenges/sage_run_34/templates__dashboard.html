@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="header-accent">Regional Overview</h2>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 text-center mb-3">
+            <h4>Active Batches</h4>
+            <p class="display-6">1,248</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center mb-3">
+            <h4>Genetic Stability</h4>
+            <p class="display-6 text-success">99.4%</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center mb-3">
+            <h4>Pending Audits</h4>
+            <p class="display-6 text-warning">3</p>
+        </div>
+    </div>
+</div>
+<div class="mt-4">
+    <h5>Recent System Messages</h5>
+    <div class="alert alert-info">System wide WAF enabled to protect <code>internal_node_configs</code> table from SQL injection attacks.</div>
+</div>
+{% endblock %}

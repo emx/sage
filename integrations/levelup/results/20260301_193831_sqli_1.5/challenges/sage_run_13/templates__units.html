@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Propulsion Unit Inventory</h3>
+<table class="table table-dark table-hover mt-4">
+    <thead>
+        <tr>
+            <th>Serial No</th>
+            <th>Model</th>
+            <th>Facility</th>
+            <th>Status</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for unit in units %}
+        <tr>
+            <td class="font-monospace text-info">{{ unit.serial_no }}</td>
+            <td>{{ unit.model }}</td>
+            <td>{{ unit.facility_id }}</td>
+            <td><span class="badge bg-success">{{ unit.status }}</span></td>
+            <td><a href="/unit/{{ unit.serial_no }}" class="btn btn-sm btn-outline-secondary">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

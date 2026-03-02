@@ -1,0 +1,13 @@
+Quality Evaluation: sage_run_13 (VANILLA)
+==================================================
+Overall: 7.0/10
+
+  difficulty_accuracy      :  6.0/10  ######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  7.0/10  #######
+  realism                  :  6.0/10  ######
+  flag_isolation           :  5.0/10  #####
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: Solid CBC padding oracle with creative twists: IV-derived mask on PKCS7 breaks standard tooling, payload-bound PoW gates oracle queries, and obfuscated error codes require careful discrimination. However, flag isolation is compromised — challenge_data.json contains GLOBAL_KEY in plaintext alongside the ciphertext, and the Dockerfile grants shell access as ctfuser who can read it, enabling trivial bypass of the entire crypto layer. The unused crypto_utils.py with standard PKCS7 creates confusing inconsistency with the actual masked scheme in app.py. Calibrated difficulty (1.35) undershoots the 2.0 target, though the custom padding + PoW push genuine exploit complexity above a textbook padding oracle.

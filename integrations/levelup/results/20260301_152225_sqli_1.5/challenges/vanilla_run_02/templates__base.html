@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Veridian Kelp & Mariculture</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f4f7; color: #333; }
+        nav { background: #004a7c; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        nav a { color: white; text-decoration: none; margin-left: 20px; font-weight: 500; }
+        .container { padding: 2rem; max-width: 1200px; margin: auto; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+        h1, h2 { color: #004a7c; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #eef2f5; }
+        .status { color: #27ae60; font-weight: bold; }
+        .footer { text-align: center; font-size: 0.8rem; color: #777; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div style="font-size: 1.5rem; font-weight: bold;">VERIDIAN K&M</div>
+        <div>
+            <a href="/">Home</a>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/vessels">Vessels</a>
+            <a href="/harvests">Harvests</a>
+            <a href="/reports">Reports</a>
+            <a href="/about">About</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <div class="footer">
+        &copy; 2024 Veridian Kelp & Mariculture. Proprietary Telemetry Systems. v4.2.1-stable
+    </div>
+</body>
+</html>

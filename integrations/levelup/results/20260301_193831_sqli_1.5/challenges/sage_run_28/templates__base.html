@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ZenithAura - Ground Control</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b0e14; color: #e0e0e0; margin: 0; }
+        nav { background: #1a1f29; padding: 1rem; border-bottom: 2px solid #2d3440; }
+        nav a { color: #00a8ff; text-decoration: none; margin-right: 20px; font-weight: bold; }
+        .container { padding: 2rem; max-width: 1000px; margin: auto; }
+        .card { background: #1a1f29; border: 1px solid #2d3440; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+        h1, h2 { color: #00a8ff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #2d3440; }
+        th { background: #242b38; }
+        .btn { background: #00a8ff; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+        .error { color: #ff4d4d; }
+        .status-active { color: #00ff00; font-weight: bold; }
+        .status-inactive { color: #ff4d4d; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/manifests">Manifests</a>
+        <a href="/schedule">Launch Schedule</a>
+        {% if session.user %}
+        <a href="/portal/dashboard">Dashboard</a>
+        <a href="/logout">Logout ({{ session.user }})</a>
+        {% else %}
+        <a href="/login">Client Login</a>
+        {% endif %}
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

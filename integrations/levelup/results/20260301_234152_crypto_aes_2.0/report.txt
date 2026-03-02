@@ -1,0 +1,27 @@
+========================================================================
+  SAGE INSTITUTIONAL MEMORY — COMPARATIVE EXPERIMENT
+========================================================================
+  Category: crypto_aes   Difficulty: 2.0
+  Control: 10 runs (SAGE OFF)
+  Treatment: CONTROL-ONLY (no treatment arm)
+
+  A. QUALITY SUMMARY
+  ------------------------------------------------------------
+  Metric                              Control
+  ------------------------------------------------------------
+  Smoke test pass rate           9/       10
+  Static analysis pass rate      9/       10
+  Pipeline COMPLETE rate         9/       10
+  Avg quality score                      87.0
+  Quality std dev                        19.0
+  Avg repair attempts                    0.20
+
+  B. SPEED SUMMARY
+  ------------------------------------------------------------
+  Avg pipeline time (s)                 328.3
+  Pipeline time std dev                 111.6
+  Median pipeline time (s)              314.4
+
+  CONTROL-ONLY MODE: no treatment arm, no statistical comparison.
+  Use evaluate_all.sh --both to compare vanilla vs SAGE evaluators.
+========================================================================

@@ -1,0 +1,50 @@
+{
+  "run_number": 26,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.3,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "AetherFlow Logistics Dashboard",
+  "description": "Welcome to the AetherFlow Logistics Coordinator Portal. As a Regional Coordinator, your job is to ensure the fleet is operating at peak efficiency. Explore the dashboard, manage your profile, and keep the cargo moving. There are rumors that some system-level 'Integrity Keys' are stored within the regional configuration tables, but they are strictly off-limits to logistical staff.",
+  "flag": "LEVELUP{2QzwgVJIdDOZiOgEE0IIqlYwbySvCqTe}",
+  "solution": "1. Log in to the application using the provided credentials (coordinator/AetherFlow2024!).\n2. Navigate to the 'Profile' section (/profile). Notice you can update your 'Regional Assignment'.\n3. Test for SQL injection in the 'Regional Assignment' field. Try a single quote ' and observe errors or changes in the '/shipments' page.\n4. Discover that keywords like 'SELECT' and 'UNION' are being stripped by a simple security filter (WAF) that does a single-pass replacement.\n5. Bypass the filter by nesting keywords: 'UNIUNIONON SELSELECTECT'. If the filter replaces 'UNION' with an empty string, 'UNIUNIONON' becomes 'UNION'.\n6. Craft a payload to identify the tables: ' UNIUNIONON SELSELECTECT 1,2,sql,4 FROFROMM sqlite_master--.\n7. Update your profile with this payload and visit the /shipments page to see the schema.\n8. Locate the table 'system_metadata' and column 'config_value'.\n9. Final payload: ' UNIUNIONON SELSELECTECT 1,2,config_value,4 FROFROMM system_metadata WHEWHERERE config_name='master_flag'--.\n10. View the result on the /shipments page.",
+  "docker_image_tag": "levelup-challenge-e802b32f",
+  "narrative_context": {
+    "company_name": "AetherFlow Logistics",
+    "industry": "logistics",
+    "scenario": "AetherFlow Logistics has recently expanded its autonomous drone delivery division, necessitating a more robust internal monitoring system. The company maintains a strict 'security-first' posture, but rapid scaling across three continents has led to a significant backlog in their internal security team's review cycle. The existing security staff is currently focused on a high-priority cloud migration, leaving secondary internal tools with less oversight than usual.\n\nThe 'Fleet Insight 360' portal was developed in-house to integrate data streams from various third-party telemetry providers and legacy warehouse databases. While the frontend follows modern design principles, the backend is a complex tapestry of microservices designed to handle millions of queries per day. The management team is concerned that the speed of development may have resulted in oversight within the data retrieval layers.",
+    "app_name": "Fleet Insight 360",
+    "app_purpose": "Provides regional logistics coordinators with a comprehensive dashboard to search through historical shipment data, monitor fuel consumption metrics, and manage driver shift schedules across multiple time zones.",
+    "data_theme": "Logistics data including shipment tracking numbers, vehicle telemetry logs, fuel consumption records, and regional driver personnel files.",
+    "flavor_details": {
+      "company_motto": "Moving the future, today.",
+      "department": "Operations & Strategic Growth",
+      "recent_event": "A preliminary internal scan flagged some inconsistent query performance when handling large-scale regional filters, leading to concerns about how the application handles data requests.",
+      "tech_hints": [
+        "React-based frontend",
+        "Express/Node.js middleware",
+        "Relational data storage",
+        "RESTful API endpoints for filtering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: This is a classic second-order SQL injection combined with a flawed single-pass keyword filter. The vulnerability is easy to spot for anyone familiar with the 'UNUNIONION' bypass trope, and the use of f-strings in the shipments route provides a direct sink for the stored payload. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Internal Audit Logs</h2>
+    <p>Filter by Operator ID to review specific activity logs.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form action="/audit_logs" method="GET" style="margin-bottom: 20px;">
+        <input type="text" name="id" placeholder="Operator ID..." style="padding: 8px;">
+        <button type="submit" class="btn">Filter</button>
+    </form>
+
+    {% if logs %}
+    <table>
+        <thead>
+            <tr>
+                <th>Log ID</th>
+                <th>Event</th>
+                <th>Operator</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.id }}</td>
+                <td>{{ log.event_type }}</td>
+                <td>{{ log.operator_id }}</td>
+                <td>{{ log.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No logs available for the selected criteria.</p>
+    {% endif %}
+</div>
+{% endblock %}

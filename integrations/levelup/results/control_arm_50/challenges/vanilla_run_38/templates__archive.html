@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Legacy Archive Search</h2>
+    <p style="color: #e67e22;"><strong>Security Status:</strong> Restricted to Internal Audit Only</p>
+    
+    <div style="background: #eee; padding: 15px; border-radius: 4px; margin: 20px 0;">
+        <p><strong>System Status:</strong> <span style="color: {% if status == 'Active' %}green{% else %}red{% endif %}; font-weight: bold;">{{ status }}</span></p>
+        <p><strong>Active Cluster:</strong> {{ cluster }}</p>
+    </div>
+
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+    <form method="GET">
+        <input type="text" name="q" value="{{ query }}" placeholder="Tracking ID or Driver Name..." style="width: 70%; padding: 8px;">
+        <button type="submit" class="btn">Search Archive</button>
+    </form>
+
+    <p style="margin-top: 30px; font-size: 0.9em; color: #666;"><i>Warning: This interface uses backend cluster headers directly for routing. Do not modify X-Backend-Cluster manually.</i></p>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Active Orbital Manifests</h1>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Cargo ID</th>
+                <th>Client</th>
+                <th>Destination</th>
+                <th>Priority</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in manifests %}
+            <tr>
+                <td>{{ m.cargo_name }}</td>
+                <td>{{ m.contractor }}</td>
+                <td>{{ m.destination }}</td>
+                <td>{{ m.priority }}</td>
+                <td><a href="/manifest/view/{{ m.id }}" class="btn">Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

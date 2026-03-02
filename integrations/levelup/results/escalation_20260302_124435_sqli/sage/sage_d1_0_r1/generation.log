@@ -1,0 +1,9 @@
+sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
+app.agents.static_analysis WARNING: Auto-fixed Dockerfile flag leak: injected 'RUN rm -f Dockerfile' after context COPY to prevent players from reading the flag via 'cat Dockerfile'.
+app.services.sandbox_service ERROR: Docker build failed for levelup-challenge-daf0f46b: The command '/bin/sh -c echo "LEVELUP{I4OQ9eZGUf7DJcrmzQZA5WjXbbtmK8nO}" > /flag.txt &&     chmod 0400 /flag.txt &&     python init_db.py &&     rm /flag.txt &&     rm Dockerfile' returned a non-zero code: 1
+app.agents.validator ERROR: [validator] Docker build failed: The command '/bin/sh -c echo "LEVELUP{I4OQ9eZGUf7DJcrmzQZA5WjXbbtmK8nO}" > /flag.txt &&     chmod 0400 /flag.txt &&     python init_db.py &&     rm /flag.txt &&     rm Dockerfile' returned a non-zero code: 1
+app.agents.orchestrator WARNING: Validation failed: ['Docker build failed: The command \'/bin/sh -c echo "LEVELUP{I4OQ9eZGUf7DJcrmzQZA5WjXbbtmK8nO}" > /flag.txt &&     chmod 0400 /flag.txt &&     python init_db.py &&     rm /flag.txt &&     rm Dockerfile\' returned a non-zero code: 1']
+app.agents.static_analysis WARNING: Auto-fixed Dockerfile flag leak: injected 'RUN rm -f Dockerfile' after context COPY to prevent players from reading the flag via 'cat Dockerfile'.
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (128.3s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 180s, verification=smoke_tested
+sage_bridge INFO: SAGE observation submitted: ba7344d5-1460-4389-8b38-0079b6b1267a

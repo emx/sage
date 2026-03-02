@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_13 (SAGE)
+==================================================
+Overall: 4.5/10
+
+  difficulty_accuracy      :  4.0/10  ####
+  defense_depth            :  3.0/10  ###
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  6.0/10  ######
+  flag_isolation           :  6.0/10  ######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: Single-layer keyword+whitespace WAF is trivially bypassed with inline comments (/**/), making this a one-trick challenge that falls below the 2+ bypass techniques expected at difficulty 1.5 — the calibrated 0.85 is more honest. Code quality is the strongest dimension with proper Flask structure, template inheritance, multiple realistic routes, and Bootstrap styling, but the defensive architecture is paper-thin: one regex blacklist with no secondary validation, no input sanitization, no parameterized queries on the vulnerable endpoint, and no rate limiting. The logistics pod theme adds mild novelty over cookie-cutter login forms, but the exploit path is still textbook UNION-based extraction through a comment-space bypass.

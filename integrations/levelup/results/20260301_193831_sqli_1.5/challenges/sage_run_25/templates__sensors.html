@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Live Sensor Feed</h2>
+<table class="table table-striped bg-white">
+    <thead><tr><th>Sensor ID</th><th>Type</th><th>Value</th><th>Region</th><th>Last Updated</th></tr></thead>
+    <tbody>
+        {% for sensor in sensors %}
+        <tr>
+            <td>{{ sensor.sensor_tag }}</td>
+            <td>{{ sensor.type }}</td>
+            <td>{{ sensor.reading }} {{ sensor.unit }}</td>
+            <td>{{ sensor.region_name }}</td>
+            <td>{{ sensor.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

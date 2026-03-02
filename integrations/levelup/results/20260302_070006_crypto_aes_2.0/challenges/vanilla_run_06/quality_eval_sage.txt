@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_06 (SAGE)
+==================================================
+Overall: 7.0/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  6.0/10  ######
+  creativity               :  7.0/10  #######
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: A well-layered timing-based CBC padding oracle with ISO 10126 padding, HMAC-SHA256 integrity, and deliberate noise injection (4ms signal in 8-18ms noise floor) — genuinely harder than a simple error-code oracle and appropriate for difficulty 2.0+. Flag isolation is strong (build-time encryption, file deletion, privilege drop). However, code quality is dragged down by inconsistencies: crypto_utils.py is an unused artifact using CRC32/PKCS7 that contradicts the actual HMAC/ISO-10126 implementation in app.py, the intended solution description claims distinct error codes ('ERR_AUTH_PADDING'/'ERR_AUTH_CHECKSUM') that don't exist in the code (it's purely timing-based), and the key is 16 bytes (AES-128) despite the description claiming AES-256-CBC.

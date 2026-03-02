@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Internal Support Documentation</h2>
+    <p><strong>Common Issues:</strong></p>
+    <ul>
+        <li>Session timeouts occur after 24 hours of inactivity.</li>
+        <li>To test specific database constraints on warehouse queries, developers can append <code>?debug=true</code> to the inventory URL to enable the legacy filter engine.</li>
+        <li>All regional flags are stored in the <code>internal_metadata</code> system table.</li>
+    </ul>
+</div>
+{% endblock %}

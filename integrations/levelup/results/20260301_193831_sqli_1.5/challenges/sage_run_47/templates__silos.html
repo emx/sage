@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Regional Silo Inventory</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Silo ID</th>
+                <th>Name</th>
+                <th>Capacity (MT)</th>
+                <th>Grain Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for silo in silos %}
+            <tr>
+                <td>{{ silo.id }}</td>
+                <td>{{ silo.name }}</td>
+                <td>{{ silo.capacity }}</td>
+                <td>{{ silo.grain_type }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

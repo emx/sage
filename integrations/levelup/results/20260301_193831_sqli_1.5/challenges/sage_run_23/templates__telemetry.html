@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Horizon-1 Telemetry Logs</h2>
+    <div class="status-box">
+        <strong>System Health: </strong> 
+        <span class="{{ 'success' if 'Nominal' in status else 'alert' }}">{{ status }}</span>
+    </div>
+    
+    {% if logs %}
+    <table>
+        <thead>
+            <tr>
+                <th>Log ID</th>
+                <th>Satellite</th>
+                <th>Sensor Data</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.id }}</td>
+                <td>{{ log.satellite_id }}</td>
+                <td>{{ log.sensor_data }}</td>
+                <td>{{ log.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="margin-top: 20px; color: #a0aec0;">No telemetry data matching current diagnostic filters.</p>
+    {% endif %}
+</div>
+{% endblock %}

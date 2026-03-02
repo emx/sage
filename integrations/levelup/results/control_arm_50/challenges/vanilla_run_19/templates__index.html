@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Global Logistics Management</h1>
+    <p>Welcome to the VeloPath unified manifest and tracking portal. This system is restricted to authorized logistics personnel only.</p>
+    <p>Please log in to manage container transit, customs clearance, and high-value cargo manifests.</p>
+    <a href="{{ url_for('login') }}" class="btn">Enter Portal</a>
+</div>
+{% endblock %}

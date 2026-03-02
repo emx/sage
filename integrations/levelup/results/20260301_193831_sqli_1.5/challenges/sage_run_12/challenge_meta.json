@@ -1,0 +1,50 @@
+{
+  "run_number": 12,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 0.9,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Vexillum Logistics: The Hidden Payload",
+  "description": "Welcome to the Vexillum Logistics & Freight portal. We provide real-time visibility into global trade. As a security auditor, your goal is to explore our partner-facing systems and ensure that our internal metadata\u2014specifically our 'Master Flag Token'\u2014is properly secured. Rumor has it that some legacy endpoints in the /portal/ directory might be susceptible to clever query manipulation.",
+  "flag": "LEVELUP{ULWgNzhnPj1Ede04ZZhKM_Y4Zu4QyIBK}",
+  "solution": "1. Browse the application and discover the hidden link to '/portal/audit' mentioned in a commented-out developer note in the '/about' page source.\n2. Access '/portal/audit?id=1' and observe the response 'Audit Record Status: ACTIVE'.\n3. Test for SQL injection: '?id=1' OR '1'='1' returns an error or nothing because 'OR' is blocked by a WAF.\n4. Analyze the WAF behavior: The application uses a single-pass regex to strip keywords like SELECT, FROM, UNION, WHERE, AND, and OR (case-insensitive).\n5. Bypass the WAF using doubled-up keywords: 'SELSELECTECT' becomes 'SELECT' after the filter runs once.\n6. Use Blind Boolean SQL injection to verify the bypass: '?id=1' AANDND (SELSELECTECT 1)=1--' should return 'ACTIVE'.\n7. Identify the target table 'app_registry' from the 'System Status' footer on the fleet page.\n8. Construct a boolean-based exploit to leak the 'registry_value' where 'registry_key' is 'flag_token': '?id=1' AANDND (SELSELECTECT substr(registry_value,1,1) FRFROMOM app_registry WWHEREHERE registry_key='flag_token')='L'--'.\n9. Automate the extraction to retrieve the full flag: LEVELUP{ULWgNzhnPj1Ede04ZZhKM_Y4Zu4QyIBK}.",
+  "docker_image_tag": "levelup-challenge-0b62ddd9",
+  "narrative_context": {
+    "company_name": "Vexillum Logistics & Freight",
+    "industry": "logistics",
+    "scenario": "Vexillum Logistics & Freight has recently expanded its operations into the high-stakes world of pharmaceutical cold-chain transport. To support this, they launched the VexiTrack Global Dashboard, a centralized portal for clients to monitor their sensitive cargo's location, temperature, and estimated arrival times across three continents. The application pulls from a massive relational database that integrates data from GPS transponders and warehouse scanning systems.\n\nWhile Vexillum maintains an established security team, their resources are currently diverted toward a major infrastructure migration. This has left the VexiTrack portal\u2014developed under a tight deadline to satisfy a new European partner\u2014without a comprehensive security review. The board of directors is concerned that a failure in this system could expose sensitive route data to competitors or malicious actors seeking to intercept high-value medical supplies.",
+    "app_name": "VexiTrack Global Dashboard",
+    "app_purpose": "Provides real-time visibility into shipping manifests, transit logs, and delivery schedules for enterprise logistics partners.",
+    "data_theme": "International shipping manifests, container IDs, GPS coordinates, and client account information.",
+    "flavor_details": {
+      "company_motto": "Precision in Transit",
+      "department": "Global Operations & Logistics Technology",
+      "recent_event": "A competitor recently suffered a breach involving route hijacking, prompting an immediate external security audit of all Vexillum's public-facing portals.",
+      "tech_hints": [
+        "Dynamic reporting engine",
+        "Multi-tenant data isolation",
+        "Relational database backend",
+        "Complex search filtering"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a classic single-pass keyword removal filter (WAF), which is trivially bypassed by nesting keywords (e.g., 'SELSELECTECT'). While the extraction is blind-boolean (returning 'ACTIVE' or 'NOT_FOUND'), the injection point is obvious and the lack of recursive filtering or modern protections makes this a standard introductory blind SQLi task. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

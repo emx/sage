@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Catalog{% endblock %}
+{% block content %}
+<h2>Featured Media Clips</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem;">
+    {% for clip in clips %}
+    <div class="card">
+        <div style="height: 150px; background: #222; border-radius: 4px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; color: #444;">PREVIEW</div>
+        <h3>{{ clip.title }}</h3>
+        <p><span class="badge">{{ clip.category }}</span> {{ clip.broadcast_year }}</p>
+        <a href="/clip/{{ clip.id }}" class="btn">View Details</a>
+    </div>
+    {% endfor %}
+</div>
+<!-- <script src="/static/js/explorer_beta.js"></script> --><!-- Admin: Remember to enable beta explorer for library staff -->
+{% endblock %}

@@ -1,0 +1,4 @@
+app.agents.exploit WARNING: [exploit] docker exec timed out after 60s
+app.agents.exploit WARNING: [replay] Timeout after 318.4s
+app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (318.4s)
+app.agents.orchestrator WARNING: Solution replay failed — synthetic par 420s, verification=smoke_tested

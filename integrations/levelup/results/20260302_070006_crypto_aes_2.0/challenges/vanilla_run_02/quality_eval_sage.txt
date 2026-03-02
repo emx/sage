@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_02 (SAGE)
+==================================================
+Overall: 7.5/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  8.0/10  ########
+  creativity               :  8.0/10  ########
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  8.0/10  ########
+
+Reasoning: A well-engineered CBC padding oracle with genuine complexity layers: custom XOR-masked padding (0x5A), CRC32 integrity distinguisher, a two-phase oracle via probe IDs with 16-bit PoW anti-automation, and salted SHA-256 to prevent differential hash analysis. The attacker cannot use off-the-shelf tools like padBuster due to the non-standard padding, two-step oracle, and PoW requirement — a custom exploit script is mandatory. Flag isolation is strong (build-time encryption, file deletion, privilege drop), though storing the key in the same runtime JSON as the ciphertext is a minor design flaw. Defense depth is solid but the core oracle leak (distinct status codes for padding vs integrity) remains straightforward once the wrapping layers are navigated.

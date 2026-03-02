@@ -1,0 +1,13 @@
+Quality Evaluation: vanilla_run_04 (VANILLA)
+==================================================
+Overall: 7.4/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  8.0/10  ########
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  8.0/10  ########
+
+Reasoning: A well-layered CBC padding oracle with several genuinely clever twists: the oracle signal is encoded in JSON key ordering rather than explicit error strings, non-standard ISO 7816-4 padding breaks off-the-shelf tooling, a salt-derived IV mask adds a reversal step, and a custom rolling checksum gates access to the oracle entirely. The multi-hurdle exploit chain (reverse checksum, detect subtle oracle, adapt padding oracle for ISO padding, unmask IV) elevates this well above a textbook padding oracle. Minor deduction: the intended solution description inaccurately claims PKCS#7 and distinct error messages, diverging from the actual (harder) implementation.

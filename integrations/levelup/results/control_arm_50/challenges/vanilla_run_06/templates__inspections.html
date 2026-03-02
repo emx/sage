@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Inspection Search</h1>
+    <form method="POST">
+        <input type="text" name="inspector_id" placeholder="Inspector ID (e.g. INS-44)" value="{{ query }}" style="padding: 8px; width: 250px;">
+        <button type="submit" style="padding: 8px 16px;">Search Records</button>
+    </form>
+    
+    {% if query %}
+    <table style="margin-top: 2rem;">
+        <thead>
+            <tr>
+                <th>Record ID</th>
+                <th>Inspector</th>
+                <th>Date</th>
+                <th>Result</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results %}
+            <tr>
+                <td>{{ r.id }}</td>
+                <td>{{ r.inspector_id }}</td>
+                <td>{{ r.inspection_date }}</td>
+                <td>{{ r.result }}</td>
+            </tr>
+            {% endfor %}
+            {% if not results %}
+            <tr><td colspan="4">No records found for this inspector.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}

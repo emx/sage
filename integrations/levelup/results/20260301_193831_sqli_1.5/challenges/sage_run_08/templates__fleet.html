@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>Fleet Management</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="filterInput" placeholder="e.g., status = 'Active'" style="width: 300px;">
+        <button onclick="applyFilter()">Apply Dynamic Filter</button>
+    </div>
+    <table id="fleetTable">
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Type</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <!-- Results populated via JS -->
+        </tbody>
+    </table>
+</div>
+<script>
+function applyFilter() {
+    const filter = document.getElementById('filterInput').value || '1=1';
+    fetch('/api/v1/inventory', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filter: filter})
+    })
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.querySelector('#fleetTable tbody');
+        tbody.innerHTML = '';
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${row.id}</td><td>${row.name}</td><td>${row.type}</td><td>${row.status}</td>`;
+            tbody.append(tr);
+        });
+    });
+}
+// Initial load
+window.onload = applyFilter;
+</script>
+{% endblock %}

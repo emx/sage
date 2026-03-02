@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Admin Login{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 4rem auto;">
+    <h2>Personnel Authentication</h2>
+    <form>
+        <div style="margin-bottom: 1rem;">
+            <label>Employee ID</label><br>
+            <input type="text" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label>Security Code</label><br>
+            <input type="password" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+        <button type="button" style="background: #1a2a3a; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Login</button>
+    </form>
+</div>
+{% endblock %}

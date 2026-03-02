@@ -1,0 +1,59 @@
+{
+  "run_number": 1,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 93.0,
+  "calibrated_difficulty": 2.1,
+  "target_difficulty": 2.0,
+  "category": "crypto_aes",
+  "challenge_type": "crypto",
+  "title": "The NebulaVault Oracle",
+  "description": "Welcome to the NebulaVault Security Appliance. As a security researcher, you've been granted access to the telemetry processing gateway of AetherFlow Orbital's orbital fleet. The Lead Architect is worried that the transition from legacy protocols to modern AES-CBC encryption might have been implemented incorrectly, potentially leaking mission manifest data. Your objective is to recover the secret 'Mission ID' (the flag) from the encrypted manifest by interacting with the telemetry validation endpoint.",
+  "flag": "LEVELUP{HNaQE02dRNwCNLlxt8ylLIwMQRdJOnXX}",
+  "solution": "The challenge implements an AES-CBC padding oracle. 1) Access /api/vault/manifest to obtain the IV and ciphertext for the mission manifest. 2) Observe that the /api/vault/telemetry/verify endpoint takes an IV and ciphertext, and returns different error messages for padding errors ('Padding check failed.') versus structure errors ('Malformed telemetry data.'), creating a classic side-channel oracle. 3) Implement a standard CBC Padding Oracle attack. Since the ciphertext is multiple blocks long (approx 10), the attacker must iterate backwards through each block, manipulating the preceding block (or the IV for the first block) to force valid PKCS#7 padding. 4) By XORing the manipulated bytes with the original ciphertext and the forced padding value, the plaintext is recovered. 5) The recovered manifest contains the flag in the 'Access Code' field.",
+  "docker_image_tag": "levelup-challenge-2db47bd3",
+  "narrative_context": {
+    "company_name": "AetherFlow Orbital",
+    "industry": "aerospace",
+    "scenario": "AetherFlow Orbital has recently secured a multi-billion dollar contract for 'Dark-Site' supply runs\u2014delivering sensitive equipment to classified research outposts in high-Earth orbit. To facilitate this, they developed the NebulaVault system, an integrated telemetry and logging gateway that captures every sensor reading from the payload bay during transit. Because these logs contain proprietary research data and mission-critical coordinates, they are processed through a central security appliance that applies enterprise-grade encryption before storing them in the ground-station cloud storage.\n\nDespite having a dedicated Security Operations Center, the rapid expansion of their orbital fleet has left the team overwhelmed and unable to perform deep dives into every component. They are currently transitioning from legacy proprietary protocols to more standardized cryptographic libraries for their encryption layer. During a recent internal review, the Lead Architect expressed concerns that the way the system handles high-frequency telemetry logs might be susceptible to pattern analysis, especially given the repetitive nature of sensor data during stable flight phases.",
+    "app_name": "NebulaVault Telemetry Gateway",
+    "app_purpose": "Encrypts and aggregates high-frequency sensor data and mission logs from orbital delivery vehicles for secure long-term storage and regulatory compliance.",
+    "data_theme": "Orbital coordinates, payload temperature, atmospheric pressure readings, and classified cargo manifests.",
+    "flavor_details": {
+      "company_motto": "Bridging the Void, Securing the Future.",
+      "department": "Orbital Security & Compliance",
+      "recent_event": "A whistleblower from a rival aerospace firm suggested that standard block cipher implementations in the industry are being misconfigured under high-load scenarios to save processing power.",
+      "tech_hints": [
+        "Python-based encryption microservice",
+        "Standard 128-bit block cipher implementation",
+        "High-frequency data streaming",
+        "Fixed-length telemetry headers"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: This is a Padding Oracle attack implemented via a timing side-channel. The exploit is significantly complicated by noise injection (jitter) where the random delay (2ms to 22ms) is larger than the 5ms timing signal, requiring a high-volume statistical approach to distinguish correct padding. Additionally, the 40ms base delay acts as a rate-limiting defense, making the necessary large-scale sampling time-intensive. (target was 2.0)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "REPAIR",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

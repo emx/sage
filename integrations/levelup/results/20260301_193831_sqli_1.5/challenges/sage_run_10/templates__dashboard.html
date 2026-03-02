@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="card">
+        <h3>System Status</h3>
+        <p>Database: <span style="color: green;">ONLINE</span></p>
+        <p>Fleet GPS: <span style="color: green;">CONNECTED</span></p>
+        <p>Cold Storage Sensors: <span style="color: green;">ACTIVE</span></p>
+    </div>
+    <div class="card">
+        <h3>Quick Links</h3>
+        <ul>
+            <li><a href="/inventory">View Real-time Inventory</a></li>
+            <li><a href="/fleet">Driver Schedule Management</a></li>
+            <li><a href="/audit">Compliance & Audit Logs</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

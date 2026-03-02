@@ -1,0 +1,50 @@
+{
+  "run_number": 22,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.2,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Manifest Destiny",
+  "description": "Welcome to the NebulaStream regional management portal. As a newly appointed Logistics Coordinator, your job is to ensure that all semiconductor shipments are accounted for. We've recently upgraded our security with a robust keyword-filtering WAF to prevent any unauthorized database access. Feel free to use our new Manifest Verification tool to cross-reference container serial numbers with our central registry.",
+  "flag": "LEVELUP{k_lNR3JJ76_sOyUBcTvLtzOcYvTUMNNN}",
+  "solution": "1. Log into the application using the default guest credentials (guest:guest).\n2. Navigate to the 'Manifest Verification' tool (found in the navigation bar).\n3. Test the search field with a standard container serial like 'NS-1001'. It returns 'Verified'.\n4. Try a basic SQL injection payload like ' OR '1'='1. The application returns a 'Security violation detected' error, indicating a WAF is present.\n5. Analyze the WAF behavior: it blocks common SQL keywords like SELECT, UNION, WHERE, and OR when they appear in the raw request body.\n6. Bypass the WAF: Since the endpoint uses JSON (Content-Type: application/json), you can use Unicode escape sequences to hide the keywords from the raw string-matching WAF. For example, 'SELECT' becomes '\\u0053ELECT'.\n7. Perform Boolean-based Blind SQL Injection. The endpoint returns 'verified' (200 OK) if the query returns a result and 'not_found' (404) if it doesn't.\n8. Enumerate the database tables. Discover the 'system_registry' table through trial and error or standard enumeration techniques.\n9. Extract the flag from the 'registry_value' column where 'registry_key' is 'core_system_access_token'.\n10. Final payload example: {\"serial\": \"NS-1001' \\u0041ND (\\u0053ELECT 1 FROM system_registry \\u0057HERE registry_key='core_system_access_token' \\u0041ND registry_value \\u004cIKE 'LEVELUP{k%')='1\"}",
+  "docker_image_tag": "levelup-challenge-45fd7a88",
+  "narrative_context": {
+    "company_name": "NebulaStream Logistics",
+    "industry": "logistics",
+    "scenario": "NebulaStream Logistics is a global powerhouse in specialized supply chain management, handling high-value semiconductor shipments across three continents. As the company expanded through rapid acquisitions, their infrastructure became a patchwork of legacy systems and modern cloud architecture. To centralize operations, the internal DevOps team fast-tracked the deployment of the Vertex Inventory Hub to bridge the gap between regional warehouses.\n\nWhile the application is protected by a standard enterprise firewall and uses a centralized authentication provider, the internal logic for the global inventory search was developed under tight deadlines. The internal security team is currently buried under a mountain of compliance documentation for an upcoming ISO audit, leaving the newly released tracking API without a thorough deep-dive inspection before its full-scale rollout to regional managers. You have been brought in as a third-party auditor to verify the integrity of the data access layer.",
+    "app_name": "Vertex Inventory Hub",
+    "app_purpose": "Allows regional managers to search, filter, and track high-priority semiconductor shipments across global distribution centers.",
+    "data_theme": "Shipment tracking numbers, container manifests, delicate cargo handling instructions, and warehouse personnel logs.",
+    "flavor_details": {
+      "company_motto": "Precision in Motion.",
+      "department": "Global Operations & Distribution",
+      "recent_event": "A recent merger with a smaller logistics firm has forced the rapid integration of a legacy relational database into the modern web front-end.",
+      "tech_hints": [
+        "Node.js Backend",
+        "Dynamic search filtering",
+        "Legacy SQL database integration",
+        "JSON-based API responses"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge uses a classic mismatched parsing vulnerability where a WAF inspects the raw byte stream for keywords while the application uses JSON-decoded strings. This allows a trivial bypass using Unicode escape sequences (e.g., \\u0053ELECT) to evade the filter, leading to a standard UNION-based SQL injection. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

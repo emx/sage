@@ -1,0 +1,50 @@
+{
+  "run_number": 15,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.85,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Vanguard Aether Logistics - Manifest Audit System",
+  "description": "Welcome to the Vanguard Aether Logistics Internal Portal. As an authorized dispatcher, you are responsible for monitoring cargo manifests and logging support tickets for logistics discrepancies. The system has been hardened with a proprietary 'Aether-WAF' layer to prevent unauthorized data manipulation. Prove the system's resilience by auditing the internal registry.",
+  "flag": "LEVELUP{a5Skwf7h3BZheElaNchfhy_45YedcAIc}",
+  "solution": "1. Enumerate the application to find guest credentials mentioned in an HTML comment on the login page (guest:guest_vanguard_2024). \n2. Log in and navigate to 'Support Tickets'. \n3. Notice that when creating a ticket, the 'Subject' is stored. When viewing the ticket status, the application queries 'audit_logs' using the stored subject. This is a Second-Order SQL Injection point.\n4. The application has a WAF that filters keywords like 'SELECT', 'UNION', 'WHERE', 'AND', and 'OR' when followed by a space. It also blocks '--' and '/*'.\n5. Bypass the WAF by using newlines instead of spaces or by using parentheses: 'SELECT(config_value)FROM(vanguard_internal_registry)'.\n6. Since the results of the second-order query aren't directly displayed (it only shows 'Logs Found' or 'No Logs Found'), use a Boolean-based Blind SQLi technique.\n7. First, leak the table name from 'sqlite_master' (e.g., 'vanguard_internal_registry').\n8. Construct a payload to leak the flag character by character: \"')OR(SELECT(1)FROM(vanguard_internal_registry)WHERE(reg_value)LIKE('LEVELUP{a%'))--\" (Note: Use a newline instead of -- if -- is blocked, or use a closing quote trick).\n9. Automate the extraction to retrieve the full flag: LEVELUP{a5Skwf7h3BZheElaNchfhy_45YedcAIc}.",
+  "docker_image_tag": "levelup-challenge-3393d6d0",
+  "narrative_context": {
+    "company_name": "Vanguard Aether Logistics",
+    "industry": "logistics",
+    "scenario": "Vanguard Aether Logistics (VAL) is a global leader in specialized supply chain management, focusing on the transport of high-value pharmaceuticals and aerospace components. Following the rapid acquisition of a regional competitor, 'SwiftStream Couriers', the engineering team was tasked with a 'Lift and Shift' migration of their legacy shipment tracking databases. The security department, currently overwhelmed by an ongoing SOC 2 audit and a skeleton crew, has only performed a cursory automated scan of the newly integrated modules.\n\nThe target application is the backbone of their internal operations, allowing dispatchers to query millions of historical records to optimize route planning and verify delivery signatures. However, the search functionality for the legacy manifests was written years ago using custom string concatenation to handle complex filtering, and this code has now been wrapped in a modern React-based frontend to give it a polished, enterprise appearance.",
+    "app_name": "Nexus Tracker Pro",
+    "app_purpose": "Real-time tracking of sensitive cargo, warehouse inventory management, and historical shipment auditing.",
+    "data_theme": "Shipment manifests, GPS coordinates, bill of lading records, and dispatcher credentials.",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Safety in Silence.",
+      "department": "Fleet Operations & Logistics Engineering",
+      "recent_event": "A whistleblower in the SwiftStream division suggested that the 'Advanced Search' feature was built using 'shortcuts' to bypass performance bottlenecks.",
+      "tech_hints": [
+        "Legacy SQL-based middleware",
+        "Dynamic filtering logic",
+        "Heterogeneous database environment",
+        "Internal-only administrative views"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge implements a second-order blind SQL injection where the payload is stored via a sanitized input and executed in a different context. Bypassing the WAF requires exploiting the regex's reliance on whitespace/comment characters following keywords, which can be circumvented in SQLite using parentheses. The exploitation requires a multi-step process: logging in, injecting a blind payload into the subject field, and then iteratively viewing the ticket to perform boolean-based data extrac (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

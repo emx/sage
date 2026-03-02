@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h2>High-Priority Shipments</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Serial No</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.serial_no }}</td>
+                <td>{{ item.origin }}</td>
+                <td>{{ item.destination }}</td>
+                <td>{{ item.status }}</td>
+                <td><a href="/shipment/{{ item.id }}">Details</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

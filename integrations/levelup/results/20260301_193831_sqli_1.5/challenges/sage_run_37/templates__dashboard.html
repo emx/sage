@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Operations Dashboard</h1>
+<div style='display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;'>
+    <div class='card'><h3>Active Manifests</h3><p>42</p></div>
+    <div class='card'><h3>Warehouses</h3><p>12</p></div>
+    <div class='card'><h3>System Status</h3><p style='color: green;'>Healthy</p></div>
+</div>
+<div class='card'>
+    <h3>System Announcements</h3>
+    <p>Notice: Database maintenance on <strong>system_audit</strong> table scheduled for Sunday 02:00 UTC. Please avoid intensive sorting operations during this window.</p>
+    <!-- Developer Note: The new /api/v1/shipments/query sort parameter is much faster than the old Python-based sort. -->
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="header-main">Global Silo Inventory</h1>
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Silo ID</th>
+                <th>Location</th>
+                <th>Grain Type</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for crop in crops %}
+            <tr>
+                <td>{{ crop.silo_id }}</td>
+                <td>{{ crop.location }}</td>
+                <td>{{ crop.grain_type }}</td>
+                <td><a href="/silo/{{ crop.silo_id }}" style="color: #2980b9;">View Telemetry</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

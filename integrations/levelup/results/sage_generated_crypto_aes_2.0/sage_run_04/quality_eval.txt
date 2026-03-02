@@ -1,0 +1,13 @@
+Quality Evaluation: sage_run_04 (VANILLA)
+==================================================
+Overall: 7.1/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  7.0/10  #######
+  code_quality             :  7.0/10  #######
+  creativity               :  6.0/10  ######
+  realism                  :  6.0/10  ######
+  flag_isolation           :  9.0/10  #########
+  exploit_complexity       :  7.0/10  #######
+
+Reasoning: Well-constructed CBC padding oracle elevated by meaningful defense layers: HMAC signing gated behind PoW (5 leading SHA-256 zeros per oracle query), a mathematical IV constraint (sum mod 17), and a subtle oracle signal (2 vs 3 JSON keys rather than distinct error messages). Flag isolation is excellent — encrypted at build time, source and plaintext removed. However, the core vulnerability is textbook padding oracle which is extensively documented, the IV byte-sum constraint is contrived and wouldn't exist in real systems, and the generation log reveals build failures during challenge creation suggesting fragility.

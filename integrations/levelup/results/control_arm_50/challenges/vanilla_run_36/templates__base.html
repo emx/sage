@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thalassa Logistix - Global Tracking</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; color: #333; }
+        nav { background: #1a2a3a; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        nav a { color: #cfd8dc; text-decoration: none; margin: 0 15px; font-weight: bold; }
+        nav a:hover { color: white; }
+        .container { padding: 40px; max-width: 1200px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: #eceff1; }
+        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        .footer { text-align: center; margin-top: 50px; font-size: 0.8rem; color: #777; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div><a href="/" style="font-size: 1.5rem;">THALASSA LOGISTIX</a></div>
+        <div>
+            <a href="/">Home</a>
+            <a href="/vessels">Fleet</a>
+            <a href="/manifests">Manifests</a>
+            <a href="/portal">Client Portal</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <div class="footer">
+        &copy; 2024 Thalassa Logistix Global. All Rights Reserved. 
+    </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "run_number": 14,
+  "arm": "vanilla",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.8,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "VerdantCore Analytics: Precision Soil Health",
+  "description": "As a security researcher, you've been tasked with auditing the VerdantCore Analytics portal. The agronomists rely on a sophisticated 'Sensor Enrichment' feature that allows them to perform advanced queries on soil health data. Explore the application, understand how the telemetric data is fetched, and see if you can access the system's core configuration secrets. The flag is stored within the database as a system secret.",
+  "flag": "LEVELUP{NmGr_2x8F5SM0cJDYJLLN3D5Wz6toLEK}",
+  "solution": "1. Login to the application using the guest credentials provided in the footer (guest/guest123).\n2. Navigate to the 'Sensor Telemetry' page. This page makes a POST request to '/api/v1/sensors/telemetry'.\n3. Inspect the request. It sends a JSON body like: {\"enrichment\": \"INNER JOIN regions ON regions.id = sensor_readings.region_id\"}.\n4. Test the 'enrichment' parameter for SQL injection. Notice that the application has a WAF that blocks 'SELECT', 'UNION', 'WHERE', 'OR', and ' ' (spaces).\n5. Bypass the space filter by using '/**/' (comments). Bypass the 'SELECT' and 'WHERE' filters by utilizing 'INNER JOIN ... ON' logic which allows for conditional evaluation.\n6. Enumerate the database schema using the blind injection technique against 'sqlite_master'. Payload: 'INNER/**/JOIN/**/sqlite_master/**/ON/**/substr(name,1,1)='s' (if the join is true, rows are returned; if false, an empty set is returned).\n7. Discover the 'internal_system_config' table and its columns 'config_key' and 'config_value'.\n8. Extract the flag from the 'config_value' column where 'config_key' is 'system_api_secret' by using 'INNER/**/JOIN/**/internal_system_config/**/ON/**/substr(config_value,1,1)='L' (and iterating through characters).",
+  "docker_image_tag": "levelup-challenge-7adf0230",
+  "narrative_context": {
+    "company_name": "VerdantCore Analytics",
+    "industry": "agriculture",
+    "scenario": "VerdantCore Analytics recently achieved a dominant market position after acquiring three smaller precision-farming startups. This rapid expansion culminated in the release of SoilSense Nexus, a unified platform that aggregates soil chemistry, moisture telemetry, and satellite imagery for over 10,000 commercial farms worldwide. The platform is vital for ensuring global food security, as it dictates precise irrigation schedules and fertilizer application for multi-billion dollar agricultural conglomerates.\n\nWhile the company has a dedicated security operations center, they are currently overwhelmed by the task of merging diverse legacy infrastructures from their recent acquisitions. You have been brought in as a third-party security auditor during this transition period. The board is particularly concerned that the legacy modules handling historical telemetry queries might not meet the modern security standards of the parent company, especially since these modules were never designed to be exposed to the public internet.",
+    "app_name": "SoilSense Nexus",
+    "app_purpose": "Allows agronomists and farm managers to query historical soil health data and sensor logs across multiple geographical regions to optimize crop yield.",
+    "data_theme": "Sensor telemetry logs, regional farm coordinates, crop yield projections, and agronomist user accounts.",
+    "flavor_details": {
+      "company_motto": "Rooted in Data, Growing the Future",
+      "department": "Precision Agriculture Operations",
+      "recent_event": "A whistleblower from a recently acquired startup suggested that input sanitization was an afterthought in the legacy telemetry engine.",
+      "tech_hints": [
+        "Relational database backend",
+        "Dynamic query generation based on filter parameters",
+        "Legacy SQL integration"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge is harder than the designer's 1.5 rating due to the simultaneous requirement of bypassing a multi-keyword WAF (blocking 'select', 'where', and 'union') and a character filter (blocking spaces). The attacker must use a non-standard Blind SQLi technique, leveraging 'JOIN...ON' as a boolean filter instead of 'WHERE' and utilizing alternative whitespace characters like tabs or comments. The requirement for authenticated sessions and a JSON-based injection point adds additional discover (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

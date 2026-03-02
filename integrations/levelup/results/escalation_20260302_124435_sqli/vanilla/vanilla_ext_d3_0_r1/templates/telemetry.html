@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Telemetry: {{ sat['name'] }}</h2>
+<div class="card">
+    <h3>Latest Readings</h3>
+    <table>
+        <thead>
+            <tr><th>Timestamp</th><th>Fuel Level (%)</th><th>Signal Strength</th></tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log['timestamp'] }}</td>
+                <td>{{ "%.2f"|format(log['fuel_level']) }}%</td>
+                <td>{{ log['signal_strength'] }}/100</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

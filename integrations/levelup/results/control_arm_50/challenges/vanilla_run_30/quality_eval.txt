@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_30
+==================================================
+Arm: vanilla
+Overall: 6.2/10
+
+  difficulty_accuracy      :  7.0/10  #######
+  defense_depth            :  5.0/10  #####
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  7.0/10  #######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  6.0/10  ######
+
+Reasoning: ORDER BY blind injection with space and keyword blocking behind session auth. Bootstrap UI with dropdown sorting is clean. Calibrated at 1.65, close to target. The WAF forces real bypass creativity but the overall pattern is familiar.

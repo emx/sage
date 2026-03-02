@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h2>Global Inventory Manifest</h2>
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Part Name</th>
+                <th>Serial Number</th>
+                <th>Warehouse</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.part_name }}</td>
+                <td>{{ item.serial_number }}</td>
+                <td>{{ item.warehouse_id }}</td>
+                <td><span class="badge bg-success">{{ item.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

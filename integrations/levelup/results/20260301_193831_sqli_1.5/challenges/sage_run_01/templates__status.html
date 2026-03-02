@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Facility Climate Overview</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+    {% for facility in facilities %}
+    <div class="card">
+        <h3>{{ facility.location }}</h3>
+        <p>Status: <span style="color: green;">Optimal</span></p>
+        <p>Active Sensors: 14</p>
+        <button class="btn" onclick="loadTelemetry({{ facility.id }})">Load Analytics</button>
+        <div id="telemetry-{{ facility.id }}" style="margin-top: 10px; font-size: 0.8rem; color: #666;"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function loadTelemetry(id) {
+    const target = document.getElementById('telemetry-' + id);
+    target.innerText = "Fetching data...";
+    fetch(`/api/v1/telemetry?facility_id=${id}&sort=timestamp`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                target.innerText = "Error: " + data.error;
+            } else {
+                target.innerText = "Latest reading: " + data[0].reading + " at " + data[0].timestamp;
+            }
+        })
+        .catch(err => {
+            target.innerText = "Failed to connect to telemetry API.";
+        });
+}
+</script>
+{% endblock %}

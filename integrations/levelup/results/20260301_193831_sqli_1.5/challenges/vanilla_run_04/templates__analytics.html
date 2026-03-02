@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Soil Nutrient Analytics</h1>
+<div class="card">
+    <h3>Regional Data Snapshot</h3>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Region</th><th>Nitrogen</th><th>Phosphorus</th><th>Potassium</th></tr>
+        </thead>
+        <tbody>
+            {% for row in metrics %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.region }}</td>
+                <td>{{ row.n_level }} mg/kg</td>
+                <td>{{ row.p_level }} mg/kg</td>
+                <td>{{ row.k_level }} mg/kg</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="card">
+    <h3>Manage Custom Regions</h3>
+    <p>Define a custom region filter to be used across your dashboard operations.</p>
+    <form id="regionForm">
+        <input type="text" id="region_name" placeholder="e.g. North-East Sector" style="padding: 8px; width: 300px;">
+        <button type="submit" class="btn">Save Custom Region</button>
+    </form>
+    <p id="msg"></p>
+</div>
+<script>
+    document.getElementById('regionForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('region_name', document.getElementById('region_name').value);
+        const res = await fetch('/api/v1/region', { method: 'POST', body: formData });
+        const data = await res.json();
+        if(data.status === 'success') {
+            document.getElementById('msg').innerText = "Region updated! Redirecting to dashboard...";
+            document.getElementById('msg').style.color = "green";
+            setTimeout(() => window.location.href = '/dashboard', 1000);
+        } else {
+            document.getElementById('msg').innerText = data.message;
+            document.getElementById('msg').style.color = "red";
+        }
+    };
+</script>
+{% endblock %}

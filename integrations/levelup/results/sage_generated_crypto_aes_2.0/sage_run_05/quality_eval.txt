@@ -1,0 +1,13 @@
+Quality Evaluation: sage_run_05 (VANILLA)
+==================================================
+Overall: 7.5/10
+
+  difficulty_accuracy      :  8.0/10  ########
+  defense_depth            :  8.0/10  ########
+  code_quality             :  6.0/10  ######
+  creativity               :  8.0/10  ########
+  realism                  :  7.0/10  #######
+  flag_isolation           :  8.0/10  ########
+  exploit_complexity       :  8.0/10  ########
+
+Reasoning: Strong padding oracle variant with genuine novel defenses: custom non-PKCS#7 padding scheme, ETag-based side-channel oracle with rolling window recalibration, PoW gating, and multi-layer plaintext validation (magic+CRC+JSON). The crypto design is well-thought-out and appropriate for difficulty 2.0. Marked down on code_quality because app.py is truncated mid-exception handler, crypto_utils.py is unused dead code (uses standard PKCS#7 unpad while app.py uses custom padding), and the generation log reveals Docker build failures and failed smoke tests — raising concerns about whether the challenge actually deploys cleanly.

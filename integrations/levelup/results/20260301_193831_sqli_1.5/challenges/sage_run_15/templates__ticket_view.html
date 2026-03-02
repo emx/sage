@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Ticket Audit Status</h2>
+<div class="card">
+    <h3>Subject: {{ ticket.subject }}</h3>
+    <p><strong>Description:</strong> {{ ticket.description }}</p>
+    <hr>
+    <h4>Internal Audit Status:</h4>
+    {% if has_logs %}
+        <p class="success">SYSTEM: Audit logs found for this subject. Dispatch verified.</p>
+    {% else %}
+        <p class="error">SYSTEM: No audit log history found for this subject string. Verification pending.</p>
+    {% endif %}
+</div>
+<a href="/tickets" class="btn">Back to Tickets</a>
+{% endblock %}

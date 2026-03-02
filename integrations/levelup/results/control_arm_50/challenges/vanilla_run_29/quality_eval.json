@@ -1,0 +1,13 @@
+{
+  "run_id": "vanilla_run_29",
+  "arm": "vanilla",
+  "difficulty_accuracy": 5,
+  "defense_depth": 5,
+  "code_quality": 6,
+  "creativity": 5,
+  "realism": 6,
+  "flag_isolation": 7,
+  "exploit_complexity": 6,
+  "overall": 5.7,
+  "reasoning": "Blind SQLi in a hidden POST API discovered via a JavaScript comment. The WAF blocks keywords and spaces, requiring tab/newline bypasses. Calibrated at 2.25 \u2014 significantly harder than target 1.5, which hurts difficulty accuracy. The challenge is technically sound but overshoots the intended difficulty."
+}

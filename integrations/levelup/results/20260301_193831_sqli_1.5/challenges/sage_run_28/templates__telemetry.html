@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Node Health Status</h2>
+<div class="card">
+    <p>Querying Node ID: <strong>{{ node }}</strong></p>
+    <p>Current Status: 
+        {% if status == 'ACTIVE' %}
+            <span class="status-active">ACTIVE</span>
+        {% elif status == 'INACTIVE' %}
+            <span class="status-inactive">INACTIVE</span>
+        {% else %}
+            <span class="status-inactive">SYSTEM ERROR - UNKNOWN</span>
+        {% endif %}
+    </p>
+    <hr>
+    <a href="/portal/dashboard" class="btn">Return to Dashboard</a>
+</div>
+{% endblock %}

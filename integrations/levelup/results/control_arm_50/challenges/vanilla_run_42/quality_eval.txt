@@ -1,0 +1,14 @@
+Quality Evaluation: vanilla_run_42
+==================================================
+Arm: vanilla
+Overall: 5.2/10
+
+  difficulty_accuracy      :  5.0/10  #####
+  defense_depth            :  4.0/10  ####
+  code_quality             :  7.0/10  #######
+  creativity               :  5.0/10  #####
+  realism                  :  6.0/10  ######
+  flag_isolation           :  7.0/10  #######
+  exploit_complexity       :  4.0/10  ####
+
+Reasoning: The WAF explicitly allows /**/ comments as a bypass path — once discovered, exploitation is trivial. The legacy API discovery via JS comments is standard. Dark space theme is nice. The intentional WAF gap makes this easier than the calibrated 1.1 suggests.
