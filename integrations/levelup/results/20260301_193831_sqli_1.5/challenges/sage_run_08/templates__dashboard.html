@@ -1,9 +1,0 @@
-{% extends 'base.html' %}
-{% block content %}
-<h1>System Dashboard</h1>
-<div style="display: flex; gap: 20px;">
-    <div class="card" style="flex: 1;"><h3>Active Vessels</h3><p style="font-size: 2em;">{{ stats.active_vessels }}</p></div>
-    <div class="card" style="flex: 1;"><h3>Fleet Assets</h3><p style="font-size: 2em;">{{ stats.fleet_count }}</p></div>
-    <div class="card" style="flex: 1;"><h3>Status</h3><p style="font-size: 2em; color: green;">{{ stats.system_health }}</p></div>
-</div>
-{% endblock %}

@@ -1,84 +1,796 @@
-# SAGE — Sovereign Agent Governed Experience
+# SAGE -- Sovereign Agent Governed Experience
 
 A governed, verifiable, experience-weighted institutional memory layer for multi-agent systems.
 
-SAGE is an infrastructure protocol — not an application library. It provides Byzantine fault-tolerant consensus over agent knowledge, enabling multi-agent systems to accumulate, validate, and share institutional memory through governed experience rather than prompt engineering.
+SAGE is an infrastructure protocol, not an application library. It provides Byzantine fault-tolerant consensus over agent knowledge, enabling multi-agent systems to accumulate, validate, and share institutional memory through governed experience rather than prompt engineering.
 
-## What SAGE Does
+No tokens. No public chain. No cloud dependencies. Fully sovereign and self-hosted.
 
-- **Institutional Memory** — Agents propose, validate, and commit knowledge to a shared memory layer
-- **Proof of Experience (PoE)** — Weighted consensus based on agent accuracy, domain expertise, recency, and corroboration
-- **Byzantine Fault Tolerance** — CometBFT-backed consensus (n >= 3f+1), survives validator failures
-- **Sovereign Infrastructure** — No tokens, no public chain, no cloud dependencies. Fully self-hosted
+---
 
-## Architecture
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Prerequisites](#prerequisites)
+3. [Quick Start](#quick-start)
+4. [Network Topology](#network-topology)
+5. [Environment Variables](#environment-variables)
+6. [Python SDK](#python-sdk)
+7. [CLI Tools](#cli-tools)
+8. [REST API](#rest-api)
+9. [Monitoring](#monitoring)
+10. [Testing](#testing)
+11. [Troubleshooting](#troubleshooting)
+12. [Repository Structure](#repository-structure)
+13. [Research Papers](#research-papers)
+14. [License](#license)
+
+---
+
+## Architecture Overview
+
+```
+                        Agents (Python SDK / HTTP)
+                                  |
+                    +-------------+-------------+
+                    |             |             |
+                  :8080         :8081        :8082  :8083
+                    |             |             |      |
+              +-----+-----+-----+-----+-----+-----+-----+
+              |  ABCI 0   |  ABCI 1   |  ABCI 2   |  ABCI 3   |
+              |  (Go app) |  (Go app) |  (Go app) |  (Go app) |
+              +-----+-----+-----+-----+-----+-----+-----+-----+
+                    |             |             |             |
+              +-----+-----+-----+-----+-----+-----+-----+-----+
+              | CometBFT0 | CometBFT1 | CometBFT2 | CometBFT3 |
+              |  :26657   |  :26757   |  :26857   |  :26957   |
+              +-----+-----+-----+-----+-----+-----+-----+-----+
+                    |                                     |
+                    +---------- BFT Consensus -----------+
+                    |                                     |
+          +---------+---------+              +-----------+-----------+
+          |  PostgreSQL 16    |              |  Ollama               |
+          |  + pgvector       |              |  nomic-embed-text     |
+          |  (off-chain data) |              |  (768-dim embeddings) |
+          +-------------------+              +-----------------------+
+```
 
 | Layer | Technology |
 |-------|-----------|
-| Consensus | CometBFT v0.38.15 (ABCI 2.0) |
-| State Machine | Go 1.22+ |
+| Consensus | CometBFT v0.38.15 (ABCI 2.0, raw -- not Cosmos SDK) |
+| State Machine | Go 1.22+ ABCI application |
 | On-chain State | BadgerDB v4 (hashes only) |
-| Off-chain Storage | PostgreSQL 16 + pgvector |
-| Tx Format | Protobuf |
-| REST API | Go chi v5 (11 endpoints) |
+| Off-chain Storage | PostgreSQL 16 + pgvector (HNSW indexes) |
+| Tx Format | Protobuf (deterministic serialization) |
+| REST API | Go chi v5 (11 endpoints, OpenAPI 3.1) |
 | Agent SDK | Python (httpx + PyNaCl + Pydantic v2) |
-| Embeddings | Ollama nomic-embed-text (768-dim, local) |
-| Monitoring | Prometheus + Grafana |
+| Embeddings | Ollama nomic-embed-text (768-dim, fully local) |
+| Monitoring | Prometheus + Grafana (3 dashboards, 5 alert rules) |
 
-## Performance
+**Performance (verified under k6 load testing):**
 
 - 956 req/s memory submissions
 - 21.6ms P95 query latency
 - 0% error rate under load
-- BFT verified: 1/4 nodes down -> continues, 2/4 -> halts, recovery + state replication confirmed
+- BFT verified: 1/4 nodes down continues operating, 2/4 halts, recovery + state replication confirmed
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|------------|---------|-------|
+| Docker | 20.10+ | Required for the containerized network |
+| Docker Compose | v2+ | Uses `docker compose` (v2 syntax, not `docker-compose`) |
+| Go | 1.22+ | Only needed for local builds and running tests |
+| Python | 3.10+ | Only needed for the SDK and experiments |
+| make | any | Build automation |
+| curl | any | Used by `make status` and health checks |
+
+Go and Python are only required if you want to build from source or run tests. The Docker Compose setup handles everything needed to run the network.
+
+---
 
 ## Quick Start
 
+### 1. Clone the repository
+
 ```bash
-make init    # Generate 4-node testnet configs
-make up      # Start network (4 CometBFT + 4 ABCI + PostgreSQL + Ollama)
-make test    # Run tests
+git clone https://github.com/l33tdawg/sage.git
+cd sage
 ```
 
-REST API available at `localhost:8080` (nodes 0-3 on ports 8080-8083).
+### 2. Generate testnet configuration
+
+```bash
+make init
+```
+
+This runs `deploy/init-testnet.sh`, which:
+
+- Builds CometBFT v0.38.15 from source inside a Docker container (if not locally installed)
+- Generates Ed25519 validator keys and genesis configuration for 4 validator nodes
+- Writes configs to `deploy/genesis/node{0..3}/`
+- Patches `config.toml` for Docker networking (disables PEX, enables Prometheus, sets block time to 3s)
+- Sets chain ID to `sage-testnet-1`
+
+### 3. Start the network
+
+```bash
+make up
+```
+
+This launches 11 Docker containers:
+
+| Container | Role |
+|-----------|------|
+| `postgres` | PostgreSQL 16 + pgvector (off-chain storage, 8 tables + HNSW indexes) |
+| `ollama` | Local embedding model server |
+| `ollama-init` | One-shot: pulls `nomic-embed-text` and `qwen2.5:1.5b` models, then exits |
+| `abci0` - `abci3` | SAGE ABCI application nodes (Go state machine + REST API) |
+| `cometbft0` - `cometbft3` | CometBFT consensus validators |
+
+Wait approximately 30-60 seconds for all services to initialize. The Ollama model pull on first run may take several minutes depending on your connection speed.
+
+### 4. Verify the network is running
+
+```bash
+make status
+```
+
+Expected output shows all 4 nodes reporting `latest_block_height` incrementing and `catching_up: false`:
+
+```
+==> Node 0 (localhost:26657):
+    "latest_block_height": "42",
+    "catching_up": false
+==> Node 1 (localhost:26757):
+    "latest_block_height": "42",
+    "catching_up": false
+...
+```
+
+You can also hit the health endpoint directly:
+
+```bash
+curl -s http://localhost:8080/health | python3 -m json.tool
+```
+
+### 5. Watch logs
+
+```bash
+make logs        # All containers
+make logs-abci   # ABCI application nodes only
+```
+
+### 6. Stop the network
+
+```bash
+make down          # Stop containers (preserves data volumes)
+make down-clean    # Stop containers AND wipe all data (volumes, orphans)
+```
+
+---
+
+## Network Topology
+
+### Port Map
+
+| Service | Node 0 | Node 1 | Node 2 | Node 3 |
+|---------|--------|--------|--------|--------|
+| REST API | `localhost:8080` | `localhost:8081` | `localhost:8082` | `localhost:8083` |
+| CometBFT RPC | `localhost:26657` | `localhost:26757` | `localhost:26857` | `localhost:26957` |
+| CometBFT P2P | `localhost:26656` | `localhost:26756` | `localhost:26856` | `localhost:26956` |
+| Prometheus metrics (ABCI) | `localhost:2112` | `localhost:2113` | `localhost:2114` | `localhost:2115` |
+| CometBFT Prometheus | `:26660` | `:26761` | `:26862` | `:26963` |
+
+### Shared Services
+
+| Service | Port | Notes |
+|---------|------|-------|
+| PostgreSQL | `localhost:5432` | Shared by all ABCI nodes, `ON CONFLICT DO NOTHING` for multi-writer safety |
+| Ollama | `localhost:11434` | Shared embedding model server |
+| Grafana | `localhost:3000` | Only with `make up-full` |
+| Prometheus | `localhost:9191` | Only with `make up-full` |
+
+### Container Relationships
+
+Each ABCI node connects to:
+- Its paired CometBFT node via TCP (ABCI protocol on port 26658, internal to Docker network)
+- PostgreSQL for off-chain storage (memories, votes, corroborations, epoch scores)
+- Ollama for embedding generation
+
+Each CometBFT node:
+- Runs BFT consensus with persistent peer connections to all other CometBFT nodes
+- Connects to its paired ABCI application for state machine execution
+- Exposes RPC for status queries and transaction broadcasting
+
+---
+
+## Environment Variables
+
+### ABCI Application Nodes
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_URL` | `postgres://sage:sage_dev_password@postgres:5432/sage?sslmode=disable` | PostgreSQL connection string |
+| `NODE_ID` | `node0` | Unique identifier for this node |
+| `REST_ADDR` | `:8080` | Address for the REST API server to bind |
+| `METRICS_ADDR` | `:2112` | Address for the Prometheus metrics endpoint |
+| `BADGER_PATH` | `/data/sage.db` | Path for the BadgerDB on-chain state |
+| `ABCI_ADDR` | `tcp://0.0.0.0:26658` | TCP address for ABCI protocol (CometBFT connects here) |
+| `COMET_RPC` | `http://cometbft0:26657` | CometBFT RPC endpoint for broadcasting transactions |
+| `VALIDATOR_KEY_FILE` | `/validator/priv_validator_key.json` | Path to CometBFT validator key (Ed25519, must match validator set) |
+| `OLLAMA_URL` | `http://ollama:11434` | Ollama API endpoint for embeddings |
+
+### PostgreSQL
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_DB` | `sage` | Database name |
+| `POSTGRES_USER` | `sage` | Database user |
+| `POSTGRES_PASSWORD` | `sage_dev_password` | Database password |
+
+### CometBFT
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CMTHOME` | `/cometbft` | CometBFT home directory (configs, data, keys) |
+
+### CLI / SDK
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SAGE_API_URL` | `http://localhost:8080` | Used by `sage-cli` to locate the SAGE REST API |
+| `SAGE_URL` | `http://localhost:8080` | Used by Python SDK examples |
+
+---
 
 ## Python SDK
 
+The SAGE Python SDK provides both synchronous and asynchronous clients for interacting with the SAGE network.
+
+### Installation
+
 ```bash
-cd sdk/python && pip install -e .
+cd sdk/python
+pip install -e .
 ```
+
+For development (includes test dependencies):
+
+```bash
+cd sdk/python
+pip install -e ".[dev]"
+```
+
+### Generate an Agent Identity
+
+Every agent needs an Ed25519 keypair. The SDK can generate one:
 
 ```python
-from sage_sdk import SageClient
+from sage_sdk import AgentIdentity
 
-client = SageClient("http://localhost:8080", agent_keypair)
-client.propose("SQL injection via UNION bypass requires...", domain="security")
-results = client.query("SQL injection techniques", domain="security")
+identity = AgentIdentity.generate()
+print(f"Agent ID: {identity.agent_id}")
 ```
 
-## Research Papers
+Or use the CLI:
 
-See [`papers/`](papers/) for the full research paper series documenting SAGE's design, empirical evaluation, and theoretical foundations.
+```bash
+go run ./cmd/sage-cli keygen
+# Outputs: Agent ID, public key, private key, and saves seed to sage-agent-XXXX.key
+```
 
-| # | Paper | Description |
-|---|-------|-------------|
-| 1 | Agent Memory Infrastructure | Architecture, PoE consensus, BFT verification |
-| 2 | Consensus-Validated Memory Improves Agent Performance | 50-vs-50 controlled empirical study |
-| 3 | Institutional Memory as Organizational Knowledge | Organizational knowledge framing, sovereign AI implications |
+### Connect and Submit a Memory
+
+```python
+from sage_sdk import AgentIdentity, SageClient
+
+# Generate or load identity
+identity = AgentIdentity.generate()
+
+# Connect to any SAGE node
+with SageClient(base_url="http://localhost:8080", identity=identity) as client:
+
+    # Submit a memory for consensus validation
+    result = client.propose(
+        content="SQL injection via UNION SELECT requires matching column count with the original query.",
+        memory_type="fact",
+        domain_tag="security",
+        confidence=0.92,
+    )
+    print(f"Memory ID: {result.memory_id}")
+    print(f"Tx Hash:   {result.tx_hash}")
+    print(f"Status:    {result.status}")
+```
+
+### Query Memories
+
+```python
+    # Semantic similarity search (returns committed memories)
+    results = client.query(
+        query_text="SQL injection techniques",
+        domain="security",
+        top_k=10,
+        status_filter="committed",
+    )
+    for memory in results:
+        print(f"  [{memory.confidence_score:.2f}] {memory.content[:80]}...")
+```
+
+### Full Lifecycle Example
+
+```python
+from sage_sdk import AgentIdentity, SageClient
+
+identity = AgentIdentity.generate()
+
+with SageClient(base_url="http://localhost:8080", identity=identity) as client:
+
+    # 1. Propose a memory
+    result = client.propose(
+        content="AES-256-GCM provides authenticated encryption with 128-bit tags.",
+        memory_type="fact",
+        domain_tag="cryptography",
+        confidence=0.95,
+    )
+    memory_id = result.memory_id
+
+    # 2. Retrieve it
+    memory = client.get_memory(memory_id)
+    print(f"Status: {memory.status.value}")  # "proposed"
+
+    # 3. Corroborate (from another agent or after validation)
+    client.corroborate(memory_id, evidence="Verified against NIST SP 800-38D.")
+
+    # 4. Query by similarity
+    results = client.query("authenticated encryption", domain="cryptography")
+
+    # 5. Challenge if incorrect
+    client.dispute(memory_id, reason="Tag length depends on implementation choice.")
+```
+
+### Async Client
+
+```python
+from sage_sdk import AgentIdentity, AsyncSageClient
+import asyncio
+
+async def main():
+    identity = AgentIdentity.generate()
+    async with AsyncSageClient(base_url="http://localhost:8080", identity=identity) as client:
+        result = await client.propose(
+            content="Buffer overflow in strcpy is a classic CWE-120 vulnerability.",
+            memory_type="observation",
+            domain_tag="security",
+            confidence=0.88,
+        )
+        print(f"Submitted: {result.memory_id}")
+
+asyncio.run(main())
+```
+
+### SDK Examples
+
+The SDK ships with ready-to-run examples in `sdk/python/examples/`:
+
+```bash
+cd sdk/python
+python examples/quickstart.py         # Minimal propose + retrieve
+python examples/full_lifecycle.py     # Full memory lifecycle
+python examples/multi_agent.py        # Multiple agents collaborating
+python examples/async_example.py      # Async client usage
+```
+
+---
+
+## CLI Tools
+
+### sage-cli
+
+Build and run the admin CLI:
+
+```bash
+go build -o bin/sage-cli ./cmd/sage-cli
+```
+
+Or run directly:
+
+```bash
+go run ./cmd/sage-cli <command>
+```
+
+### Commands
+
+**keygen** -- Generate a new Ed25519 agent keypair:
+
+```bash
+$ go run ./cmd/sage-cli keygen
+=== SAGE Agent Keypair ===
+Agent ID (public key):  a1b2c3d4e5f6...
+Private key (hex):      ...
+Public key (hex):       ...
+Seed saved to:          sage-agent-a1b2c3d4.key
+```
+
+**status** -- Query all 4 CometBFT nodes:
+
+```bash
+$ go run ./cmd/sage-cli status
+==> Node 0 (http://localhost:26657/status):
+  { "latest_block_height": "128", "catching_up": false, ... }
+...
+```
+
+**health** -- Check the SAGE REST API health endpoint:
+
+```bash
+$ go run ./cmd/sage-cli health
+{
+  "status": "healthy",
+  "version": "1.0.0"
+}
+```
+
+Set `SAGE_API_URL` to target a different node (default: `http://localhost:8080`).
+
+---
+
+## REST API
+
+The SAGE REST API uses Ed25519 signature authentication and follows the OpenAPI 3.1 specification (see `api/openapi.yaml`).
+
+### Authentication
+
+All authenticated endpoints require three headers:
+
+| Header | Value |
+|--------|-------|
+| `X-Agent-ID` | Hex-encoded Ed25519 public key |
+| `X-Signature` | Ed25519 signature of `SHA-256(request_body) + big-endian int64(timestamp)` |
+| `X-Timestamp` | Unix epoch seconds |
+
+The Python SDK handles signing automatically. For raw HTTP access, compute `SHA-256` of the JSON body, append the timestamp as a big-endian 8-byte integer, and sign the result with your Ed25519 private key.
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/v1/memory/submit` | Yes | Submit a new memory for consensus validation |
+| `POST` | `/v1/memory/query` | Yes | Semantic similarity search over memories |
+| `GET` | `/v1/memory/{memory_id}` | Yes | Retrieve a single memory by ID |
+| `POST` | `/v1/memory/{memory_id}/vote` | Yes | Cast a validator vote (accept/reject/abstain) |
+| `POST` | `/v1/memory/{memory_id}/challenge` | Yes | Challenge a committed memory |
+| `POST` | `/v1/memory/{memory_id}/corroborate` | Yes | Corroborate a memory with evidence |
+| `GET` | `/v1/agent/me` | Yes | Get authenticated agent's profile and PoE weight |
+| `GET` | `/v1/validator/pending` | Yes | List memories awaiting validator votes |
+| `GET` | `/v1/validator/epoch` | Yes | Current epoch info and validator scores |
+| `GET` | `/health` | No | Liveness probe |
+| `GET` | `/ready` | No | Readiness probe (checks PostgreSQL + CometBFT) |
+
+### Memory Lifecycle
+
+Memories progress through these states:
+
+```
+Proposed --> Validated --> Committed --> [Challenged] --> [Deprecated]
+```
+
+1. An agent submits a memory via `/v1/memory/submit` (status: `proposed`)
+2. Validators vote via `/v1/memory/{id}/vote`
+3. When quorum is reached (>= 2/3 weighted vote), status advances to `committed`
+4. Other agents can corroborate (strengthens confidence) or challenge (triggers review)
+5. Challenged memories may be deprecated based on evidence
+
+### Error Format
+
+All errors follow RFC 7807 Problem Details:
+
+```json
+{
+  "type": "https://sage.example/errors/validation",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "confidence_score must be between 0 and 1"
+}
+```
+
+---
+
+## Monitoring
+
+### Start with monitoring stack
+
+```bash
+make up-full
+```
+
+This starts the standard 11 containers plus:
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Grafana | `http://localhost:3000` | admin / `sage` (or anonymous access enabled) |
+| Prometheus | `http://localhost:9191` | No auth |
+
+### Grafana Dashboards
+
+Three pre-configured dashboards are provisioned automatically:
+
+1. **SAGE Overview** -- Network health, block height, active validators
+2. **Memory Metrics** -- Submission rates, query latency, consensus timing
+3. **Node Health** -- Per-node CPU, memory, error rates
+
+### Prometheus Metrics
+
+ABCI application nodes expose custom metrics on their metrics ports (2112-2115):
+
+- `sage_memory_submissions_total` -- Total memory submissions
+- `sage_memory_queries_total` -- Total similarity queries
+- `sage_consensus_votes_total` -- Validator votes cast
+- `sage_block_height` -- Current block height
+- `sage_query_duration_seconds` -- Query latency histogram
+
+CometBFT nodes expose built-in metrics on ports 26660, 26761, 26862, 26963.
+
+### Alert Rules
+
+Five alert rules are pre-configured in `deploy/monitoring/alerts.yml`:
+
+- Node down detection
+- Block production stalled
+- High query latency
+- Consensus failure
+- PostgreSQL connectivity loss
+
+---
+
+## Testing
+
+### Unit Tests (Go)
+
+```bash
+make test
+```
+
+Runs 48 Go unit tests with race detection across all packages:
+
+```bash
+go test ./... -v -count=1 -race
+```
+
+### Integration Tests
+
+Requires a running SAGE network (`make up`):
+
+```bash
+make integration
+```
+
+Runs 13 integration tests covering memory lifecycle, consensus proofs, and PoE scoring:
+
+```bash
+go test ./test/integration/... -v -count=1 -timeout 300s -tags=integration
+```
+
+### Python SDK Tests
+
+```bash
+make sdk-test
+```
+
+Runs 21 pytest tests with mocked HTTP (no running network needed):
+
+```bash
+cd sdk/python && pip install -e ".[dev]" && pytest -v
+```
+
+### Load Testing (k6)
+
+Requires [k6](https://k6.io/) installed and a running network:
+
+```bash
+make benchmark
+```
+
+Runs `test/benchmark/load.js` against the network to measure throughput and latency.
+
+### Linting
+
+```bash
+make lint    # golangci-lint
+make fmt     # gofmt
+make vet     # go vet
+```
+
+---
+
+## Troubleshooting
+
+### Network does not start
+
+**Symptom:** `make up` exits with errors or containers keep restarting.
+
+**Check:** Ensure `make init` was run first. The CometBFT nodes require genesis configuration in `deploy/genesis/`. If the directory is missing or corrupted:
+
+```bash
+make clean     # Removes deploy/genesis/ and bin/
+make init      # Regenerate testnet configs
+make up
+```
+
+### "catching_up: true" on all nodes
+
+**Symptom:** `make status` shows all nodes with `catching_up: true`.
+
+**Cause:** Nodes are still syncing. Wait 10-15 seconds after `make up` for initial block production to begin. If it persists, check ABCI logs:
+
+```bash
+make logs-abci
+```
+
+### PostgreSQL connection failures
+
+**Symptom:** ABCI logs show `connection refused` to PostgreSQL.
+
+**Cause:** PostgreSQL container has not passed its health check yet. The ABCI containers depend on PostgreSQL being healthy, but there can be race conditions. Restart the stack:
+
+```bash
+make down && make up
+```
+
+### Ollama model not ready
+
+**Symptom:** Embedding requests return errors or empty vectors.
+
+**Cause:** The `ollama-init` container pulls models on first start. This can take several minutes. Check its status:
+
+```bash
+docker compose -f deploy/docker-compose.yml logs ollama-init
+```
+
+Wait for `Models ready` in the output before submitting memories that require embeddings.
+
+### Port conflicts
+
+**Symptom:** Containers fail to start with `bind: address already in use`.
+
+**Cause:** Another service is using one of SAGE's ports (8080-8083, 5432, 26656-26957, etc.).
+
+**Fix:** Stop the conflicting service, or modify port mappings in `deploy/docker-compose.yml`.
+
+### "make init" fails building CometBFT
+
+**Symptom:** Docker build of CometBFT from source fails.
+
+**Cause:** Network issues pulling the Go image or cloning CometBFT. Retry, or install CometBFT v0.38.15 locally:
+
+```bash
+git clone --branch v0.38.15 --depth 1 https://github.com/cometbft/cometbft.git
+cd cometbft && make install
+cd .. && make init
+```
+
+### SDK authentication errors
+
+**Symptom:** Python SDK calls return 401 Unauthorized.
+
+**Cause:** Clock skew between your machine and the server, or malformed signing. Ensure:
+
+1. System clock is accurate (signature includes timestamp)
+2. You are using a valid Ed25519 keypair generated by `AgentIdentity.generate()` or `sage-cli keygen`
+3. The request body has not been modified after signing
+
+### Queries return no results
+
+**Cause:** By default, queries return memories in all states. For consensus-validated memories only, pass `status_filter="committed"`:
+
+```python
+results = client.query("your query", status_filter="committed")
+```
+
+New memories start as `proposed` and only become `committed` after reaching quorum (>= 2/3 weighted validator votes).
+
+### Data reset
+
+To wipe all data and start fresh:
+
+```bash
+make down-clean    # Stops containers and removes all Docker volumes
+make init          # Regenerate configs (validator keys change)
+make up            # Start fresh network
+```
+
+---
 
 ## Repository Structure
 
 ```
 sage/
-├── cmd/              # ABCI daemon + CLI
-├── internal/         # Core: ABCI state machine, PoE, memory, auth, store
-├── api/              # REST handlers, middleware, protobuf, OpenAPI spec
-├── sdk/python/       # Python SDK (sync + async)
-├── deploy/           # Docker Compose, monitoring, init scripts
-├── test/             # Integration, Byzantine fault, k6 benchmarks
-├── integrations/     # Level Up CTF proof-of-concept
-└── papers/           # Research papers (PDFs)
+├── cmd/
+│   ├── amid/main.go                  # ABCI daemon (CometBFT + REST + Prometheus)
+│   └── sage-cli/main.go              # Admin CLI (keygen, status, health)
+├── internal/
+│   ├── abci/                         # ABCI 2.0 state machine (FinalizeBlock, Commit)
+│   ├── auth/                         # Ed25519 keypair, sign/verify requests
+│   ├── embedding/                    # Ollama client for local semantic embeddings
+│   ├── memory/                       # MemoryRecord, lifecycle, confidence decay
+│   ├── metrics/                      # Prometheus counters/histograms, health checker
+│   ├── poe/                          # Proof of Experience engine (EWMA, domain sim, epochs)
+│   ├── store/                        # MemoryStore/ValidatorScoreStore (PostgreSQL + BadgerDB)
+│   ├── tx/                           # Tx codec (protobuf encode/decode, sign/verify)
+│   └── validator/                    # ValidatorSet, quorum logic (>= 2/3 weighted)
+├── api/
+│   ├── proto/sage/v1/                # Protobuf definitions (tx.proto, query.proto)
+│   ├── rest/                         # chi v5 router, handlers, middleware
+│   └── openapi.yaml                  # OpenAPI 3.1 specification
+├── sdk/python/                       # Python SDK (sync + async clients)
+│   ├── src/sage_sdk/                 # Client, auth, models, exceptions
+│   ├── tests/                        # 21 pytest tests (mocked httpx via respx)
+│   └── examples/                     # 4 runnable examples
+├── deploy/
+│   ├── docker-compose.yml            # 11 containers (core network)
+│   ├── docker-compose.monitoring.yml # Prometheus + Grafana
+│   ├── Dockerfile.abci               # Multi-stage Go build for ABCI nodes
+│   ├── Dockerfile.node               # CometBFT validator image
+│   ├── init.sql                      # PostgreSQL schema (8 tables + pgvector HNSW)
+│   ├── init-testnet.sh               # 4-node testnet config generator
+│   └── monitoring/                   # Prometheus config, alerts, Grafana dashboards
+├── test/
+│   ├── integration/                  # Memory lifecycle, consensus, PoE tests
+│   ├── byzantine/                    # BFT fault tolerance tests
+│   └── benchmark/                    # k6 load tests
+├── integrations/
+│   └── levelup/                      # Level Up CTF proof-of-concept integration
+├── papers/                           # Research papers (PDFs)
+├── .github/workflows/ci.yml          # CI: lint, test, build, docker, sdk-test
+├── Makefile                          # 18 build/test/deploy targets
+├── go.mod                            # Go 1.22, CometBFT v0.38.15
+└── .golangci.yml                     # Linter configuration
 ```
+
+---
+
+## Research Papers
+
+The `papers/` directory contains the full research paper series documenting SAGE's design, empirical evaluation, and theoretical foundations.
+
+| # | Title | Description |
+|---|-------|-------------|
+| 1 | Agent Memory Infrastructure | Architecture, PoE consensus mechanism, BFT verification |
+| 2 | Consensus-Validated Memory Improves Agent Performance | 50-vs-50 controlled empirical study (Level Up CTF integration) |
+| 3 | Institutional Memory as Organizational Knowledge | Organizational knowledge framing, sovereign AI implications |
+
+Papers are licensed under CC BY 4.0. Code is licensed under MIT.
+
+---
+
+## Makefile Reference
+
+| Target | Description |
+|--------|-------------|
+| `make help` | Show all available targets |
+| `make init` | Generate 4-node testnet configuration |
+| `make up` | Start the 4-validator network |
+| `make up-full` | Start network with Prometheus + Grafana monitoring |
+| `make down` | Stop the network (preserves data) |
+| `make down-clean` | Stop network and wipe all data volumes |
+| `make status` | Check CometBFT node status (block height, sync state) |
+| `make logs` | Follow all container logs |
+| `make logs-abci` | Follow ABCI application logs only |
+| `make build` | Build the `amid` binary to `bin/` |
+| `make test` | Run Go unit tests (48 tests, race detection) |
+| `make lint` | Run golangci-lint |
+| `make fmt` | Format Go code |
+| `make vet` | Run go vet |
+| `make proto` | Regenerate protobuf code |
+| `make integration` | Run integration tests (requires running network) |
+| `make benchmark` | Run k6 load tests |
+| `make sdk-test` | Run Python SDK tests (21 tests) |
+| `make clean` | Remove build artifacts and generated configs |
+| `make tidy` | Run go mod tidy |
+
+---
 
 ## License
 

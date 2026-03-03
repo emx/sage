@@ -1,3 +1,0 @@
-app.agents.static_analysis WARNING: Auto-redacted 'sql injection' from description (was a spoiler)
-app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (271.0s)
-app.agents.orchestrator WARNING: Solution replay failed — synthetic par 210s, verification=smoke_tested

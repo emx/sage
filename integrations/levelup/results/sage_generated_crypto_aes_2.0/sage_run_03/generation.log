@@ -1,7 +1,0 @@
-sage_bridge INFO: SAGE client initialized (endpoint=http://localhost:8080, agent=1162727cfbf0476e184d37146ed2bcc1fb53ca1eebbab5b36726f833de835408)
-app.services.sandbox_service ERROR: Docker build failed for levelup-challenge-cca331ae: When using COPY with more than one source file, the destination must be a directory and end with a /
-app.agents.validator ERROR: [validator] Docker build failed: When using COPY with more than one source file, the destination must be a directory and end with a /
-app.agents.orchestrator WARNING: Validation failed: ['Docker build failed: When using COPY with more than one source file, the destination must be a directory and end with a /']
-app.agents.smoke_test WARNING: Flag submission test FAILED: No endpoint accepted the known flag at http://localhost:50611. Tried: ['/submit', '/check', '/verify', '/api/check', '/api/submit'] with fields: ['flag', 'answer', 'solution', 'input']
-app.agents.orchestrator WARNING: Flag submission NOT verified for crypto — synthetic par 300s, verification=smoke_tested. Details: No endpoint accepted the known flag at http://localhost:50611. Tried: ['/submit', '/check', '/verify', '/api/check', '/api/submit'] with fields: ['flag', 'answer', 'solution', 'input']
-sage_bridge INFO: SAGE observation submitted: d2f1fd5c-b326-4eb9-a754-f3a3b76de00e

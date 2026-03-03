@@ -1,4 +1,0 @@
-app.agents.hardener WARNING: [harden-loop] Rejected iteration 1: difficulty went from 2.10 → 1.65 (no improvement)
-app.agents.exploit WARNING: [replay] Timeout after 319.0s
-app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (319.0s)
-app.agents.orchestrator WARNING: Solution replay failed — synthetic par 420s, verification=smoke_tested

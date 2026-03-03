@@ -1,6 +1,0 @@
-app.services.sandbox_service ERROR: Docker build failed for levelup-challenge-4dc3a185: The command '/bin/sh -c python init_db.py' returned a non-zero code: 1
-app.agents.validator ERROR: [validator] Docker build failed: The command '/bin/sh -c python init_db.py' returned a non-zero code: 1
-app.agents.orchestrator WARNING: Validation failed: ["Docker build failed: The command '/bin/sh -c python init_db.py' returned a non-zero code: 1"]
-app.agents.static_analysis WARNING: Auto-fixed Dockerfile flag leak: injected 'RUN rm -f Dockerfile' after context COPY to prevent players from reading the flag via 'cat Dockerfile'.
-app.agents.exploit WARNING: [replay] Solution replay failed after 4 attempts (222.0s)
-app.agents.orchestrator WARNING: Solution replay failed — synthetic par 180s, verification=smoke_tested

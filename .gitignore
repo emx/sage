@@ -84,3 +84,25 @@ docs/
 
 # Papers PDFs are tracked in papers/ (not gitignored)
 PHASE1_IMPLEMENTATION_PLAN.md
+
+# ─────────────────────────────────────────────
+# Level Up Integration — IP Protection
+# ─────────────────────────────────────────────
+# Level Up experiment results (generated CTF challenges are proprietary outputs)
+integrations/levelup/results/
+integrations/levelup/scripts/
+# Level Up proprietary agents (already covered by app/ but be explicit)
+integrations/levelup/app/
+# Experiment keys and env
+integrations/levelup/*.key
+integrations/levelup/.env
+# Backup files
+integrations/levelup/results/*.sql
+
+# Tracked (open-source, promised in papers):
+#   integrations/levelup/sage_bridge.py
+#   integrations/levelup/experiment_protocol.py
+#   integrations/levelup/run_experiment.py
+#   integrations/levelup/evaluate_challenges.py
+#   integrations/levelup/README.md
+#   integrations/levelup/paper4/
