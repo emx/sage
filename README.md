@@ -31,31 +31,65 @@ No tokens. No public chain. No cloud dependencies. Fully sovereign and self-host
 
 ## Architecture Overview
 
+```mermaid
+graph TB
+    subgraph Agents["Agents (Python SDK / HTTP)"]
+        A1["Agent A"]
+        A2["Agent B"]
+        A3["Agent C"]
+    end
+
+    subgraph ABCI["(S)AGE Application Layer"]
+        direction LR
+        AB0["ABCI 0<br/><small>:8080 REST</small><br/><small>:2112 metrics</small>"]
+        AB1["ABCI 1<br/><small>:8081 REST</small><br/><small>:2113 metrics</small>"]
+        AB2["ABCI 2<br/><small>:8082 REST</small><br/><small>:2114 metrics</small>"]
+        AB3["ABCI 3<br/><small>:8083 REST</small><br/><small>:2115 metrics</small>"]
+    end
+
+    subgraph Consensus["BFT Consensus Layer"]
+        direction LR
+        C0["CometBFT 0<br/><small>:26657 RPC</small>"]
+        C1["CometBFT 1<br/><small>:26757 RPC</small>"]
+        C2["CometBFT 2<br/><small>:26857 RPC</small>"]
+        C3["CometBFT 3<br/><small>:26957 RPC</small>"]
+        C0 <--> C1
+        C1 <--> C2
+        C2 <--> C3
+        C0 <--> C3
+    end
+
+    subgraph Storage["Shared Services"]
+        direction LR
+        PG[("PostgreSQL 16<br/>+ pgvector<br/><small>Off-chain data<br/>HNSW indexes</small>")]
+        OL["Ollama<br/><small>nomic-embed-text<br/>768-dim embeddings</small>"]
+    end
+
+    A1 & A2 & A3 --> AB0 & AB1 & AB2 & AB3
+
+    AB0 <--> C0
+    AB1 <--> C1
+    AB2 <--> C2
+    AB3 <--> C3
+
+    AB0 & AB1 & AB2 & AB3 --> PG
+    AB0 & AB1 & AB2 & AB3 --> OL
+
+    style Agents fill:#e8f4f8,stroke:#2196F3,color:#000
+    style ABCI fill:#fff3e0,stroke:#FF9800,color:#000
+    style Consensus fill:#fce4ec,stroke:#E91E63,color:#000
+    style Storage fill:#e8f5e9,stroke:#4CAF50,color:#000
 ```
-                        Agents (Python SDK / HTTP)
-                                  |
-                    +-------------+-------------+
-                    |             |             |
-                  :8080         :8081        :8082  :8083
-                    |             |             |      |
-              +-----+-----+-----+-----+-----+-----+-----+
-              |  ABCI 0   |  ABCI 1   |  ABCI 2   |  ABCI 3   |
-              |  (Go app) |  (Go app) |  (Go app) |  (Go app) |
-              +-----+-----+-----+-----+-----+-----+-----+-----+
-                    |             |             |             |
-              +-----+-----+-----+-----+-----+-----+-----+-----+
-              | CometBFT0 | CometBFT1 | CometBFT2 | CometBFT3 |
-              |  :26657   |  :26757   |  :26857   |  :26957   |
-              +-----+-----+-----+-----+-----+-----+-----+-----+
-                    |                                     |
-                    +---------- BFT Consensus -----------+
-                    |                                     |
-          +---------+---------+              +-----------+-----------+
-          |  PostgreSQL 16    |              |  Ollama               |
-          |  + pgvector       |              |  nomic-embed-text     |
-          |  (off-chain data) |              |  (768-dim embeddings) |
-          +-------------------+              +-----------------------+
-```
+
+### How it works
+
+1. **Agents** connect to any ABCI node via the Python SDK (or raw HTTP)
+2. **ABCI nodes** (Go) process requests -- memory submissions become signed transactions
+3. Transactions are broadcast to **CometBFT** which runs BFT consensus across all 4 validators
+4. Once a block is committed, the state machine updates **PostgreSQL** (full content) and **BadgerDB** (hashes only)
+5. **Ollama** generates 768-dim embeddings locally -- zero cloud API calls
+
+No tokens. No gas fees. No cryptocurrency. Just consensus-validated knowledge.
 
 | Layer | Technology |
 |-------|-----------|
@@ -389,6 +423,64 @@ python examples/federation.py           # Cross-org federation agreements
 python examples/complete_walkthrough.py # Every SDK operation explained
 ```
 
+### Sovereign Layer (Optional RBAC)
+
+The **(S)** in (S)AGE is the optional governance layer. Without it, you have AGE -- agents proposing and querying memories with PoE consensus. Add the Sovereign layer when you need multi-org governance:
+
+```mermaid
+graph TB
+    subgraph Fed["Federation (Cross-Org)"]
+        direction TB
+        subgraph OrgA["Organization A"]
+            direction TB
+            subgraph DeptA1["Dept: Red Team"]
+                AA1["Agent<br/><small>clearance 4 (admin)</small>"]
+                AA2["Agent<br/><small>clearance 3 (validate)</small>"]
+            end
+            subgraph DeptA2["Dept: Blue Team"]
+                AA3["Agent<br/><small>clearance 2 (write)</small>"]
+                AA4["Agent<br/><small>clearance 1 (read)</small>"]
+            end
+        end
+        subgraph OrgB["Organization B"]
+            direction TB
+            subgraph DeptB1["Dept: Research"]
+                AB1["Agent<br/><small>clearance 3</small>"]
+            end
+        end
+        OrgA <-->|"federated domains<br/><small>max clearance 2</small>"| OrgB
+    end
+
+    subgraph Domains["Knowledge Domains"]
+        D1["classified_intel"]
+        D2["operational_data"]
+        D3["public_advisories"]
+    end
+
+    AA1 -->|"level 4"| D1 & D2 & D3
+    AA2 -->|"level 3"| D1
+    AA3 -->|"level 2"| D2
+    AA4 -->|"level 1"| D3
+    AB1 -.->|"federated<br/>level 2"| D2
+
+    style Fed fill:#f3e5f5,stroke:#9C27B0,color:#000
+    style OrgA fill:#e8f4f8,stroke:#2196F3,color:#000
+    style OrgB fill:#fff3e0,stroke:#FF9800,color:#000
+    style Domains fill:#e8f5e9,stroke:#4CAF50,color:#000
+```
+
+**Clearance levels** control what agents can do:
+
+| Level | Access | Description |
+|-------|--------|-------------|
+| 0 | None | Observer, no access |
+| 1 | Read | Query memories in domain |
+| 2 | Read + Write | Propose memories to domain |
+| 3 | Read + Write + Validate | Vote on proposed memories |
+| 4 | Admin | Full control, grant/revoke access |
+
+All RBAC state is on-chain -- organizations, departments, clearance levels, access grants, and federation agreements are committed to the BFT network and replicated across all validators.
+
 ---
 
 ## CLI Tools
@@ -477,10 +569,17 @@ The Python SDK handles signing automatically. For raw HTTP access, compute `SHA-
 
 ### Memory Lifecycle
 
-Memories progress through these states:
+```mermaid
+stateDiagram-v2
+    [*] --> Proposed: Agent submits via SDK
+    Proposed --> Committed: Quorum reached (>= 2/3 weighted vote)
+    Committed --> Challenged: Agent disputes with evidence
+    Challenged --> Deprecated: Challenge upheld
+    Challenged --> Committed: Challenge rejected
+    Committed --> Committed: Corroborated (confidence increases)
 
-```
-Proposed --> Validated --> Committed --> [Challenged] --> [Deprecated]
+    note right of Proposed: Validators vote\n(accept / reject / abstain)
+    note right of Committed: Consensus-validated\nreplicated across all nodes
 ```
 
 1. An agent submits a memory via `/v1/memory/submit` (status: `proposed`)
