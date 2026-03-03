@@ -99,8 +99,10 @@ integrations/levelup/.env
 # Backup files
 integrations/levelup/results/*.sql
 
+# SAGE bridge (Level Up IP — generic example lives in sdk/python/examples/sage_bridge_example.py)
+integrations/levelup/sage_bridge.py
+
 # Tracked (open-source, promised in papers):
-#   integrations/levelup/sage_bridge.py
 #   integrations/levelup/experiment_protocol.py
 #   integrations/levelup/run_experiment.py
 #   integrations/levelup/evaluate_challenges.py
