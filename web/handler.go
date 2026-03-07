@@ -1,16 +1,20 @@
 package web
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/l33tdawg/sage/internal/store"
+	"github.com/l33tdawg/sage/internal/vault"
 )
 
 // DashboardHandler serves the Brain Dashboard UI and its API endpoints.
@@ -19,6 +23,10 @@ type DashboardHandler struct {
 	SSE       *SSEBroadcaster
 	Version   string
 	Encrypted bool
+
+	// Auth — only active when VaultKeyPath is set.
+	VaultKeyPath string
+	sessions     sync.Map // token -> expiry time
 }
 
 // NewDashboardHandler creates a new dashboard handler.
@@ -30,17 +38,32 @@ func NewDashboardHandler(memStore store.MemoryStore, version string) *DashboardH
 	}
 }
 
+const sessionCookieName = "sage_session"
+const sessionTTL = 24 * time.Hour
+
 // RegisterRoutes mounts dashboard routes on the given router.
 func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
-	// Dashboard API endpoints (no auth required — local dashboard)
-	r.Get("/v1/dashboard/memory/list", h.handleListMemories)
-	r.Get("/v1/dashboard/memory/timeline", h.handleTimeline)
-	r.Get("/v1/dashboard/memory/graph", h.handleGraph)
-	r.Get("/v1/dashboard/stats", h.handleStats)
-	r.Delete("/v1/dashboard/memory/{id}", h.handleDeleteMemory)
-	r.Patch("/v1/dashboard/memory/{id}", h.handleUpdateMemory)
-	r.Get("/v1/dashboard/events", h.SSE.ServeHTTP)
+	// Auth endpoints — always available (login page needs to load without auth).
+	r.Post("/v1/dashboard/auth/login", h.handleLogin)
+	r.Get("/v1/dashboard/auth/check", h.handleAuthCheck)
+
+	// Health is public (needed by CLI status command).
 	r.Get("/v1/dashboard/health", h.handleHealth)
+
+	// Protected routes — wrapped in auth middleware when encryption is enabled.
+	r.Group(func(r chi.Router) {
+		if h.VaultKeyPath != "" {
+			r.Use(h.authMiddleware)
+		}
+
+		r.Get("/v1/dashboard/memory/list", h.handleListMemories)
+		r.Get("/v1/dashboard/memory/timeline", h.handleTimeline)
+		r.Get("/v1/dashboard/memory/graph", h.handleGraph)
+		r.Get("/v1/dashboard/stats", h.handleStats)
+		r.Delete("/v1/dashboard/memory/{id}", h.handleDeleteMemory)
+		r.Patch("/v1/dashboard/memory/{id}", h.handleUpdateMemory)
+		r.Get("/v1/dashboard/events", h.SSE.ServeHTTP)
+	})
 
 	// SPA — serve static files, fallback to index.html
 	staticFS, _ := fs.Sub(StaticFS, "static")
@@ -80,6 +103,90 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ui/", http.StatusFound)
 	})
+}
+
+// authMiddleware checks for a valid session cookie.
+func (h *DashboardHandler) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(sessionCookieName)
+		if err != nil || !h.validSession(cookie.Value) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]any{"error": "unauthorized", "login_required": true}) //nolint:errcheck
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// handleLogin verifies the vault passphrase and sets a session cookie.
+func (h *DashboardHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if h.VaultKeyPath == "" {
+		writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "message": "no auth required"})
+		return
+	}
+
+	var req struct {
+		Passphrase string `json:"passphrase"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Passphrase == "" {
+		writeJSONResp(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "passphrase required"})
+		return
+	}
+
+	// Verify passphrase against vault
+	_, err := vault.Open(h.VaultKeyPath, req.Passphrase)
+	if err != nil {
+		writeJSONResp(w, http.StatusUnauthorized, map[string]any{"ok": false, "error": "wrong passphrase"})
+		return
+	}
+
+	// Create session
+	token := generateToken()
+	h.sessions.Store(token, time.Now().Add(sessionTTL))
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(sessionTTL.Seconds()),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	writeJSONResp(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleAuthCheck returns whether auth is required and if current session is valid.
+func (h *DashboardHandler) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
+	if h.VaultKeyPath == "" {
+		writeJSONResp(w, http.StatusOK, map[string]any{"auth_required": false, "authenticated": true})
+		return
+	}
+
+	cookie, err := r.Cookie(sessionCookieName)
+	authenticated := err == nil && h.validSession(cookie.Value)
+
+	writeJSONResp(w, http.StatusOK, map[string]any{"auth_required": true, "authenticated": authenticated})
+}
+
+func (h *DashboardHandler) validSession(token string) bool {
+	val, ok := h.sessions.Load(token)
+	if !ok {
+		return false
+	}
+	expiry := val.(time.Time)
+	if time.Now().After(expiry) {
+		h.sessions.Delete(token)
+		return false
+	}
+	return true
+}
+
+func generateToken() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // handleListMemories returns paginated, filterable memory list.

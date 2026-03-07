@@ -169,6 +169,40 @@ func TestHandleGraph(t *testing.T) {
 	assert.GreaterOrEqual(t, len(edges), 1)
 }
 
+func TestHandleAuthCheck_NoAuth(t *testing.T) {
+	h, _ := newTestHandler(t)
+	r := testRouter(h)
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/auth/check", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, false, resp["auth_required"])
+	assert.Equal(t, true, resp["authenticated"])
+}
+
+func TestHandleAuthMiddleware_BlocksWithoutSession(t *testing.T) {
+	h, _ := newTestHandler(t)
+	// Simulate encryption enabled by setting VaultKeyPath
+	h.VaultKeyPath = "/tmp/fake-vault.key"
+	r := testRouter(h)
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/stats", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "unauthorized", resp["error"])
+	assert.Equal(t, true, resp["login_required"])
+}
+
 func TestHandleTimeline(t *testing.T) {
 	h, s := newTestHandler(t)
 	r := testRouter(h)

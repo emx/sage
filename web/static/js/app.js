@@ -1,6 +1,6 @@
 // SAGE Brain Dashboard — Root Application
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login } from './api.js';
 
 const { h, render } = preact;
 const { useState, useEffect, useRef, useCallback } = preactHooks;
@@ -947,16 +947,88 @@ function HealthBar() {
 }
 
 // ============================================================================
+// Login Screen (shown when vault encryption requires auth)
+// ============================================================================
+
+function LoginScreen({ onSuccess }) {
+    const [passphrase, setPassphrase] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        if (!passphrase) return;
+        setLoading(true);
+        setError('');
+        try {
+            const res = await login(passphrase);
+            if (res.ok) {
+                onSuccess();
+            } else {
+                setError(res.error || 'Wrong passphrase');
+            }
+        } catch (err) {
+            setError('Connection failed');
+        }
+        setLoading(false);
+    }
+
+    return html`
+        <div class="login-screen">
+            <div class="login-card">
+                <div class="login-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent, #a78bfa)" stroke-width="1.5">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        <circle cx="12" cy="16" r="1"/>
+                    </svg>
+                </div>
+                <h2 class="login-title">SAGE is Encrypted</h2>
+                <p class="login-subtitle">Enter your vault passphrase to unlock the Brain Dashboard.</p>
+                <form onSubmit=${handleSubmit}>
+                    <input
+                        type="password"
+                        class="login-input"
+                        placeholder="Vault passphrase"
+                        value=${passphrase}
+                        onInput=${e => setPassphrase(e.target.value)}
+                        autofocus
+                    />
+                    ${error && html`<div class="login-error">${error}</div>`}
+                    <button type="submit" class="login-btn" disabled=${loading || !passphrase}>
+                        ${loading ? 'Unlocking...' : 'Unlock'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================================
 // Root App
 // ============================================================================
 
 function App() {
+    const [authState, setAuthState] = useState('loading'); // loading | login | ready
     const [page, setPage] = useState('brain');
     const [selectedMemory, setSelectedMemory] = useState(null);
     const [sseConnected, setSseConnected] = useState(false);
     const sseRef = useRef(null);
 
+    // Check auth on mount
     useEffect(() => {
+        checkAuth().then(res => {
+            if (!res.auth_required || res.authenticated) {
+                setAuthState('ready');
+            } else {
+                setAuthState('login');
+            }
+        }).catch(() => setAuthState('ready')); // if auth check fails, assume no auth
+    }, []);
+
+    useEffect(() => {
+        if (authState !== 'ready') return;
+
         const sse = new SSEClient();
         sse.connect();
         sseRef.current = sse;
@@ -976,7 +1048,17 @@ function App() {
             sse.disconnect();
             window.removeEventListener('hashchange', onHash);
         };
-    }, []);
+    }, [authState]);
+
+    // Show loading spinner
+    if (authState === 'loading') {
+        return html`<div class="login-screen"><div class="login-card" style="text-align:center;"><p style="color:var(--text-muted, #6b7280);">Loading...</p></div></div>`;
+    }
+
+    // Show login screen
+    if (authState === 'login') {
+        return html`<${LoginScreen} onSuccess=${() => setAuthState('ready')} />`;
+    }
 
     function navigate(p) {
         window.location.hash = p === 'brain' ? '/' : '/' + p;

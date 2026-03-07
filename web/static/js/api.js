@@ -2,6 +2,22 @@
 
 const API_BASE = '';
 
+// Auth check — returns { auth_required, authenticated }
+export async function checkAuth() {
+    const res = await fetch(`${API_BASE}/v1/dashboard/auth/check`);
+    return res.json();
+}
+
+// Login — returns { ok, error? }
+export async function login(passphrase) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passphrase }),
+    });
+    return res.json();
+}
+
 export async function fetchMemories(params = {}) {
     const q = new URLSearchParams();
     if (params.domain) q.set('domain', params.domain);
