@@ -38,6 +38,8 @@ func main() {
 		cmdStatus()
 	case "health":
 		cmdHealth(apiURL)
+	case "version":
+		fmt.Printf("sage-cli %s (commit %s, built %s)\n", version, commit, date)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
 		printUsage()

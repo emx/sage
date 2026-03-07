@@ -40,7 +40,13 @@ func main() {
 	badgerPath := flag.String("badger-path", envOrDefault("BADGER_PATH", "data/sage.db"), "BadgerDB data path")
 	abciAddr := flag.String("abci-addr", envOrDefault("ABCI_ADDR", ""), "ABCI server listen address (e.g. tcp://0.0.0.0:26658). If set, runs as standalone ABCI server; otherwise embeds CometBFT in-process")
 	cometRPC := flag.String("comet-rpc", envOrDefault("COMET_RPC", "http://127.0.0.1:26657"), "CometBFT RPC endpoint for REST API tx broadcast")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("amid %s (commit %s, built %s)\n", version, commit, date)
+		os.Exit(0)
+	}
 
 	// Setup logger
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).

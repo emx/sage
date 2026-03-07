@@ -4,6 +4,19 @@ Your AI forgets everything between conversations. SAGE fixes that.
 
 SAGE is a persistent memory layer that runs on your laptop. Your AI remembers what you've worked on, what went wrong, what went right — across every conversation. No cloud accounts. No third-party access to your data. Everything stays on your machine.
 
+### Download
+
+| Platform | Download |
+|----------|----------|
+| **macOS** (Apple Silicon & Intel) | [SAGE.dmg](https://github.com/l33tdawg/sage/releases/latest) — signed & notarized |
+| **Windows** | [SAGE-Setup.exe](https://github.com/l33tdawg/sage/releases/latest) |
+| **Linux** | [tar.gz](https://github.com/l33tdawg/sage/releases/latest) |
+
+Double-click to install. The setup wizard opens in your browser — pick your AI, paste the config, done.
+
+<details>
+<summary><strong>Build from source (developers)</strong></summary>
+
 ```bash
 git clone https://github.com/l33tdawg/sage.git
 cd sage
@@ -11,6 +24,7 @@ go build -o sage-lite ./cmd/sage-lite/
 ./sage-lite setup    # Pick your AI, get MCP config
 ./sage-lite serve    # Start SAGE + Brain Dashboard
 ```
+</details>
 
 Paste the MCP config into Claude Desktop (or ChatGPT). Done. Your AI now remembers everything.
 

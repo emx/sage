@@ -59,21 +59,58 @@ cp "${BUILD_DIR}/sage-lite" "${APP_DIR}/Contents/MacOS/sage-lite"
 # Create launcher script that opens Terminal with sage-lite
 cat > "${APP_DIR}/Contents/MacOS/SAGE" << 'LAUNCHER'
 #!/bin/bash
-# SAGE Launcher — opens Terminal and runs sage-lite
+# SAGE Launcher — runs completely in the background, no Terminal.
 SAGE_BIN="$(dirname "$0")/sage-lite"
+LOG_DIR="$HOME/.sage/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/sage.log"
+DASHBOARD_URL="http://localhost:8080/ui/"
+PID_FILE="$HOME/.sage/sage.pid"
 
-# If first run, do setup first
-if [ ! -d "$HOME/.sage" ]; then
-    osascript -e "tell application \"Terminal\"
-        activate
-        do script \"'${SAGE_BIN}' setup && '${SAGE_BIN}' serve\"
-    end tell"
-else
-    osascript -e "tell application \"Terminal\"
-        activate
-        do script \"'${SAGE_BIN}' serve\"
-    end tell"
+open_dashboard() {
+    # Wait for the server to be ready, then open browser
+    for i in $(seq 1 30); do
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null | grep -q "200"; then
+            open "$DASHBOARD_URL"
+            return
+        fi
+        sleep 1
+    done
+    # If server didn't start, show an error dialog
+    osascript -e 'display dialog "SAGE could not start. Check ~/.sage/logs/sage.log for details." with title "SAGE" with icon caution buttons {"OK"} default button "OK"'
+}
+
+# Check if SAGE is already running
+if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    # Already running — just open the dashboard
+    open "$DASHBOARD_URL"
+    exit 0
 fi
+
+# Check if port 8080 is in use (maybe running from CLI)
+if curl -s -o /dev/null http://localhost:8080/health 2>/dev/null; then
+    open "$DASHBOARD_URL"
+    exit 0
+fi
+
+# First run — need setup
+if [ ! -f "$HOME/.sage/config.yaml" ]; then
+    # Run setup wizard (it opens its own browser window)
+    "$SAGE_BIN" setup >> "$LOG_FILE" 2>&1
+fi
+
+# Start SAGE in the background
+"$SAGE_BIN" serve >> "$LOG_FILE" 2>&1 &
+SAGE_PID=$!
+echo "$SAGE_PID" > "$PID_FILE"
+
+# Clean up PID file when sage-lite exits
+(wait "$SAGE_PID" 2>/dev/null; rm -f "$PID_FILE") &
+
+# Open the dashboard once it's ready
+open_dashboard &
+
+exit 0
 LAUNCHER
 chmod +x "${APP_DIR}/Contents/MacOS/SAGE"
 
@@ -104,7 +141,7 @@ cat > "${APP_DIR}/Contents/Info.plist" << PLIST
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>
-    <false/>
+    <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2024-2026 Dhillon Andrew Kannabhiran. Apache 2.0 License.</string>
 </dict>
