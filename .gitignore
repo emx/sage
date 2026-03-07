@@ -97,6 +97,7 @@ CLAUDE.md
 docs/*
 !docs/ARCHITECTURE.md
 !docs/GETTING_STARTED.md
+!docs/index.html
 
 # Papers PDFs are tracked in papers/ (not gitignored)
 PHASE1_IMPLEMENTATION_PLAN.md
