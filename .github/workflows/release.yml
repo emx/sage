@@ -9,22 +9,29 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build & Release
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           cache: true
+      - run: go test ./... -count=1 -race
 
-      - name: Run tests
-        run: go test ./... -count=1 -race
-
+  goreleaser:
+    name: GoReleaser (tarballs)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -32,3 +39,91 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  macos-dmg:
+    name: macOS DMG (${{ matrix.arch }})
+    runs-on: macos-latest
+    needs: test
+    strategy:
+      matrix:
+        arch: [arm64, amd64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build DMG
+        env:
+          SAGE_VERSION: ${{ github.ref_name }}
+          SAGE_ARCH: ${{ matrix.arch }}
+          SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          NOTARIZE: ${{ secrets.APPLE_ID != '' && '1' || '0' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: |
+          # Import signing certificate if provided
+          if [ -n "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" ]; then
+            echo "${{ secrets.APPLE_CERTIFICATE_BASE64 }}" | base64 --decode > /tmp/cert.p12
+            KEYCHAIN_PASSWORD=$(openssl rand -hex 12)
+            security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+            security import /tmp/cert.p12 -k build.keychain \
+              -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" \
+              -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$KEYCHAIN_PASSWORD" build.keychain
+            rm /tmp/cert.p12
+          fi
+          ./installer/macos/build-dmg.sh
+
+      - name: Determine arch label
+        id: arch
+        run: |
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            echo "label=x86_64" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=arm64" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload DMG to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/macos-${{ steps.arch.outputs.label }}/SAGE-${{ github.ref_name }}-macOS-${{ steps.arch.outputs.label }}.dmg
+
+  windows-exe:
+    name: Windows Installer
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis nsis-pluginapi
+
+      - name: Install EnVar plugin for NSIS
+        run: |
+          # Download EnVar plugin for PATH manipulation
+          wget -q https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip -O /tmp/envar.zip
+          sudo unzip -o /tmp/envar.zip -d /usr/share/nsis/
+
+      - name: Build Windows installer
+        env:
+          SAGE_VERSION: ${{ github.ref_name }}
+        run: ./installer/windows/build-exe.sh
+
+      - name: Upload EXE to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/windows-amd64/SAGE-${{ github.ref_name }}-Windows-Setup.exe
