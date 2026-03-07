@@ -24,6 +24,13 @@ import (
 	"github.com/l33tdawg/sage/internal/metrics"
 )
 
+// Set via ldflags at build time.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	// Parse flags
 	cometHome := flag.String("home", os.Getenv("COMETBFT_HOME"), "CometBFT home directory")

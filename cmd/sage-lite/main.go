@@ -5,6 +5,13 @@ import (
 	"os"
 )
 
+// Set via ldflags at build time.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -30,7 +37,7 @@ func main() {
 	case "backup":
 		err = runBackup()
 	case "version":
-		fmt.Println("sage-lite v2.0.0")
+		fmt.Printf("sage-lite %s (commit %s, built %s)\n", version, commit, date)
 	case "help", "--help", "-h":
 		printUsage()
 	default:

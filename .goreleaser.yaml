@@ -1,0 +1,106 @@
+version: 2
+
+project_name: sage
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: sage-lite
+    main: ./cmd/sage-lite
+    binary: sage-lite
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+  - id: amid
+    main: ./cmd/amid
+    binary: amid
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+  - id: sage-cli
+    main: ./cmd/sage-cli
+    binary: sage-cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+
+release:
+  github:
+    owner: l33tdawg
+    name: sage
+  draft: false
+  prerelease: auto
+  name_template: "SAGE v{{.Version}}"
+  header: |
+    ## SAGE v{{.Version}}
+
+    Sovereign Agent Governed Experience — persistent, governed memory for AI agents.
+
+    ### Quick Start (sage-lite)
+    ```bash
+    # Download and extract for your platform, then:
+    ./sage-lite setup    # Interactive setup wizard
+    ./sage-lite serve    # Start your personal memory node
+    ```
+
+    See the [README](https://github.com/l33tdawg/sage#readme) for full documentation.

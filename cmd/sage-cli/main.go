@@ -13,6 +13,13 @@ import (
 	"github.com/l33tdawg/sage/internal/auth"
 )
 
+// Set via ldflags at build time.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
