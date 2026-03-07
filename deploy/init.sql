@@ -65,7 +65,21 @@ CREATE TABLE corroborations (
 );
 
 -- ============================================================
--- 5. validator_scores
+-- 5. challenges
+-- ============================================================
+CREATE TABLE IF NOT EXISTS challenges (
+    id           BIGSERIAL   PRIMARY KEY,
+    memory_id    UUID        NOT NULL REFERENCES memories(memory_id),
+    challenger_id TEXT       NOT NULL,
+    reason       TEXT        NOT NULL,
+    evidence     TEXT,
+    block_height BIGINT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_challenges_memory ON challenges(memory_id);
+
+-- ============================================================
+-- 6. validator_scores
 -- ============================================================
 CREATE TABLE validator_scores (
     validator_id   TEXT             PRIMARY KEY,

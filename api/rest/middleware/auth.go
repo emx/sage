@@ -9,11 +9,48 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/l33tdawg/sage/internal/auth"
 	"github.com/rs/zerolog/log"
 )
+
+// replayCache prevents signature replay within the timestamp validity window.
+// Keyed on (agentID + signature hex), entries expire after maxTimestampSkew.
+type replayCache struct {
+	mu      sync.Mutex
+	seen    map[string]time.Time
+	maxSize int
+}
+
+var sigCache = &replayCache{
+	seen:    make(map[string]time.Time),
+	maxSize: 10000,
+}
+
+// check returns true if the signature has been seen before (replay).
+// If not seen, it records it and returns false.
+func (rc *replayCache) check(key string) bool {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	// Evict expired entries if cache is getting large.
+	if len(rc.seen) >= rc.maxSize {
+		now := time.Now()
+		for k, t := range rc.seen {
+			if now.Sub(t) > maxTimestampSkew {
+				delete(rc.seen, k)
+			}
+		}
+	}
+
+	if _, exists := rc.seen[key]; exists {
+		return true // replay detected
+	}
+	rc.seen[key] = time.Now()
+	return false
+}
 
 type contextKey string
 
@@ -117,6 +154,14 @@ func Ed25519AuthMiddleware(next http.Handler) http.Handler {
 		if !auth.VerifyRequest(pubKey, body, tsUnix, sig) {
 			writeProblem(w, http.StatusUnauthorized, "Invalid signature",
 				"Ed25519 signature verification failed.")
+			return
+		}
+
+		// Replay protection: reject duplicate (agentID, signature) pairs within the skew window.
+		cacheKey := agentID + ":" + sigHex
+		if sigCache.check(cacheKey) {
+			writeProblem(w, http.StatusUnauthorized, "Replay detected",
+				"This exact request signature has already been used.")
 			return
 		}
 

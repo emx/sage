@@ -68,7 +68,7 @@ Open `http://localhost:8080/ui/` to see your AI's memory visualized as a living 
 
 ## The Research Behind It
 
-SAGE isn't a weekend hack. It's backed by peer-reviewed research proving that governed memory makes AI agents measurably better over time.
+SAGE isn't a weekend hack. It's backed by published research showing that governed memory makes AI agents measurably better over time.
 
 | Paper | Finding |
 |-------|---------|

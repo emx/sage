@@ -51,7 +51,10 @@ func (s *PostgresStore) InsertMemory(ctx context.Context, record *memory.MemoryR
 		`INSERT INTO memories (memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
 			memory_type, domain_tag, confidence_score, status, parent_hash, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (memory_id) DO NOTHING`,
+		ON CONFLICT (memory_id) DO UPDATE SET
+			submitting_agent = EXCLUDED.submitting_agent,
+			status = EXCLUDED.status,
+			created_at = EXCLUDED.created_at`,
 		record.MemoryID, record.SubmittingAgent, record.Content, record.ContentHash,
 		emb, record.EmbeddingHash,
 		string(record.MemoryType), record.DomainTag, record.ConfidenceScore,
@@ -237,6 +240,17 @@ func (s *PostgresStore) GetVotes(ctx context.Context, memoryID string) ([]*Valid
 		votes = append(votes, v)
 	}
 	return votes, nil
+}
+
+func (s *PostgresStore) InsertChallenge(ctx context.Context, challenge *ChallengeEntry) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO challenges (memory_id, challenger_id, reason, evidence, block_height, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		challenge.MemoryID, challenge.ChallengerID, challenge.Reason, challenge.Evidence, challenge.BlockHeight, challenge.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert challenge: %w", err)
+	}
+	return nil
 }
 
 func (s *PostgresStore) InsertCorroboration(ctx context.Context, corr *Corroboration) error {

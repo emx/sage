@@ -19,6 +19,17 @@ type ValidationVote struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// ChallengeEntry represents a challenge against a memory.
+type ChallengeEntry struct {
+	ID           int64     `json:"id"`
+	MemoryID     string    `json:"memory_id"`
+	ChallengerID string    `json:"challenger_id"`
+	Reason       string    `json:"reason"`
+	Evidence     string    `json:"evidence,omitempty"`
+	BlockHeight  int64     `json:"block_height"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // Corroboration represents a corroboration of a memory.
 type Corroboration struct {
 	ID        int64     `json:"id"`
@@ -97,6 +108,7 @@ type MemoryStore interface {
 	InsertTriples(ctx context.Context, memoryID string, triples []memory.KnowledgeTriple) error
 	InsertVote(ctx context.Context, vote *ValidationVote) error
 	GetVotes(ctx context.Context, memoryID string) ([]*ValidationVote, error)
+	InsertChallenge(ctx context.Context, challenge *ChallengeEntry) error
 	InsertCorroboration(ctx context.Context, corr *Corroboration) error
 	GetCorroborations(ctx context.Context, memoryID string) ([]*Corroboration, error)
 	GetPendingByDomain(ctx context.Context, domainTag string, limit int) ([]*memory.MemoryRecord, error)

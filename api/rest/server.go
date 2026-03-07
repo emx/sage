@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -127,8 +128,12 @@ func (s *Server) setupRouter() chi.Router {
 	// Global middleware
 	r.Use(middleware.RequestLogger)
 	r.Use(middleware.RateLimitMiddleware())
+	corsOrigins := []string{"*"}
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		corsOrigins = strings.Split(origins, ",")
+	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type", "X-Agent-ID", "X-Signature", "X-Timestamp"},
 		ExposedHeaders:   []string{"X-Request-ID"},

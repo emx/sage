@@ -85,6 +85,10 @@ func (m *mockMemoryStore) GetVotes(_ context.Context, memoryID string) ([]*store
 	return m.votes[memoryID], nil
 }
 
+func (m *mockMemoryStore) InsertChallenge(_ context.Context, _ *store.ChallengeEntry) error {
+	return nil
+}
+
 func (m *mockMemoryStore) InsertCorroboration(_ context.Context, corr *store.Corroboration) error {
 	m.corroborations[corr.MemoryID] = append(m.corroborations[corr.MemoryID], corr)
 	return nil

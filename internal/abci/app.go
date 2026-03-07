@@ -22,7 +22,7 @@ import (
 
 // pendingWrite represents a PostgreSQL write buffered until Commit.
 type pendingWrite struct {
-	writeType string // "memory", "vote", "challenge", "corroborate", "epoch_score", "validator_score", "status_update", "access_grant", "access_request", "access_revoke", "access_log", "domain_register", "access_request_status", "org_register", "org_member", "org_member_remove", "org_member_clearance", "federation", "federation_approve", "federation_revoke", "mem_classification", "dept_register", "dept_member", "dept_member_remove"
+	writeType string // "memory", "challenge", "vote", "corroborate", "epoch_score", "validator_score", "status_update", "access_grant", "access_request", "access_revoke", "access_log", "domain_register", "access_request_status", "org_register", "org_member", "org_member_remove", "org_member_clearance", "federation", "federation_approve", "federation_revoke", "mem_classification", "dept_register", "dept_member", "dept_member_remove"
 	data      interface{}
 }
 
@@ -399,9 +399,19 @@ func (app *SageApp) processMemorySubmit(parsedTx *tx.ParsedTx, height int64, blo
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	agentID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		// Fallback to node key for backward compatibility (legacy txs without agent proof).
-		agentID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		app.logger.Warn().Err(err).Str("fallback_agent", agentID[:16]).Msg("no agent proof in submit tx, using node key")
+		return &abcitypes.ExecTxResult{Code: 11, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
+	// Domain write-access check: if the domain has a registered owner, verify the agent has write access.
+	if submit.DomainTag != "" {
+		domainOwner, domainErr := app.badgerStore.GetDomainOwner(submit.DomainTag)
+		if domainErr == nil && domainOwner != "" {
+			// Domain is owned — check write access (level 2).
+			hasAccess, accessErr := app.badgerStore.HasAccessMultiOrg(submit.DomainTag, agentID, 0, blockTime)
+			if accessErr != nil || !hasAccess {
+				return &abcitypes.ExecTxResult{Code: 11, Log: fmt.Sprintf("access denied: agent %s has no write access to domain %s", agentID[:16], submit.DomainTag)}
+			}
+		}
 	}
 
 	// Generate memory ID if not provided
@@ -473,6 +483,11 @@ func (app *SageApp) processMemoryVote(parsedTx *tx.ParsedTx, height int64, block
 
 	validatorID := auth.PublicKeyToAgentID(parsedTx.PublicKey)
 	decision := voteDecisionToString(vote.Decision)
+
+	// Verify voter is in the validator set before recording.
+	if _, isValidator := app.validators.GetValidator(validatorID); !isValidator {
+		return &abcitypes.ExecTxResult{Code: 13, Log: fmt.Sprintf("vote rejected: %s is not in the validator set", validatorID[:16])}
+	}
 
 	app.logger.Info().
 		Str("memory_id", vote.MemoryID).
@@ -573,13 +588,42 @@ func (app *SageApp) processMemoryChallenge(parsedTx *tx.ParsedTx, height int64, 
 		return &abcitypes.ExecTxResult{Code: 15, Log: "missing challenge payload"}
 	}
 
+	// Verify challenger identity.
+	challengerID, err := verifyAgentIdentity(parsedTx)
+	if err != nil {
+		return &abcitypes.ExecTxResult{Code: 15, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
 	// Update on-chain status
 	if err := app.badgerStore.SetMemoryHash(challenge.MemoryID, nil, string(memory.StatusChallenged)); err != nil {
 		return &abcitypes.ExecTxResult{Code: 16, Log: err.Error()}
 	}
 
+	// Buffer challenge audit trail to off-chain store.
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "challenge",
+		data: &store.ChallengeEntry{
+			MemoryID:     challenge.MemoryID,
+			ChallengerID: challengerID,
+			Reason:       challenge.Reason,
+			Evidence:     challenge.Evidence,
+			BlockHeight:  height,
+			CreatedAt:    blockTime,
+		},
+	})
+
+	// Buffer status update for the memory.
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "status_update",
+		data: &statusUpdate{
+			MemoryID: challenge.MemoryID,
+			Status:   memory.StatusChallenged,
+			At:       blockTime,
+		},
+	})
+
 	metrics.ChallengesTotal.Inc()
-	return &abcitypes.ExecTxResult{Code: 0, Log: fmt.Sprintf("challenge submitted for memory %s", challenge.MemoryID)}
+	return &abcitypes.ExecTxResult{Code: 0, Log: fmt.Sprintf("challenge submitted for memory %s by %s", challenge.MemoryID, challengerID[:16])}
 }
 
 func (app *SageApp) processMemoryCorroborate(parsedTx *tx.ParsedTx, height int64, blockTime time.Time) *abcitypes.ExecTxResult {
@@ -590,7 +634,7 @@ func (app *SageApp) processMemoryCorroborate(parsedTx *tx.ParsedTx, height int64
 
 	agentID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		agentID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
+		return &abcitypes.ExecTxResult{Code: 17, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Buffer corroboration write
@@ -615,10 +659,7 @@ func (app *SageApp) processAccessRequest(parsedTx *tx.ParsedTx, height int64, bl
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	agentID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		agentID = req.RequesterID // Fallback for legacy txs
-		if agentID == "" {
-			agentID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		}
+		return &abcitypes.ExecTxResult{Code: 30, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Validate level
@@ -663,10 +704,7 @@ func (app *SageApp) processAccessGrant(parsedTx *tx.ParsedTx, height int64, bloc
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	granterID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		granterID = grant.GranterID
-		if granterID == "" {
-			granterID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		}
+		return &abcitypes.ExecTxResult{Code: 33, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Authorization: granter must own the domain or be ancestor domain owner
@@ -733,10 +771,7 @@ func (app *SageApp) processAccessRevoke(parsedTx *tx.ParsedTx, height int64, blo
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	revokerID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		revokerID = revoke.RevokerID
-		if revokerID == "" {
-			revokerID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		}
+		return &abcitypes.ExecTxResult{Code: 37, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Authorization: revoker must own the domain or ancestor
@@ -773,7 +808,7 @@ func (app *SageApp) processAccessQuery(parsedTx *tx.ParsedTx, height int64, bloc
 
 	agentID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		agentID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
+		return &abcitypes.ExecTxResult{Code: 40, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Multi-org access gate: checks direct grants, org membership, clearance, federation
@@ -842,10 +877,7 @@ func (app *SageApp) processDomainRegister(parsedTx *tx.ParsedTx, height int64, b
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	ownerID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		ownerID = reg.OwnerAgentID
-		if ownerID == "" {
-			ownerID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		}
+		return &abcitypes.ExecTxResult{Code: 40, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Check domain doesn't already exist
@@ -911,10 +943,7 @@ func (app *SageApp) processOrgRegister(parsedTx *tx.ParsedTx, height int64, bloc
 	// Verify agent identity on-chain via embedded Ed25519 proof.
 	adminID, err := verifyAgentIdentity(parsedTx)
 	if err != nil {
-		adminID = reg.AdminAgent
-		if adminID == "" {
-			adminID = auth.PublicKeyToAgentID(parsedTx.PublicKey)
-		}
+		return &abcitypes.ExecTxResult{Code: 50, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
 	}
 
 	// Generate deterministic org ID if not provided
@@ -1513,6 +1542,12 @@ func (app *SageApp) Commit(_ context.Context, req *abcitypes.RequestCommit) (*ab
 			if record, ok := pw.data.(*memory.MemoryRecord); ok {
 				if err := app.offchainStore.InsertMemory(ctx, record); err != nil {
 					app.logger.Error().Err(err).Str("memory_id", record.MemoryID).Msg("failed to insert memory")
+				}
+			}
+		case "challenge":
+			if ch, ok := pw.data.(*store.ChallengeEntry); ok {
+				if err := app.offchainStore.InsertChallenge(ctx, ch); err != nil {
+					app.logger.Error().Err(err).Str("memory_id", ch.MemoryID).Msg("failed to insert challenge")
 				}
 			}
 		case "vote":

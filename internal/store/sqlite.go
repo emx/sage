@@ -94,6 +94,17 @@ func (s *SQLiteStore) initSchema(ctx context.Context) error {
 		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 	);
 
+	CREATE TABLE IF NOT EXISTS challenges (
+		id             INTEGER PRIMARY KEY AUTOINCREMENT,
+		memory_id      TEXT NOT NULL REFERENCES memories(memory_id),
+		challenger_id  TEXT NOT NULL,
+		reason         TEXT NOT NULL,
+		evidence       TEXT,
+		block_height   INTEGER,
+		created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+	);
+	CREATE INDEX IF NOT EXISTS idx_challenges_memory ON challenges(memory_id);
+
 	CREATE TABLE IF NOT EXISTS validator_scores (
 		validator_id   TEXT PRIMARY KEY,
 		weighted_sum   REAL NOT NULL DEFAULT 0,
@@ -386,7 +397,10 @@ func (s *SQLiteStore) InsertMemory(ctx context.Context, record *memory.MemoryRec
 		`INSERT INTO memories (memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
 			memory_type, domain_tag, confidence_score, status, parent_hash, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (memory_id) DO NOTHING`,
+		ON CONFLICT (memory_id) DO UPDATE SET
+			submitting_agent = excluded.submitting_agent,
+			status = excluded.status,
+			created_at = excluded.created_at`,
 		record.MemoryID, record.SubmittingAgent, record.Content, record.ContentHash,
 		encodeEmbedding(record.Embedding), record.EmbeddingHash,
 		string(record.MemoryType), record.DomainTag, record.ConfidenceScore,
@@ -591,6 +605,17 @@ func (s *SQLiteStore) GetVotes(ctx context.Context, memoryID string) ([]*Validat
 		votes = append(votes, v)
 	}
 	return votes, nil
+}
+
+func (s *SQLiteStore) InsertChallenge(ctx context.Context, challenge *ChallengeEntry) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO challenges (memory_id, challenger_id, reason, evidence, block_height, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		challenge.MemoryID, challenge.ChallengerID, challenge.Reason, challenge.Evidence, challenge.BlockHeight, formatTime(challenge.CreatedAt))
+	if err != nil {
+		return fmt.Errorf("insert challenge: %w", err)
+	}
+	return nil
 }
 
 func (s *SQLiteStore) InsertCorroboration(ctx context.Context, corr *Corroboration) error {
