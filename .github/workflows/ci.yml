@@ -53,6 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker images
+        env:
+          POSTGRES_PASSWORD: ci_build_only
         run: |
           docker compose -f deploy/docker-compose.yml build
 
