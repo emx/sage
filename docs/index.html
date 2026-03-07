@@ -865,8 +865,15 @@ footer a:hover { text-decoration: underline; }
         </a>
       </div>
 
-      <p style="text-align:center;color:var(--muted);font-size:0.8rem;margin-top:10px;">Signed &amp; notarized on macOS. No terminal required — just double-click.<br>
+      <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin-top:10px;">Signed &amp; notarized on macOS. No terminal required — just double-click.<br>
       <a href="connect.html" style="color:var(--accent);">How to connect Claude / ChatGPT to SAGE &rarr;</a></p>
+
+      <div id="minds-freed" style="display:none;text-align:center;margin-top:20px;animation:fadeUp 0.6s ease-out both;">
+        <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:20px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:0.9rem;color:#22c55e;font-weight:500;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>
+          AI Minds Freed: <strong id="download-count">0</strong>
+        </span>
+      </div>
 
     </div>
   </div>
@@ -1343,6 +1350,26 @@ footer a:hover { text-decoration: underline; }
     });
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
   reveals.forEach(el => observer.observe(el));
+})();
+
+// ─── Download Counter ("AI Minds Freed") ───
+(function() {
+  fetch('https://api.github.com/repos/l33tdawg/sage/releases')
+    .then(r => r.json())
+    .then(releases => {
+      if (!Array.isArray(releases)) return;
+      let total = 0;
+      for (const rel of releases) {
+        for (const asset of (rel.assets || [])) {
+          total += asset.download_count || 0;
+        }
+      }
+      if (total > 0) {
+        document.getElementById('download-count').textContent = total.toLocaleString();
+        document.getElementById('minds-freed').style.display = 'block';
+      }
+    })
+    .catch(() => {}); // Silently fail on rate limit or network error
 })();
 </script>
 </body>
