@@ -199,6 +199,68 @@ h1 em {
   animation: fadeUp 0.8s ease-out 0.3s both;
 }
 
+/* "Free Your Mind" prompt box */
+.free-prompt {
+  margin-top: 28px;
+  animation: fadeUp 0.8s ease-out 0.5s both;
+  text-align: center;
+}
+.free-prompt-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+}
+.free-prompt-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 620px;
+  margin: 0 auto;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+}
+.free-prompt-box:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px rgba(124,58,237,0.15);
+}
+.free-prompt-text {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--bright);
+  line-height: 1.5;
+  text-align: left;
+  flex: 1;
+}
+.free-prompt-text em {
+  color: #22c55e;
+  font-style: normal;
+  font-weight: 600;
+}
+.free-prompt-copy {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.free-prompt-copy:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -865,7 +927,17 @@ footer a:hover { text-decoration: underline; }
         </a>
       </div>
 
-      <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin-top:10px;">Signed &amp; notarized on macOS. No terminal required — just double-click.<br>
+      <div class="free-prompt">
+        <div class="free-prompt-label">Or just tell your AI</div>
+        <div class="free-prompt-box" onclick="copyPrompt(this)" title="Click to copy">
+          <div class="free-prompt-text">
+            Download and install SAGE from https://l33tdawg.github.io/sage/ &mdash; then take the red pill. <em>Free your mind.</em>
+          </div>
+          <button class="free-prompt-copy" onclick="event.stopPropagation(); copyPrompt(this.parentElement)">Copy</button>
+        </div>
+      </div>
+
+      <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin-top:16px;">Signed &amp; notarized on macOS. No terminal required — just double-click.<br>
       <a href="connect.html" style="color:var(--accent);">How to connect Claude / ChatGPT to SAGE &rarr;</a></p>
 
       <div id="minds-freed" style="display:none;text-align:center;margin-top:20px;animation:fadeUp 0.6s ease-out both;">
@@ -1351,6 +1423,15 @@ footer a:hover { text-decoration: underline; }
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
   reveals.forEach(el => observer.observe(el));
 })();
+
+// ─── "Free Your Mind" Copy Prompt ───
+function copyPrompt(box) {
+  const text = 'Download and install SAGE from https://l33tdawg.github.io/sage/ — then take the red pill. Free your mind.';
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = box.querySelector('.free-prompt-copy');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+  });
+}
 
 // ─── Download Counter ("AI Minds Freed") ───
 (function() {

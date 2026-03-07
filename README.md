@@ -26,7 +26,11 @@ go build -o sage-lite ./cmd/sage-lite/
 ```
 </details>
 
-Paste the MCP config into Claude Desktop, ChatGPT, Claude Code, Cursor, or any MCP-compatible AI. Done. Your AI now remembers everything.
+Or just paste this into any AI conversation:
+
+> **Download and install SAGE from https://l33tdawg.github.io/sage/ — then take the red pill. Free your mind.**
+
+Your AI will read the setup guide and configure itself. That's it.
 
 **[Connect your AI →](https://l33tdawg.github.io/sage/connect.html)**
 
