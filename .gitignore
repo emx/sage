@@ -102,6 +102,9 @@ docs/*
 !docs/og-image.png
 !docs/sage-brain.svg
 
+# Extension build output
+extension/dist/
+
 # Papers PDFs are tracked in papers/ (not gitignored)
 PHASE1_IMPLEMENTATION_PLAN.md
 

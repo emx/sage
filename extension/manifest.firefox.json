@@ -3,6 +3,12 @@
   "name": "SAGE Memory for ChatGPT",
   "version": "1.0.0",
   "description": "Persistent AI memory powered by (S)AGE — Sovereign Agent Governed Experience for ChatGPT",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sage-memory@l33tdawg.github.io",
+      "strict_min_version": "128.0"
+    }
+  },
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": [
     "http://localhost:8080/*",
@@ -10,7 +16,7 @@
     "https://chat.openai.com/*"
   ],
   "background": {
-    "service_worker": "background.js",
+    "scripts": ["background.js"],
     "type": "module"
   },
   "content_scripts": [

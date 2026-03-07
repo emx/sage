@@ -889,6 +889,7 @@ footer a:hover { text-decoration: underline; }
   .hero-text .hero-actions { justify-content: center; }
   .hero-text .download-badges { justify-content: center; }
   .hero-actions { flex-direction: column; align-items: center; }
+  #chrome-extension [style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; max-width: 320px !important; margin: 0 auto 40px !important; }
 }
 
 @media (max-width: 480px) {
@@ -962,6 +963,10 @@ footer a:hover { text-decoration: underline; }
         <a href="https://github.com/l33tdawg/sage/releases/latest/download/sage-lite-linux-amd64.tar.gz" class="badge-link" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);color:var(--accent);font-size:0.85rem;text-decoration:none;transition:all 0.2s;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a11.966 11.966 0 0 0 .084.727c.108.743.305 1.434.658 2.014.241.396.559.724.932.984.358.25.785.434 1.27.553.373.091.761.138 1.156.138.612 0 1.203-.12 1.738-.331.236-.094.463-.2.673-.32l.093-.053c.352-.199.675-.401.971-.607.59-.41 1.082-.77 1.486-.921.428-.16.88-.243 1.34-.243.46 0 .912.083 1.34.243.404.151.896.511 1.486.921.296.206.619.408.97.607l.094.053c.21.12.437.226.673.32.535.211 1.126.331 1.738.331.395 0 .783-.047 1.156-.138.485-.119.912-.303 1.27-.553.373-.26.691-.588.932-.984.353-.58.55-1.271.658-2.014.026-.173.054-.349.084-.727.123-.805-.009-1.657-.287-2.489-.589-1.771-1.831-3.47-2.716-4.521-.75-1.067-.974-1.928-1.05-3.02-.065-1.491 1.056-5.965-3.17-6.298A5.11 5.11 0 0 0 12.504 0"/></svg>
           Linux (.tar.gz)
+        </a>
+        <a href="#chrome-extension" class="badge-link" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);color:var(--accent);font-size:0.85rem;text-decoration:none;transition:all 0.2s;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="#06020e"/><path d="M21.17 8H12V2.05A10 10 0 0 1 21.17 8z" fill="#06020e"/><path d="M12 2.05V8h9.17A10 10 0 0 0 12 2.05z"/></svg>
+          Chrome Extension
         </a>
       </div>
 
@@ -1209,6 +1214,45 @@ footer a:hover { text-decoration: underline; }
           <h3>Works With Everything</h3>
           <p>Claude, ChatGPT, DeepSeek, Gemini, Mistral, Cursor, LM Studio, Ollama — any model, any provider. Setup wizard generates the config.</p>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Chrome Extension — Free ChatGPT Users -->
+<section id="chrome-extension" style="padding: 80px 0;">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <div class="section-tag">Browser Extension</div>
+      <h2>Use (S)AGE with ChatGPT<br>— even on the free plan</h2>
+      <p class="section-desc" style="margin:0 auto 48px;">ChatGPT's native MCP support requires a paid plan. Our browser extension bridges the gap — giving free-tier users full (S)AGE memory tools right in the <strong style="color:var(--bright);">chat.openai.com</strong> web interface. Available for Chrome and Firefox.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;max-width:800px;margin:0 auto 40px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:8px;">🧠</div>
+        <div style="color:var(--bright);font-weight:600;font-size:0.95rem;margin-bottom:6px;">Sidebar Panel</div>
+        <div style="color:var(--muted);font-size:0.85rem;line-height:1.5;">Memory stats, quick actions, and tool logs — right inside ChatGPT</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:8px;">🔐</div>
+        <div style="color:var(--bright);font-weight:600;font-size:0.95rem;margin-bottom:6px;">Ed25519 Signed</div>
+        <div style="color:var(--muted);font-size:0.85rem;line-height:1.5;">Every request cryptographically signed. Same security as the native MCP bridge</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:8px;">⚡</div>
+        <div style="color:var(--bright);font-weight:600;font-size:0.95rem;margin-bottom:6px;">Zero Dependencies</div>
+        <div style="color:var(--muted);font-size:0.85rem;line-height:1.5;">Pure vanilla JS, no build step. Load unpacked in Chrome and go</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <p style="color:var(--text);font-size:0.95rem;margin-bottom:20px;">Coming soon to Chrome Web Store and Firefox Add-ons. Install from source today:</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="https://github.com/l33tdawg/sage/tree/main/extension/chrome" class="btn-secondary" style="display:inline-flex;align-items:center;gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          View on GitHub
+        </a>
       </div>
     </div>
   </div>

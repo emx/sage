@@ -1,27 +1,34 @@
-# SAGE Chrome Extension for ChatGPT
+# (S)AGE Chrome Extension for ChatGPT
 
-Persistent AI memory for ChatGPT, powered by SAGE (Sovereign Agent Governed Experience).
+Persistent AI memory for ChatGPT, powered by (S)AGE — (S)overeign Agent Governed Experience.
 
 ## What it does
 
-This extension bridges ChatGPT's web interface with your local SAGE memory node, giving ChatGPT persistent, consensus-validated memory across conversations.
+This extension bridges ChatGPT's web interface with your local (S)AGE memory node, giving ChatGPT persistent, consensus-validated memory across conversations. Works on **all ChatGPT plans, including free**.
 
 - **Sidebar panel** on ChatGPT with connection status, memory stats, and quick-action buttons
-- **Response monitoring** detects `[SAGE_CALL: ...]` patterns in ChatGPT's responses and auto-executes them against your local SAGE node
-- **System prompt injection** teaches ChatGPT the SAGE tool format with one click
-- **Ed25519 signed requests** for authenticated communication with your SAGE node
+- **Response monitoring** detects `[SAGE_CALL: ...]` patterns in ChatGPT's responses and auto-executes them against your local (S)AGE node
+- **System prompt injection** teaches ChatGPT the (S)AGE tool format with one click
+- **Ed25519 signed requests** for authenticated communication with your (S)AGE node
 
 ## Install
 
-1. Open `chrome://extensions/` in Chrome
-2. Enable "Developer mode" (top right toggle)
-3. Click "Load unpacked" and select this `extension/chrome/` directory
-4. **Generate icons first**: Open `icons/generate-icons.html` in your browser, download the three PNG files, and save them to the `icons/` directory
+### From browser stores (recommended)
+
+- **Chrome**: [Chrome Web Store](#) _(coming soon)_
+- **Firefox**: [Firefox Add-ons](#) _(coming soon)_
+
+### From source
+
+1. Open `chrome://extensions/` in Chrome (or `about:debugging` in Firefox)
+2. Enable "Developer mode" (top right toggle in Chrome)
+3. Click "Load unpacked" and select the `extension/chrome/` directory
+4. Generate icons: `cd icons && node generate-icons.js`
 
 ## How it works
 
-1. Click the brain button on ChatGPT to open the SAGE sidebar
-2. Click "Inject Prompt" to teach ChatGPT about SAGE tools
+1. Click the brain button on ChatGPT to open the (S)AGE sidebar
+2. Click "Inject Prompt" to teach ChatGPT about (S)AGE tools
 3. ChatGPT will start using `[SAGE_CALL: tool_name({params})]` syntax in its responses
 4. The extension detects these patterns, executes them against `http://localhost:8080`, and pastes results back
 5. You can also run tools manually from the sidebar
@@ -37,8 +44,8 @@ Since ChatGPT's web UI does not expose MCP or tool-calling APIs to extensions, t
 
 ## Requirements
 
-- SAGE running locally on `http://localhost:8080` (configurable in popup)
-- Chrome 109+ (for Ed25519 Web Crypto support)
+- (S)AGE running locally on `http://localhost:8080` (configurable in popup)
+- Chrome 109+ or Firefox 128+ (for Ed25519 Web Crypto support)
 
 ## Architecture
 
@@ -52,7 +59,7 @@ content.js (MutationObserver + sidebar UI)
 background.js (Ed25519 signing + REST API calls)
     |
     v (fetch with signed headers)
-SAGE Node (localhost:8080)
+(S)AGE Node (localhost:8080)
 ```
 
 ### Files
@@ -62,12 +69,12 @@ SAGE Node (localhost:8080)
 | `manifest.json` | Chrome extension manifest (Manifest V3) |
 | `background.js` | Service worker: API calls, Ed25519 signing, tool execution |
 | `content.js` | ChatGPT page injection: sidebar, monitoring, prompt injection |
-| `content.css` | Sidebar and UI styles (SAGE neural theme) |
+| `content.css` | Sidebar and UI styles ((S)AGE neural theme) |
 | `sage-tools.js` | Tool definitions, [SAGE_CALL] parser, system prompt |
 | `popup.html/js/css` | Extension popup: connection config and status |
-| `icons/` | Extension icons (generate from `generate-icons.html`) |
+| `icons/` | Extension icons (`node generate-icons.js` to generate) |
 
-## Available SAGE tools
+## Available tools
 
 | Tool | Description |
 |------|-------------|
