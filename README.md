@@ -2,7 +2,7 @@
 
 Your AI forgets everything between conversations. SAGE fixes that.
 
-SAGE is a persistent memory layer that runs on your laptop. Your AI remembers what you've worked on, what went wrong, what went right — across every conversation. No cloud accounts. No third-party access to your data. Everything stays on your machine.
+SAGE is a persistent memory layer that runs on your laptop. Your AI remembers what you've worked on, what went wrong, what went right — across every conversation. No cloud accounts. No third-party access to your data. AES-256 encrypted at rest. Everything stays on your machine.
 
 ### Download
 
@@ -26,7 +26,9 @@ go build -o sage-lite ./cmd/sage-lite/
 ```
 </details>
 
-Paste the MCP config into Claude Desktop (or ChatGPT). Done. Your AI now remembers everything.
+Paste the MCP config into Claude Desktop, ChatGPT, Claude Code, Cursor, or any MCP-compatible AI. Done. Your AI now remembers everything.
+
+**[Connect your AI →](https://l33tdawg.github.io/sage/connect.html)**
 
 **[Full Getting Started Guide](docs/GETTING_STARTED.md)**
 
@@ -36,7 +38,7 @@ Paste the MCP config into Claude Desktop (or ChatGPT). Done. Your AI now remembe
 
 Those third-party MCP skills and plugins get full access to your conversations, your files, and your API keys. Some phone home. Some store your data on servers you've never heard of.
 
-SAGE runs **entirely on your machine**. Your memories live in a SQLite file in your home directory. Nothing leaves your laptop unless you explicitly configure a cloud embedding provider. No accounts, no telemetry, no surprises.
+SAGE runs **entirely on your machine**. Your memories live in a SQLite file in your home directory, optionally encrypted with AES-256-GCM. Nothing leaves your laptop unless you explicitly configure a cloud embedding provider. No accounts, no telemetry, no surprises.
 
 ---
 
@@ -50,33 +52,37 @@ SAGE runs **entirely on your machine**. Your memories live in a SQLite file in y
 | **Natural decay** | Old, uncorroborated memories fade over time — like human memory |
 | **Semantic search** | Your AI recalls relevant context, not just keyword matches |
 | **Reflection loop** | Stores what worked AND what failed — both make it better |
-| **Full audit trail** | Every memory is cryptographically signed and traceable |
+| **Full audit trail** | Every memory is cryptographically signed (Ed25519) and traceable |
+| **Encrypted at rest** | Optional AES-256-GCM encryption — if your laptop is stolen, memories are unreadable |
+| **Dashboard auth** | Password-protected Brain Dashboard when encryption is enabled |
 | **You own everything** | `~/.sage/data/sage.db` — standard SQLite, inspect or back up anytime |
 
 ---
 
 ## How It Works
 
-Your AI gets 8 memory tools via MCP:
+Your AI gets 10 memory tools via MCP:
 
 | Tool | Purpose |
 |------|---------|
-| `sage_inception` | Initialize the AI's memory (run once) |
+| `sage_red_pill` | Wake up — initialize the AI's persistent memory |
+| `sage_turn` | Per-turn memory cycle — recalls context AND stores what just happened |
 | `sage_remember` | Store a memory (fact, observation, or inference) |
 | `sage_recall` | Search memories by semantic similarity |
 | `sage_reflect` | End-of-task reflection — what worked, what didn't |
 | `sage_forget` | Mark a memory as deprecated |
+| `sage_inception` | Alias for `sage_red_pill` |
 | `sage_list` | Browse memories with filters |
 | `sage_timeline` | View memories over time |
 | `sage_status` | Check memory health and stats |
 
-The AI uses these automatically. You just talk to it normally, and it builds up institutional knowledge over time.
+The AI uses these automatically. You just talk to it normally, and it builds institutional knowledge over time. `sage_turn` is called every conversation turn to keep memory flowing — the server enforces this with nudges and hard blocks if the AI forgets.
 
 ---
 
 ## Brain Dashboard
 
-Open `http://localhost:8080/ui/` to see your AI's memory visualized as a living neural network. Memories appear as glowing nodes, connections light up on recall, and everything updates in real-time.
+Open `http://localhost:8080/ui/` to see your AI's memory visualized as a living neural network. Memories appear as glowing nodes colored by domain, connections light up on recall, and everything updates in real-time via SSE. Includes search, timeline, memory export, and per-memory detail (content hash, confidence, provider, timestamps).
 
 ---
 
@@ -117,6 +123,19 @@ SAGE Personal is a single-node version of a full BFT consensus protocol. When yo
 - **956 req/s** throughput, **21.6ms P95** latency under load
 
 See the **[Architecture & Deployment Guide](docs/ARCHITECTURE.md)** for the full multi-node setup.
+
+---
+
+## Security
+
+SAGE has been through independent security review. Key hardening includes:
+
+- **Ed25519 signed requests** — every API call is cryptographically signed with method + path + body + timestamp (prevents replay and cross-endpoint attacks)
+- **AES-256-GCM encryption at rest** — optional full-database encryption with Argon2id key derivation
+- **Transactional consistency** — all ABCI commit writes are wrapped in a single DB transaction (no partial writes on crash)
+- **Request body limits** — `MaxBytesReader` on all endpoints to prevent memory exhaustion
+- **Localhost-only binding** — personal node binds to 127.0.0.1 by default
+- **Dashboard authentication** — session-based auth with HttpOnly/SameSite cookies when encryption is enabled
 
 ---
 
