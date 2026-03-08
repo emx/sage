@@ -467,6 +467,12 @@ function BrainView({ sse, onSelectMemory }) {
         <div class="brain-container">
             <canvas ref=${canvasRef} class="brain-canvas"></canvas>
 
+            <div class="zoom-controls">
+                <button class="zoom-btn" onClick=${() => { stateRef.current.camera.zoom = Math.min(5, stateRef.current.camera.zoom * 1.3); }} title="Zoom in">+</button>
+                <button class="zoom-btn" onClick=${() => { stateRef.current.camera.zoom = Math.max(0.1, stateRef.current.camera.zoom / 1.3); }} title="Zoom out">&minus;</button>
+                <button class="zoom-btn zoom-btn-reset" onClick=${() => { stateRef.current.camera.zoom = 1; stateRef.current.camera.x = 0; stateRef.current.camera.y = 0; }} title="Reset view">&#8858;</button>
+            </div>
+
             <div class="domain-bar">
                 ${domains.map(d => html`
                     <button class="domain-pill ${filterDomains.has(d) ? 'active' : ''}"

@@ -175,6 +175,42 @@ body {
     display: block;
 }
 
+/* Zoom controls */
+.zoom-controls {
+    position: absolute;
+    bottom: 48px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 10;
+}
+
+.zoom-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(15, 10, 30, 0.8);
+    color: #e2e8f0;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    transition: all 0.15s;
+    line-height: 1;
+    padding: 0;
+}
+
+.zoom-btn:hover {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.4);
+}
+
+.zoom-btn-reset { font-size: 16px; margin-top: 2px; }
+
 /* Domain filter bar */
 .domain-bar {
     position: absolute;
