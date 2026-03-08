@@ -57,6 +57,7 @@ func runSetup() error {
 	})
 	mux.HandleFunc("/api/check-ollama", handleCheckOllama)
 	mux.HandleFunc("/api/pull-model", handlePullModel)
+	mux.HandleFunc("/api/install-mcp", handleInstallMCP)
 
 	// Find an available port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -204,6 +205,97 @@ func handleMCPConfig(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(mcpConfig)
+}
+
+func handleInstallMCP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Platform string `json:"platform"` // "claude", "claude-code"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeWizardJSON(w, map[string]any{"ok": false, "error": "invalid request"})
+		return
+	}
+
+	execPath, _ := os.Executable()
+	if execPath == "" {
+		execPath = "/usr/local/bin/sage-lite"
+	}
+
+	sageEntry := map[string]any{
+		"command": execPath,
+		"args":    []string{"mcp"},
+		"env": map[string]string{
+			"SAGE_HOME": SageHome(),
+		},
+	}
+
+	// Determine config file path
+	var configPath string
+	switch req.Platform {
+	case "claude":
+		home, _ := os.UserHomeDir()
+		if runtime.GOOS == "darwin" {
+			configPath = filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
+		} else if runtime.GOOS == "windows" {
+			configPath = filepath.Join(os.Getenv("APPDATA"), "Claude", "claude_desktop_config.json")
+		} else {
+			configPath = filepath.Join(home, ".config", "claude", "claude_desktop_config.json")
+		}
+	case "claude-code":
+		// Claude Code uses .mcp.json in the current working directory or home
+		home, _ := os.UserHomeDir()
+		configPath = filepath.Join(home, ".claude", "mcp.json")
+		// Also check for .mcp.json in home
+		altPath := filepath.Join(home, ".mcp.json")
+		if _, err := os.Stat(altPath); err == nil {
+			configPath = altPath
+		}
+	default:
+		writeWizardJSON(w, map[string]any{"ok": false, "error": "unsupported platform, please configure manually"})
+		return
+	}
+
+	// Read existing config or create new
+	existing := make(map[string]any)
+	if data, err := os.ReadFile(configPath); err == nil {
+		if jsonErr := json.Unmarshal(data, &existing); jsonErr != nil {
+			writeWizardJSON(w, map[string]any{"ok": false, "error": "existing config has invalid JSON — please edit manually", "path": configPath})
+			return
+		}
+	}
+
+	// Merge: ensure mcpServers exists, add/update sage entry
+	servers, ok := existing["mcpServers"].(map[string]any)
+	if !ok {
+		servers = make(map[string]any)
+	}
+	servers["sage"] = sageEntry
+	existing["mcpServers"] = servers
+
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		writeWizardJSON(w, map[string]any{"ok": false, "error": "cannot create config directory: " + err.Error()})
+		return
+	}
+
+	// Write back with pretty formatting
+	data, _ := json.MarshalIndent(existing, "", "  ")
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		writeWizardJSON(w, map[string]any{"ok": false, "error": "cannot write config: " + err.Error()})
+		return
+	}
+
+	writeWizardJSON(w, map[string]any{"ok": true, "path": configPath})
+}
+
+func writeWizardJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func handleUploadHistory(w http.ResponseWriter, r *http.Request, home string) {
@@ -880,14 +972,25 @@ label { display: block; margin-top: 1rem; color: #9ca3af; font-size: 0.9rem; }
   </div>
 
   <div id="platform-claude">
-    <ol class="instructions">
-      <li>Open <strong>Claude Desktop</strong> on your computer</li>
-      <li>Go to <strong>Settings</strong> (gear icon, top-right)</li>
-      <li>Click <strong>Developer</strong> in the sidebar</li>
-      <li>Click <strong>Edit Config</strong> under MCP Servers</li>
-      <li>Paste the configuration below and save the file</li>
-      <li><strong>Restart Claude Desktop</strong> completely (quit and reopen)</li>
-    </ol>
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="btn" onclick="installMCP('claude')" id="install-claude-btn" style="padding:0.75rem 1.5rem">
+        Install Automatically
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('manual-claude').style.display='block'" style="font-size:0.85rem">
+        or configure manually
+      </button>
+    </div>
+    <div id="install-claude-result" style="display:none;margin-bottom:1rem"></div>
+    <div id="manual-claude" style="display:none">
+      <ol class="instructions">
+        <li>Open <strong>Claude Desktop</strong> on your computer</li>
+        <li>Go to <strong>Settings</strong> (gear icon, top-right)</li>
+        <li>Click <strong>Developer</strong> in the sidebar</li>
+        <li>Click <strong>Edit Config</strong> under MCP Servers</li>
+        <li>Add the <code>"sage"</code> entry from below into the <code>"mcpServers"</code> section and save</li>
+        <li><strong>Restart Claude Desktop</strong> completely (quit and reopen)</li>
+      </ol>
+    </div>
   </div>
 
   <div id="platform-chatgpt" style="display:none">
@@ -901,19 +1004,30 @@ label { display: block; margin-top: 1rem; color: #9ca3af; font-size: 0.9rem; }
   </div>
 
   <div id="platform-claude-code" style="display:none">
-    <ol class="instructions">
-      <li>Add the config below to your project's <code>.mcp.json</code> file</li>
-      <li>Restart Claude Code</li>
-    </ol>
+    <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="btn" onclick="installMCP('claude-code')" id="install-cc-btn" style="padding:0.75rem 1.5rem">
+        Install Automatically
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('manual-cc').style.display='block'" style="font-size:0.85rem">
+        or configure manually
+      </button>
+    </div>
+    <div id="install-cc-result" style="display:none;margin-bottom:1rem"></div>
+    <div id="manual-cc" style="display:none">
+      <ol class="instructions">
+        <li>Add the <code>"sage"</code> entry into your project's <code>.mcp.json</code> under <code>"mcpServers"</code></li>
+        <li>Restart Claude Code</li>
+      </ol>
+    </div>
   </div>
 
-  <p style="margin-top:1rem; font-size:0.9rem; color:#9ca3af">Copy this configuration:</p>
+  <p style="margin-top:1rem; font-size:0.9rem; color:#9ca3af">SAGE MCP configuration (for manual setup):</p>
   <div class="mcp-config" id="mcp-json">Loading...</div>
   <button class="btn copy-btn btn-sm" onclick="copyMCP()">Copy</button>
 
   <div class="actions">
     <button class="btn btn-outline" onclick="goStep(3)">Back</button>
-    <button class="btn" onclick="goStep(5)">I've pasted it</button>
+    <button class="btn" onclick="goStep(5)">Continue</button>
   </div>
 </div>
 
@@ -1013,6 +1127,9 @@ function goStep(n) {
   });
 
   if (n === 3) {
+    // Reset provider state when navigating to step 3 (fixes back-button bug)
+    selectedProvider = null;
+    document.getElementById('provider-next-btn').disabled = true;
     checkOllama();
   }
 
@@ -1227,6 +1344,48 @@ function copyMCP() {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 2000);
   });
+}
+
+async function installMCP(platform) {
+  const btnId = platform === 'claude' ? 'install-claude-btn' : 'install-cc-btn';
+  const resultId = platform === 'claude' ? 'install-claude-result' : 'install-cc-result';
+  const btn = document.getElementById(btnId);
+  const resultEl = document.getElementById(resultId);
+
+  btn.disabled = true;
+  btn.textContent = 'Installing...';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<p style="color:#9ca3af">Merging SAGE into your MCP config...</p>';
+
+  try {
+    const resp = await fetch('/api/install-mcp', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ platform })
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      resultEl.innerHTML = '<div style="background:#052e16;border:1px solid #065f46;border-radius:8px;padding:1rem">' +
+        '<span style="color:#6ee7b7;font-weight:600">&#10003; SAGE installed successfully!</span>' +
+        '<div style="color:#a7f3d0;font-size:0.85rem;margin-top:0.5rem">Config updated at: <code style="color:#06b6d4;font-size:0.8rem">' + data.path + '</code></div>' +
+        '<div style="color:#9ca3af;font-size:0.85rem;margin-top:0.25rem">Existing MCP servers were preserved.</div>' +
+        '</div>';
+      btn.textContent = 'Installed!';
+      btn.style.background = '#065f46';
+    } else {
+      resultEl.innerHTML = '<div style="background:#1a1510;border:1px solid #92400e;border-radius:8px;padding:1rem">' +
+        '<span style="color:#fbbf24">' + data.error + '</span>' +
+        (data.path ? '<div style="color:#9ca3af;font-size:0.85rem;margin-top:0.5rem">File: ' + data.path + '</div>' : '') +
+        '</div>';
+      btn.disabled = false;
+      btn.textContent = 'Try Again';
+    }
+  } catch(e) {
+    resultEl.innerHTML = '<p style="color:#ef4444">Failed: ' + e.message + '</p>';
+    btn.disabled = false;
+    btn.textContent = 'Try Again';
+  }
 }
 
 function copyPrompt() {

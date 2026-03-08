@@ -37,19 +37,19 @@ func CleanupConfigFromPrefs(prefs map[string]string) CleanupConfig {
 		cfg.Enabled = v == "true"
 	}
 	if v, ok := prefs["cleanup_observation_ttl_days"]; ok {
-		fmt.Sscanf(v, "%d", &cfg.ObservationTTLDays)
+		_, _ = fmt.Sscanf(v, "%d", &cfg.ObservationTTLDays)
 	}
 	if v, ok := prefs["cleanup_session_ttl_days"]; ok {
-		fmt.Sscanf(v, "%d", &cfg.SessionTTLDays)
+		_, _ = fmt.Sscanf(v, "%d", &cfg.SessionTTLDays)
 	}
 	if v, ok := prefs["cleanup_stale_threshold"]; ok {
-		fmt.Sscanf(v, "%f", &cfg.StaleThreshold)
+		_, _ = fmt.Sscanf(v, "%f", &cfg.StaleThreshold)
 	}
 	if v, ok := prefs["cleanup_auto_challenge"]; ok {
 		cfg.AutoChallengeConflicts = v == "true"
 	}
 	if v, ok := prefs["cleanup_interval_hours"]; ok {
-		fmt.Sscanf(v, "%d", &cfg.CleanupIntervalHours)
+		_, _ = fmt.Sscanf(v, "%d", &cfg.CleanupIntervalHours)
 	}
 	return cfg
 }
