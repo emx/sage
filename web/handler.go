@@ -413,6 +413,54 @@ func (h *DashboardHandler) handleHealth(w http.ResponseWriter, r *http.Request) 
 		health["memories"] = stats
 	}
 
+	// CometBFT chain stats
+	chain := map[string]any{}
+	cometClient := &http.Client{Timeout: 2 * time.Second}
+	statusReq, _ := http.NewRequestWithContext(r.Context(), "GET", "http://127.0.0.1:26657/status", nil)
+	if statusResp, statusErr := cometClient.Do(statusReq); statusErr == nil {
+		defer statusResp.Body.Close()
+		var cometStatus struct {
+			Result struct {
+				NodeInfo struct {
+					Network string `json:"network"`
+					Moniker string `json:"moniker"`
+				} `json:"node_info"`
+				SyncInfo struct {
+					LatestBlockHeight string `json:"latest_block_height"`
+					LatestBlockTime   string `json:"latest_block_time"`
+					CatchingUp        bool   `json:"catching_up"`
+				} `json:"sync_info"`
+				ValidatorInfo struct {
+					VotingPower string `json:"voting_power"`
+				} `json:"validator_info"`
+			} `json:"result"`
+		}
+		if decErr := json.NewDecoder(statusResp.Body).Decode(&cometStatus); decErr == nil {
+			chain["block_height"] = cometStatus.Result.SyncInfo.LatestBlockHeight
+			chain["block_time"] = cometStatus.Result.SyncInfo.LatestBlockTime
+			chain["catching_up"] = cometStatus.Result.SyncInfo.CatchingUp
+			chain["chain_id"] = cometStatus.Result.NodeInfo.Network
+			chain["moniker"] = cometStatus.Result.NodeInfo.Moniker
+			chain["voting_power"] = cometStatus.Result.ValidatorInfo.VotingPower
+		}
+	}
+	// Peer count
+	netReq, _ := http.NewRequestWithContext(r.Context(), "GET", "http://127.0.0.1:26657/net_info", nil)
+	if netResp, netErr := cometClient.Do(netReq); netErr == nil {
+		defer netResp.Body.Close()
+		var netInfo struct {
+			Result struct {
+				NPeers string `json:"n_peers"`
+			} `json:"result"`
+		}
+		if decErr := json.NewDecoder(netResp.Body).Decode(&netInfo); decErr == nil {
+			chain["peers"] = netInfo.Result.NPeers
+		}
+	}
+	if len(chain) > 0 {
+		health["chain"] = chain
+	}
+
 	writeJSONResp(w, http.StatusOK, health)
 }
 

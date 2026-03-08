@@ -157,7 +157,7 @@ func parseChatGPTJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		return nil, nil, fmt.Errorf("invalid ChatGPT JSON: %w", err)
 	}
 
-	var records []*memory.MemoryRecord
+	records := make([]*memory.MemoryRecord, 0, len(convos))
 	var errors []string
 
 	for i, conv := range convos {
@@ -329,7 +329,7 @@ func parseGeminiJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		return nil, nil, fmt.Errorf("invalid Gemini JSON: %w", err)
 	}
 
-	var records []*memory.MemoryRecord
+	records := make([]*memory.MemoryRecord, 0, len(entries))
 	var errors []string
 
 	for _, e := range entries {
@@ -379,7 +379,7 @@ func parseClaudeJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		return nil, nil, fmt.Errorf("invalid Claude JSON: %w", err)
 	}
 
-	var records []*memory.MemoryRecord
+	records := make([]*memory.MemoryRecord, 0, len(convos))
 	var errors []string
 
 	for i, conv := range convos {
@@ -427,7 +427,7 @@ func parseGenericJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		return nil, nil, fmt.Errorf("invalid JSON array: %w", err)
 	}
 
-	var records []*memory.MemoryRecord
+	records := make([]*memory.MemoryRecord, 0, len(entries))
 	var errors []string
 
 	for _, e := range entries {

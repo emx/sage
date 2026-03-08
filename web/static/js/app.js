@@ -82,6 +82,7 @@ const icons = {
     search: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
     settings: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
     import: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+    help: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
 };
 
 // ============================================================================
@@ -467,10 +468,28 @@ function BrainView({ sse, onSelectMemory }) {
         <div class="brain-container">
             <canvas ref=${canvasRef} class="brain-canvas"></canvas>
 
-            <div class="zoom-controls">
-                <button class="zoom-btn" onClick=${() => { stateRef.current.camera.zoom = Math.min(5, stateRef.current.camera.zoom * 1.3); }} title="Zoom in">+</button>
-                <button class="zoom-btn" onClick=${() => { stateRef.current.camera.zoom = Math.max(0.1, stateRef.current.camera.zoom / 1.3); }} title="Zoom out">&minus;</button>
-                <button class="zoom-btn zoom-btn-reset" onClick=${() => { stateRef.current.camera.zoom = 1; stateRef.current.camera.x = 0; stateRef.current.camera.y = 0; }} title="Reset view">&#8858;</button>
+            <div class="nav-pad">
+                <button class="nav-btn nav-up" onClick=${() => { stateRef.current.camera.y += 60; }} title="Pan up">
+                    <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 2L1 8h10z" fill="currentColor"/></svg>
+                </button>
+                <button class="nav-btn nav-left" onClick=${() => { stateRef.current.camera.x += 60; }} title="Pan left">
+                    <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l6-5v10z" fill="currentColor"/></svg>
+                </button>
+                <button class="nav-btn nav-center" onClick=${() => { stateRef.current.camera.zoom = 1; stateRef.current.camera.x = 0; stateRef.current.camera.y = 0; }} title="Reset view">
+                    <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="currentColor"/></svg>
+                </button>
+                <button class="nav-btn nav-right" onClick=${() => { stateRef.current.camera.x -= 60; }} title="Pan right">
+                    <svg width="12" height="12" viewBox="0 0 12 12"><path d="M10 6L4 1v10z" fill="currentColor"/></svg>
+                </button>
+                <button class="nav-btn nav-down" onClick=${() => { stateRef.current.camera.y -= 60; }} title="Pan down">
+                    <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 10L1 4h10z" fill="currentColor"/></svg>
+                </button>
+                <button class="nav-btn nav-zin" onClick=${() => { stateRef.current.camera.zoom = Math.min(5, stateRef.current.camera.zoom * 1.3); }} title="Zoom in">
+                    <svg width="14" height="14" viewBox="0 0 14 14"><line x1="7" y1="3" x2="7" y2="11" stroke="currentColor" stroke-width="2"/><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="nav-btn nav-zout" onClick=${() => { stateRef.current.camera.zoom = Math.max(0.1, stateRef.current.camera.zoom / 1.3); }} title="Zoom out">
+                    <svg width="14" height="14" viewBox="0 0 14 14"><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
             </div>
 
             <div class="domain-bar">
@@ -515,9 +534,15 @@ function BrainView({ sse, onSelectMemory }) {
 
             ${tooltip && html`
                 <div class="tooltip" style="left: ${tooltip.x}px; top: ${tooltip.y}px;">
-                    <div class="tooltip-domain" style="color: ${getDomainColor(tooltip.node.domain)}">${tooltip.node.domain}</div>
+                    <div class="tooltip-domain" style="color: ${getDomainColor(tooltip.node.domain)}; background: ${getDomainColor(tooltip.node.domain)}20;">${tooltip.node.domain || 'unknown'}</div>
                     <div class="tooltip-content">${tooltip.node.content ? tooltip.node.content.slice(0, 120) : 'No content'}${tooltip.node.content && tooltip.node.content.length > 120 ? '...' : ''}</div>
-                    <div class="tooltip-meta">${tooltip.node.memory_type || tooltip.node.memoryType} | conf: ${(tooltip.node.confidence * 100).toFixed(0)}% | ${timeAgo(tooltip.node.created_at || tooltip.node.createdAt)}</div>
+                    <div class="tooltip-meta">
+                        <span class="tooltip-meta-item">${tooltip.node.memory_type || tooltip.node.memoryType || 'memory'}</span>
+                        <span class="tooltip-meta-sep"></span>
+                        <span class="tooltip-meta-item" style="color: ${confidenceColor(tooltip.node.confidence)};">${(tooltip.node.confidence * 100).toFixed(0)}%</span>
+                        <span class="tooltip-meta-sep"></span>
+                        <span class="tooltip-meta-item">${timeAgo(tooltip.node.created_at || tooltip.node.createdAt)}</span>
+                    </div>
                 </div>
             `}
         </div>
@@ -771,28 +796,146 @@ function SearchPage({ onSelectMemory }) {
 function SettingsPage() {
     const [stats, setStats] = useState(null);
     const [health, setHealth] = useState(null);
+    const [countdown, setCountdown] = useState(null);
+    const countdownRef = useRef(null);
 
+    // Fetch health with live polling every 3s
     useEffect(() => {
-        fetchStats().then(setStats).catch(() => {});
-        fetchHealth().then(setHealth).catch(() => {});
+        const poll = () => {
+            fetchHealth().then(h => {
+                setHealth(h);
+                // Calculate next block countdown from block_time
+                if (h?.chain?.block_time) {
+                    const lastBlock = new Date(h.chain.block_time).getTime();
+                    const blockInterval = 5000; // ~5s blocks
+                    const nextBlock = lastBlock + blockInterval;
+                    const now = Date.now();
+                    const remaining = Math.max(0, nextBlock - now);
+                    setCountdown(remaining);
+                }
+            }).catch(() => {});
+            fetchStats().then(setStats).catch(() => {});
+        };
+        poll();
+        const iv = setInterval(poll, 3000);
+        return () => clearInterval(iv);
     }, []);
+
+    // Countdown ticker — updates every 100ms for smooth display
+    useEffect(() => {
+        if (countdown === null) return;
+        const tick = setInterval(() => {
+            setCountdown(prev => {
+                if (prev === null || prev <= 0) return 0;
+                return Math.max(0, prev - 100);
+            });
+        }, 100);
+        return () => clearInterval(tick);
+    }, [countdown !== null]);
 
     const ver = health?.version || 'dev';
     const encrypted = health?.encrypted || false;
+    const chain = health?.chain || null;
+    const ollama = health?.ollama || 'unknown';
+    const uptime = health?.uptime || '--';
+
+    // Format countdown as seconds with 1 decimal
+    const countdownDisplay = countdown !== null ? (countdown / 1000).toFixed(1) + 's' : '--';
+
+    // Status indicator dot
+    const statusDot = (active) => html`
+        <span class="status-dot ${active ? 'active' : 'inactive'}"></span>
+    `;
 
     return html`
         <div class="settings-page">
+            <!-- Chain Health — the hero section -->
+            <div class="settings-section chain-health-section">
+                <h3>
+                    <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:6px">
+                        <path d="M4 4h3v3H4zM9 4h3v3H9zM4 9h3v3H4zM9 9h3v3H9z" fill="currentColor" opacity="0.8"/>
+                        <path d="M2 2h12v12H2z" stroke="currentColor" fill="none" stroke-width="1.5" rx="2"/>
+                    </svg>
+                    Chain Health
+                </h3>
+
+                ${chain ? html`
+                    <div class="chain-stats-grid">
+                        <div class="chain-stat-card">
+                            <div class="chain-stat-value block-height">${Number(chain.block_height || 0).toLocaleString()}</div>
+                            <div class="chain-stat-label">Block Height</div>
+                        </div>
+                        <div class="chain-stat-card">
+                            <div class="chain-stat-value countdown-value">${countdownDisplay}</div>
+                            <div class="chain-stat-label">Next Block</div>
+                            <div class="countdown-bar">
+                                <div class="countdown-fill" style="width: ${countdown !== null ? Math.min(100, (countdown / 5000) * 100) : 0}%"></div>
+                            </div>
+                        </div>
+                        <div class="chain-stat-card">
+                            <div class="chain-stat-value">${chain.peers || '0'}</div>
+                            <div class="chain-stat-label">Peers</div>
+                        </div>
+                        <div class="chain-stat-card">
+                            <div class="chain-stat-value">${chain.voting_power || '0'}</div>
+                            <div class="chain-stat-label">Voting Power</div>
+                        </div>
+                    </div>
+
+                    <div class="chain-details">
+                        <div class="settings-row">
+                            <span class="label">Chain ID</span>
+                            <span class="value chain-id-value">${chain.chain_id || '--'}</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="label">Node</span>
+                            <span class="value">${chain.moniker || '--'}</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="label">Syncing</span>
+                            <span class="value" style="color: ${chain.catching_up ? '#ef4444' : '#10b981'}">
+                                ${chain.catching_up ? 'Catching up...' : 'In sync'}
+                            </span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="label">Last Block</span>
+                            <span class="value">${chain.block_time ? new Date(chain.block_time).toLocaleTimeString() : '--'}</span>
+                        </div>
+                    </div>
+                ` : html`
+                    <div class="chain-offline">
+                        ${statusDot(false)}
+                        <span>Chain unavailable — CometBFT not running</span>
+                    </div>
+                `}
+            </div>
+
+            <!-- System Status -->
             <div class="settings-section">
-                <h3>SAGE Instance</h3>
+                <h3>System Status</h3>
+                <div class="settings-row">
+                    <span class="label">${statusDot(true)} SAGE</span>
+                    <span class="value" style="color:#10b981">Running</span>
+                </div>
+                <div class="settings-row">
+                    <span class="label">${statusDot(ollama === 'running')} Ollama</span>
+                    <span class="value" style="color: ${ollama === 'running' ? '#10b981' : '#6b7280'}">
+                        ${ollama === 'running' ? 'Connected' : 'Offline'}
+                    </span>
+                </div>
+                <div class="settings-row">
+                    <span class="label">${statusDot(encrypted)} Encryption</span>
+                    <span class="value" style="color: ${encrypted ? '#10b981' : '#6b7280'}">
+                        ${encrypted ? 'AES-256-GCM' : 'Off'}
+                    </span>
+                </div>
                 <div class="settings-row">
                     <span class="label">Version</span>
                     <span class="value">${ver}</span>
                 </div>
                 <div class="settings-row">
-                    <span class="label">Encryption</span>
-                    <span class="value" style="color: ${encrypted ? 'var(--success, #10b981)' : 'var(--text-muted, #6b7280)'}">
-                        ${encrypted ? 'AES-256-GCM (active)' : 'Off'}
-                    </span>
+                    <span class="label">Uptime</span>
+                    <span class="value">${uptime}</span>
                 </div>
                 <div class="settings-row">
                     <span class="label">Dashboard API</span>
@@ -1099,18 +1242,34 @@ function TimelineBar() {
 
     const maxCount = Math.max(1, ...buckets.map(b => b.count));
 
+    function formatPeriod(period) {
+        try {
+            const d = new Date(period);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return period;
+        }
+    }
+
     return html`
         <div class="timeline-bar">
             <span class="timeline-label">24h</span>
             <div class="timeline-track">
-                ${buckets.map((b, i) => html`
-                    <div class="timeline-bucket-bar"
-                         style="left: ${(i / Math.max(1, buckets.length)) * 100}%;
-                                width: ${100 / Math.max(1, buckets.length)}%;
-                                height: ${(b.count / maxCount) * 100}%;"
-                         title="${b.period}: ${b.count} memories">
-                    </div>
-                `)}
+                ${buckets.map((b, i) => {
+                    const pct = (b.count / maxCount) * 100;
+                    return html`
+                        <div class="timeline-bucket-bar"
+                             style="left: ${(i / Math.max(1, buckets.length)) * 100}%;
+                                    width: ${100 / Math.max(1, buckets.length)}%;
+                                    height: ${Math.max(pct, 4)}%;">
+                            <div class="timeline-tooltip">
+                                <span class="timeline-tooltip-count">${b.count}</span> memor${b.count === 1 ? 'y' : 'ies'}
+                                <br/>
+                                <span class="timeline-tooltip-time">${formatPeriod(b.period)}</span>
+                            </div>
+                        </div>
+                    `;
+                })}
             </div>
             <span class="timeline-label" style="text-align: right;">Now</span>
         </div>
@@ -1162,6 +1321,92 @@ function HealthBar() {
             <div class="health-sep"></div>
             <div class="health-item">
                 <span style="color: var(--text-muted)">uptime</span> ${health.uptime ? health.uptime.split('.')[0] : '—'}
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================================
+// Help Overlay
+// ============================================================================
+
+function HelpOverlay({ onClose }) {
+    const [dontShow, setDontShow] = useState(false);
+
+    function handleDismiss() {
+        if (dontShow) {
+            try { localStorage.setItem('sage-help-dismissed', '1'); } catch (e) {}
+        }
+        onClose();
+    }
+
+    const cards = [
+        {
+            title: 'Brain View',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>`,
+            body: 'Each bubble is a memory. Size = confidence level. Color = knowledge domain. Click a bubble to see details.',
+        },
+        {
+            title: 'Filtering',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
+            body: 'Click domain pills at the top to filter. Use the search box to find specific memories.',
+        },
+        {
+            title: 'Navigation',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+            body: 'Scroll to zoom, drag to pan, or use the navigation pad. Click a bubble to see its content.',
+        },
+        {
+            title: 'Timeline',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>`,
+            body: 'The bar at the bottom shows memory activity over the last 24 hours. Hover segments to see counts.',
+        },
+        {
+            title: 'Domains',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+            body: "Domains are categories like 'sage-architecture' or 'user-prefs'. They're created automatically based on what you discuss.",
+        },
+        {
+            title: 'Deleting',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
+            body: "Click a memory bubble, then click Delete in the detail panel. Deleted memories are marked as deprecated -- they're hidden from recall but not permanently erased.",
+        },
+        {
+            title: 'Import',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+            body: 'Go to Import (upload icon in sidebar) to bring in conversations from ChatGPT, Claude, or Gemini.',
+        },
+        {
+            title: 'Search',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+            body: 'The search page (magnifying glass icon) lets you do full-text search across all memories.',
+        },
+    ];
+
+    return html`
+        <div class="help-overlay" onClick=${(e) => { if (e.target === e.currentTarget) handleDismiss(); }}>
+            <div class="help-modal">
+                <div class="help-modal-header">
+                    <h2>SAGE Brain Dashboard Guide</h2>
+                    <button class="detail-close" onClick=${handleDismiss}>x</button>
+                </div>
+                <div class="help-grid">
+                    ${cards.map(c => html`
+                        <div class="help-card">
+                            <div class="help-card-title">${c.icon} ${c.title}</div>
+                            <div class="help-card-body">${c.body}</div>
+                        </div>
+                    `)}
+                </div>
+                <div class="help-footer">
+                    <label class="help-dismiss-check">
+                        <input type="checkbox" checked=${dontShow}
+                               onChange=${(e) => setDontShow(e.target.checked)} />
+                        Don't show again
+                    </label>
+                    <button class="btn" style="background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;"
+                            onClick=${handleDismiss}>Got it</button>
+                </div>
             </div>
         </div>
     `;
@@ -1234,6 +1479,7 @@ function App() {
     const [page, setPage] = useState('brain');
     const [selectedMemory, setSelectedMemory] = useState(null);
     const [sseConnected, setSseConnected] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
     const sseRef = useRef(null);
 
     // Check auth on mount
@@ -1305,6 +1551,10 @@ function App() {
             <button class="sidebar-btn ${page === 'settings' ? 'active' : ''}" onClick=${() => navigate('settings')} title="Settings">
                 ${icons.settings}
             </button>
+            <div style="flex:1;"></div>
+            <button class="sidebar-btn" onClick=${() => setShowHelp(true)} title="Help">
+                ${icons.help}
+            </button>
         </div>
         <div class="main-content">
             <div class="top-bar">
@@ -1331,6 +1581,7 @@ function App() {
                 onDelete=${() => setSelectedMemory(null)}
             />
         </div>
+        ${showHelp && html`<${HelpOverlay} onClose=${() => setShowHelp(false)} />`}
     `;
 }
 

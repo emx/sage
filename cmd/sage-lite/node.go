@@ -62,6 +62,15 @@ func runServe() error {
 		}
 	}
 
+	// Auto-migrate on version upgrade: backup SQLite, reset chain state
+	if migrated, migrateErr := migrateOnUpgrade(cfg.DataDir); migrateErr != nil {
+		return fmt.Errorf("upgrade migration: %w", migrateErr)
+	} else if migrated {
+		logger.Info().
+			Str("version", version).
+			Msg("upgrade migration completed — chain state reset, memories preserved")
+	}
+
 	// Initialize CometBFT config if needed
 	if initErr := initCometBFTConfig(cometHome); initErr != nil {
 		return fmt.Errorf("init CometBFT: %w", initErr)
