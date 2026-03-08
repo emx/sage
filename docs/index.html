@@ -724,7 +724,7 @@ footer a:hover { text-decoration: underline; }
 .migrate { background: linear-gradient(180deg, var(--void) 0%, var(--deep) 50%, var(--void) 100%); }
 .migrate-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 32px;
   margin-top: 48px;
 }
@@ -1331,19 +1331,30 @@ footer a:hover { text-decoration: underline; }
         <ol class="migrate-steps">
           <li><span class="step-marker">1</span> Go to <strong>Settings &rarr; Data Controls &rarr; Export Data</strong> in ChatGPT</li>
           <li><span class="step-marker">2</span> Download the ZIP file from the email OpenAI sends you</li>
-          <li><span class="step-marker">3</span> Run <code>./sage-lite setup</code> and drag-drop the ZIP into the import step</li>
-          <li><span class="step-marker">4</span> SAGE parses every conversation into searchable, governed memories</li>
+          <li><span class="step-marker">3</span> Open the Brain Dashboard &rarr; <strong>Import</strong> and drop the ZIP file</li>
+          <li><span class="step-marker">4</span> Watch your conversations become searchable, governed memories</li>
         </ol>
       </div>
       <div class="migrate-card">
-        <div class="migrate-card-icon">&#128640;</div>
-        <h3>Coming from any provider</h3>
-        <p>Have conversation logs, notes, or project documentation? SAGE can ingest them too — any text your AI should remember.</p>
+        <div class="migrate-card-icon">&#9935;</div>
+        <h3>Coming from Claude</h3>
+        <p>Export your Claude.ai conversations, then import them into SAGE so your AI remembers everything from your previous sessions.</p>
         <ol class="migrate-steps">
-          <li><span class="step-marker">1</span> Export your data from your current provider (most offer this)</li>
-          <li><span class="step-marker">2</span> Drop JSON or text files into the SAGE setup wizard</li>
-          <li><span class="step-marker">3</span> SAGE structures and indexes everything locally</li>
-          <li><span class="step-marker">4</span> Your new AI starts with full context from day one</li>
+          <li><span class="step-marker">1</span> Go to <strong>Settings &rarr; Privacy &rarr; Export Data</strong> on claude.ai</li>
+          <li><span class="step-marker">2</span> Download the export file Anthropic emails you</li>
+          <li><span class="step-marker">3</span> Open the Brain Dashboard &rarr; <strong>Import</strong> and drop the file</li>
+          <li><span class="step-marker">4</span> Your Claude history becomes persistent, governed memory</li>
+        </ol>
+      </div>
+      <div class="migrate-card">
+        <div class="migrate-card-icon">&#9733;</div>
+        <h3>Coming from Gemini</h3>
+        <p>Export your Google Gemini conversations via Takeout, then import them into SAGE for permanent, local memory.</p>
+        <ol class="migrate-steps">
+          <li><span class="step-marker">1</span> Go to <strong>Google Takeout</strong> &rarr; select <strong>My Activity</strong> &rarr; <strong>Gemini Apps</strong></li>
+          <li><span class="step-marker">2</span> Download the export archive Google prepares for you</li>
+          <li><span class="step-marker">3</span> Open the Brain Dashboard &rarr; <strong>Import</strong> and drop the JSON file</li>
+          <li><span class="step-marker">4</span> Your Gemini activity becomes searchable memory</li>
         </ol>
       </div>
     </div>
