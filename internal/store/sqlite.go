@@ -329,6 +329,12 @@ func (s *SQLiteStore) initSchema(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_dept_members_agent ON dept_members(agent_id) WHERE removed_at IS NULL;
 	CREATE INDEX IF NOT EXISTS idx_dept_members_dept ON dept_members(org_id, dept_id) WHERE removed_at IS NULL;
+
+	CREATE TABLE IF NOT EXISTS preferences (
+		key        TEXT PRIMARY KEY,
+		value      TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+	);
 	`
 
 	if _, err := s.conn.ExecContext(ctx, schema); err != nil {
@@ -1608,4 +1614,133 @@ func (s *SQLiteStore) RunInTx(ctx context.Context, fn func(tx OffchainStore) err
 		return err
 	}
 	return tx.Commit()
+}
+
+// --- Preferences ---
+
+// GetPreference returns a single preference value by key.
+func (s *SQLiteStore) GetPreference(ctx context.Context, key string) (string, error) {
+	var value string
+	err := s.conn.QueryRowContext(ctx, `SELECT value FROM preferences WHERE key = ?`, key).Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return value, err
+}
+
+// SetPreference sets a single preference key-value pair.
+func (s *SQLiteStore) SetPreference(ctx context.Context, key, value string) error {
+	_, err := s.conn.ExecContext(ctx,
+		`INSERT INTO preferences (key, value, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+		ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+		key, value)
+	return err
+}
+
+// GetAllPreferences returns all preferences as a map.
+func (s *SQLiteStore) GetAllPreferences(ctx context.Context) (map[string]string, error) {
+	rows, err := s.conn.QueryContext(ctx, `SELECT key, value FROM preferences`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	prefs := make(map[string]string)
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		prefs[k] = v
+	}
+	return prefs, rows.Err()
+}
+
+// GetCleanupCandidates returns memories eligible for auto-deprecation.
+// It finds: (1) observations older than ttlDays, (2) memories with computed confidence below threshold.
+func (s *SQLiteStore) GetCleanupCandidates(ctx context.Context, observationTTLDays int, sessionTTLDays int, staleThreshold float64) ([]*memory.MemoryRecord, error) {
+	// Find non-deprecated observations and low-confidence memories
+	rows, err := s.conn.QueryContext(ctx,
+		`SELECT memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
+			memory_type, domain_tag, provider, confidence_score, status, parent_hash, created_at, committed_at, deprecated_at
+		FROM memories
+		WHERE status NOT IN ('deprecated')
+		AND (
+			(memory_type = 'observation' AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ? || ' days'))
+			OR (memory_type = 'observation' AND domain_tag = 'session-context' AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ? || ' days'))
+		)
+		ORDER BY created_at ASC
+		LIMIT 500`,
+		fmt.Sprintf("-%d", observationTTLDays),
+		fmt.Sprintf("-%d", sessionTTLDays))
+	if err != nil {
+		return nil, fmt.Errorf("query cleanup candidates: %w", err)
+	}
+	defer rows.Close()
+
+	var records []*memory.MemoryRecord
+	for rows.Next() {
+		rec, err := s.scanMemoryRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, rows.Err()
+}
+
+// DeprecateMemories batch-deprecates memories by IDs.
+func (s *SQLiteStore) DeprecateMemories(ctx context.Context, memoryIDs []string) (int, error) {
+	if len(memoryIDs) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, len(memoryIDs))
+	args := make([]any, len(memoryIDs))
+	for i, id := range memoryIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(
+		`UPDATE memories SET status = 'deprecated', deprecated_at = strftime('%%Y-%%m-%%dT%%H:%%M:%%fZ', 'now')
+		WHERE memory_id IN (%s) AND status != 'deprecated'`,
+		strings.Join(placeholders, ","))
+	result, err := s.conn.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("deprecate memories: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	return int(n), nil
+}
+
+// scanMemoryRow scans a single memory row from a *sql.Rows.
+func (s *SQLiteStore) scanMemoryRow(rows *sql.Rows) (*memory.MemoryRecord, error) {
+	var r memory.MemoryRecord
+	var mt, st, createdAt string
+	var embData []byte
+	var parentHash, committedAt, deprecatedAt *string
+
+	err := rows.Scan(&r.MemoryID, &r.SubmittingAgent, &r.Content, &r.ContentHash,
+		&embData, &r.EmbeddingHash, &mt, &r.DomainTag, &r.Provider, &r.ConfidenceScore,
+		&st, &parentHash, &createdAt, &committedAt, &deprecatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("scan memory: %w", err)
+	}
+
+	r.MemoryType = memory.MemoryType(mt)
+	r.Status = memory.MemoryStatus(st)
+
+	if decContent, decErr := s.decryptContent(r.Content); decErr == nil {
+		r.Content = decContent
+	}
+	decEmb, _ := s.decryptEmbedding(embData)
+	r.Embedding = decodeEmbedding(decEmb)
+
+	r.CreatedAt = parseTime(createdAt)
+	r.CommittedAt = parseTimePtr(committedAt)
+	r.DeprecatedAt = parseTimePtr(deprecatedAt)
+	if parentHash != nil {
+		r.ParentHash = *parentHash
+	}
+
+	return &r, nil
 }

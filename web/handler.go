@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -13,13 +14,24 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/l33tdawg/sage/internal/memory"
 	"github.com/l33tdawg/sage/internal/store"
 	"github.com/l33tdawg/sage/internal/vault"
 )
 
-// DashboardHandler serves the Brain Dashboard UI and its API endpoints.
+// PreferencesStore defines methods for preferences and cleanup operations.
+type PreferencesStore interface {
+	GetPreference(ctx context.Context, key string) (string, error)
+	SetPreference(ctx context.Context, key, value string) error
+	GetAllPreferences(ctx context.Context) (map[string]string, error)
+	GetCleanupCandidates(ctx context.Context, observationTTLDays int, sessionTTLDays int, staleThreshold float64) ([]*memory.MemoryRecord, error)
+	DeprecateMemories(ctx context.Context, memoryIDs []string) (int, error)
+}
+
+// DashboardHandler serves the CEREBRUM dashboard UI and its API endpoints.
 type DashboardHandler struct {
 	store     store.MemoryStore
+	prefStore PreferencesStore
 	SSE       *SSEBroadcaster
 	Version   string
 	Encrypted bool
@@ -31,11 +43,16 @@ type DashboardHandler struct {
 
 // NewDashboardHandler creates a new dashboard handler.
 func NewDashboardHandler(memStore store.MemoryStore, version string) *DashboardHandler {
-	return &DashboardHandler{
+	h := &DashboardHandler{
 		store:   memStore,
 		SSE:     NewSSEBroadcaster(),
 		Version: version,
 	}
+	// If the store implements PreferencesStore, wire it up.
+	if ps, ok := memStore.(PreferencesStore); ok {
+		h.prefStore = ps
+	}
+	return h
 }
 
 const sessionCookieName = "sage_session"
@@ -64,6 +81,9 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 		r.Patch("/v1/dashboard/memory/{id}", h.handleUpdateMemory)
 		r.Get("/v1/dashboard/events", h.SSE.ServeHTTP)
 		r.Post("/v1/dashboard/import", h.handleImportUpload)
+		r.Get("/v1/dashboard/settings/cleanup", h.handleGetCleanupSettings)
+		r.Post("/v1/dashboard/settings/cleanup", h.handleSaveCleanupSettings)
+		r.Post("/v1/dashboard/cleanup/run", h.handleRunCleanup)
 	})
 
 	// SPA — serve static files, fallback to index.html
@@ -481,4 +501,106 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+// handleGetCleanupSettings returns the current cleanup configuration.
+func (h *DashboardHandler) handleGetCleanupSettings(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+
+	prefs, err := h.prefStore.GetAllPreferences(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	cfg := memory.CleanupConfigFromPrefs(prefs)
+
+	// Also include last run info
+	resp := map[string]any{
+		"config":     cfg,
+		"last_run":   prefs["cleanup_last_run"],
+		"last_result": prefs["cleanup_last_result"],
+	}
+
+	writeJSONResp(w, http.StatusOK, resp)
+}
+
+// handleSaveCleanupSettings saves the cleanup configuration.
+func (h *DashboardHandler) handleSaveCleanupSettings(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+
+	var cfg memory.CleanupConfig
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	// Validate bounds
+	if cfg.ObservationTTLDays < 1 {
+		cfg.ObservationTTLDays = 1
+	}
+	if cfg.SessionTTLDays < 1 {
+		cfg.SessionTTLDays = 1
+	}
+	if cfg.StaleThreshold < 0.01 {
+		cfg.StaleThreshold = 0.01
+	}
+	if cfg.StaleThreshold > 0.5 {
+		cfg.StaleThreshold = 0.5
+	}
+	if cfg.CleanupIntervalHours < 1 {
+		cfg.CleanupIntervalHours = 1
+	}
+
+	prefs := memory.CleanupConfigToPrefs(cfg)
+	for k, v := range prefs {
+		if err := h.prefStore.SetPreference(r.Context(), k, v); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "config": cfg})
+}
+
+// handleRunCleanup triggers an on-demand cleanup (supports dry_run).
+func (h *DashboardHandler) handleRunCleanup(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+
+	var body struct {
+		DryRun bool `json:"dry_run"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		// Default to dry run for safety
+		body.DryRun = true
+	}
+
+	prefs, err := h.prefStore.GetAllPreferences(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	cfg := memory.CleanupConfigFromPrefs(prefs)
+	// For manual runs, force enabled so it actually runs
+	cfg.Enabled = true
+
+	result, err := memory.RunCleanup(r.Context(), h.prefStore, cfg, body.DryRun)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSONResp(w, http.StatusOK, result)
 }

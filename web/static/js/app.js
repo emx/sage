@@ -1,6 +1,6 @@
-// SAGE Brain Dashboard — Root Application
+// CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup } from './api.js';
 
 const { h, render } = preact;
 const { useState, useEffect, useRef, useCallback } = preactHooks;
@@ -790,6 +790,255 @@ function SearchPage({ onSelectMemory }) {
 }
 
 // ============================================================================
+// Cleanup Settings Component
+// ============================================================================
+
+function CleanupSettings() {
+    const [config, setConfig] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [lastRun, setLastRun] = useState(null);
+    const [lastResult, setLastResult] = useState(null);
+    const [cleanupRunning, setCleanupRunning] = useState(false);
+    const [cleanupResult, setCleanupResult] = useState(null);
+    const [expanded, setExpanded] = useState(false);
+
+    useEffect(() => {
+        fetchCleanupSettings().then(data => {
+            if (data.config) setConfig(data.config);
+            if (data.last_run) setLastRun(data.last_run);
+            if (data.last_result) {
+                try { setLastResult(JSON.parse(data.last_result)); } catch(e) {}
+            }
+        }).catch(() => {});
+    }, []);
+
+    const updateField = (field, value) => {
+        setConfig(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSave = async () => {
+        if (!config || saving) return;
+        setSaving(true);
+        try {
+            const res = await saveCleanupSettings(config);
+            if (res.config) setConfig(res.config);
+        } catch(e) {}
+        setSaving(false);
+    };
+
+    const handleDryRun = async () => {
+        setCleanupRunning(true);
+        setCleanupResult(null);
+        try {
+            const res = await runCleanup(true);
+            setCleanupResult(res);
+        } catch(e) {
+            setCleanupResult({ error: 'Failed to run preview' });
+        }
+        setCleanupRunning(false);
+    };
+
+    const handleCleanup = async () => {
+        if (!confirm('This will permanently deprecate stale memories. Continue?')) return;
+        setCleanupRunning(true);
+        setCleanupResult(null);
+        try {
+            const res = await runCleanup(false);
+            setCleanupResult(res);
+            setLastRun(new Date().toISOString());
+            setLastResult(res);
+        } catch(e) {
+            setCleanupResult({ error: 'Failed to run cleanup' });
+        }
+        setCleanupRunning(false);
+    };
+
+    if (!config) return null;
+
+    return html`
+        <div class="settings-section cleanup-section">
+            <h3 style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onClick=${() => setExpanded(!expanded)}>
+                <span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:6px">
+                        <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 5v3.5l2.5 1.5" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Memory Auto-Cleanup
+                </span>
+                <span style="font-size:12px;color:var(--text-muted)">${expanded ? '▲' : '▼'}</span>
+            </h3>
+
+            <div class="cleanup-description">
+                <p style="color:var(--text-dim);font-size:13px;line-height:1.5;margin:8px 0">
+                    Automatically deprecate stale memories whose confidence has decayed below a threshold,
+                    or observations that have outlived their usefulness.
+                </p>
+            </div>
+
+            <!-- Master toggle — always visible -->
+            <div class="settings-row" style="padding:12px 0;border-bottom:1px solid var(--border)">
+                <div style="flex:1">
+                    <span class="label" style="font-weight:600">Enable Auto-Cleanup</span>
+                    <div class="setting-help">
+                        <span style="color:var(--accent);font-size:11px;font-weight:500">ON:</span>
+                        <span style="color:var(--text-dim);font-size:11px"> SAGE periodically removes stale session observations and low-confidence memories. Good for long-running agents that accumulate thousands of memories.</span>
+                    </div>
+                    <div class="setting-help" style="margin-top:2px">
+                        <span style="color:var(--danger);font-size:11px;font-weight:500">OFF:</span>
+                        <span style="color:var(--text-dim);font-size:11px"> Nothing is ever auto-removed. You control what stays. Best if you want complete history or have a small memory set.</span>
+                    </div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" checked=${config.enabled}
+                        onChange=${(e) => updateField('enabled', e.target.checked)} />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            ${expanded && html`
+                <!-- Observation TTL -->
+                <div class="settings-row setting-detail" style="padding:12px 0;border-bottom:1px solid var(--border)">
+                    <div style="flex:1">
+                        <span class="label">Observation TTL</span>
+                        <div class="setting-help">
+                            <span style="color:var(--text-dim);font-size:11px">
+                                How many days before general observations are auto-deprecated.
+                                Observations are things like "user asked about X" or "noticed pattern Y" — useful short-term, less so after a week.
+                            </span>
+                        </div>
+                        <div class="setting-help" style="margin-top:2px">
+                            <span style="color:var(--text-muted);font-size:11px;font-style:italic">
+                                Example: Set to 7 days if your agent logs dozens of observations per session. Set to 30+ if observations are rare and valuable.
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" min="1" max="90" value=${config.observation_ttl_days}
+                            onInput=${(e) => updateField('observation_ttl_days', parseInt(e.target.value))}
+                            style="width:120px" />
+                        <span class="value" style="min-width:50px;text-align:right">${config.observation_ttl_days}d</span>
+                    </div>
+                </div>
+
+                <!-- Session TTL -->
+                <div class="settings-row setting-detail" style="padding:12px 0;border-bottom:1px solid var(--border)">
+                    <div style="flex:1">
+                        <span class="label">Session Context TTL</span>
+                        <div class="setting-help">
+                            <span style="color:var(--text-dim);font-size:11px">
+                                How many days before session-context observations expire. These are ephemeral notes like
+                                "user said good morning" or "started new session" — they clutter your memory fast.
+                            </span>
+                        </div>
+                        <div class="setting-help" style="margin-top:2px">
+                            <span style="color:var(--text-muted);font-size:11px;font-style:italic">
+                                Example: Set to 1-2 days for aggressive cleanup. Set to 7 if you want a week of session history.
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" min="1" max="30" value=${config.session_ttl_days}
+                            onInput=${(e) => updateField('session_ttl_days', parseInt(e.target.value))}
+                            style="width:120px" />
+                        <span class="value" style="min-width:50px;text-align:right">${config.session_ttl_days}d</span>
+                    </div>
+                </div>
+
+                <!-- Stale Threshold -->
+                <div class="settings-row setting-detail" style="padding:12px 0;border-bottom:1px solid var(--border)">
+                    <div style="flex:1">
+                        <span class="label">Stale Confidence Threshold</span>
+                        <div class="setting-help">
+                            <span style="color:var(--text-dim);font-size:11px">
+                                Memories whose computed confidence drops below this value get auto-deprecated.
+                                Confidence decays naturally over time — facts decay slowly (~139 day half-life),
+                                while observations decay faster.
+                            </span>
+                        </div>
+                        <div class="setting-help" style="margin-top:2px">
+                            <span style="color:var(--text-muted);font-size:11px;font-style:italic">
+                                Example: 0.10 is conservative (only removes very stale memories). 0.25 is aggressive (removes anything that's lost 75% confidence).
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" min="1" max="50" value=${Math.round(config.stale_threshold * 100)}
+                            onInput=${(e) => updateField('stale_threshold', parseInt(e.target.value) / 100)}
+                            style="width:120px" />
+                        <span class="value" style="min-width:50px;text-align:right">${(config.stale_threshold * 100).toFixed(0)}%</span>
+                    </div>
+                </div>
+
+                <!-- Cleanup Interval -->
+                <div class="settings-row setting-detail" style="padding:12px 0;border-bottom:1px solid var(--border)">
+                    <div style="flex:1">
+                        <span class="label">Cleanup Interval</span>
+                        <div class="setting-help">
+                            <span style="color:var(--text-dim);font-size:11px">
+                                How often the background cleanup runs (in hours). Lower = more frequent checks.
+                            </span>
+                        </div>
+                        <div class="setting-help" style="margin-top:2px">
+                            <span style="color:var(--text-muted);font-size:11px;font-style:italic">
+                                Example: 24h (once a day) is fine for most users. Set to 1h if you're generating memories rapidly.
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="range" min="1" max="168" value=${config.cleanup_interval_hours}
+                            onInput=${(e) => updateField('cleanup_interval_hours', parseInt(e.target.value))}
+                            style="width:120px" />
+                        <span class="value" style="min-width:50px;text-align:right">${config.cleanup_interval_hours}h</span>
+                    </div>
+                </div>
+
+                <!-- Save button -->
+                <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onClick=${handleSave} disabled=${saving}>
+                        ${saving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                    <button class="btn" onClick=${handleDryRun} disabled=${cleanupRunning}>
+                        ${cleanupRunning ? 'Running...' : 'Preview Cleanup'}
+                    </button>
+                    <button class="btn btn-danger" onClick=${handleCleanup} disabled=${cleanupRunning}>
+                        Run Cleanup Now
+                    </button>
+                </div>
+
+                <!-- Cleanup result -->
+                ${cleanupResult && html`
+                    <div class="cleanup-result" style="margin-top:12px;padding:12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius)">
+                        ${cleanupResult.error ? html`
+                            <span style="color:var(--danger)">${cleanupResult.error}</span>
+                        ` : html`
+                            <div style="font-size:13px;color:var(--text-dim)">
+                                <strong style="color:var(--text)">${cleanupResult.dry_run ? 'Preview' : 'Cleanup Complete'}</strong>
+                                <span style="margin-left:8px">
+                                    Checked: ${cleanupResult.checked} ·
+                                    ${cleanupResult.dry_run ? 'Would deprecate' : 'Deprecated'}: <strong style="color:${cleanupResult.deprecated > 0 ? 'var(--warning)' : 'var(--accent)'}">${cleanupResult.deprecated}</strong>
+                                </span>
+                            </div>
+                            ${cleanupResult.deprecated_ids && cleanupResult.deprecated_ids.length > 0 && html`
+                                <div style="margin-top:8px;font-size:11px;color:var(--text-muted);max-height:100px;overflow-y:auto">
+                                    ${cleanupResult.deprecated_ids.map(id => html`<div style="font-family:monospace">${id.substring(0, 8)}...</div>`)}
+                                </div>
+                            `}
+                        `}
+                    </div>
+                `}
+
+                <!-- Last run info -->
+                ${lastRun && html`
+                    <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">
+                        Last cleanup: ${new Date(lastRun).toLocaleString()}
+                        ${lastResult && lastResult.deprecated != null ? html` · Deprecated: ${lastResult.deprecated}` : ''}
+                    </div>
+                `}
+            `}
+        </div>
+    `;
+}
+
+// ============================================================================
 // Settings Page
 // ============================================================================
 
@@ -861,43 +1110,43 @@ function SettingsPage() {
 
                 ${chain ? html`
                     <div class="chain-stats-grid">
-                        <div class="chain-stat-card">
+                        <div class="chain-stat-card" title="Total number of blocks committed to the chain. Each block contains validated memory operations.">
                             <div class="chain-stat-value block-height">${Number(chain.block_height || 0).toLocaleString()}</div>
                             <div class="chain-stat-label">Block Height</div>
                         </div>
-                        <div class="chain-stat-card">
+                        <div class="chain-stat-card" title="Countdown to the next block being produced (~5s intervals). Memories are committed to the chain in blocks.">
                             <div class="chain-stat-value countdown-value">${countdownDisplay}</div>
                             <div class="chain-stat-label">Next Block</div>
                             <div class="countdown-bar">
                                 <div class="countdown-fill" style="width: ${countdown !== null ? Math.min(100, (countdown / 5000) * 100) : 0}%"></div>
                             </div>
                         </div>
-                        <div class="chain-stat-card">
+                        <div class="chain-stat-card" title="Number of other SAGE nodes connected in quorum mode. 0 = running solo (Personal mode).">
                             <div class="chain-stat-value">${chain.peers || '0'}</div>
                             <div class="chain-stat-label">Peers</div>
                         </div>
-                        <div class="chain-stat-card">
+                        <div class="chain-stat-card" title="This validator's voting power in the BFT consensus. Higher = more influence on which memories get committed.">
                             <div class="chain-stat-value">${chain.voting_power || '0'}</div>
                             <div class="chain-stat-label">Voting Power</div>
                         </div>
                     </div>
 
                     <div class="chain-details">
-                        <div class="settings-row">
+                        <div class="settings-row" title="Unique identifier for this blockchain network. Each SAGE deployment has its own chain.">
                             <span class="label">Chain ID</span>
                             <span class="value chain-id-value">${chain.chain_id || '--'}</span>
                         </div>
-                        <div class="settings-row">
+                        <div class="settings-row" title="The display name of this SAGE node. Set during initialization.">
                             <span class="label">Node</span>
                             <span class="value">${chain.moniker || '--'}</span>
                         </div>
-                        <div class="settings-row">
+                        <div class="settings-row" title="Whether this node is catching up with the latest blocks. 'In sync' means it's up to date.">
                             <span class="label">Syncing</span>
                             <span class="value" style="color: ${chain.catching_up ? '#ef4444' : '#10b981'}">
                                 ${chain.catching_up ? 'Catching up...' : 'In sync'}
                             </span>
                         </div>
-                        <div class="settings-row">
+                        <div class="settings-row" title="Timestamp of the most recently committed block.">
                             <span class="label">Last Block</span>
                             <span class="value">${chain.block_time ? new Date(chain.block_time).toLocaleTimeString() : '--'}</span>
                         </div>
@@ -913,32 +1162,32 @@ function SettingsPage() {
             <!-- System Status -->
             <div class="settings-section">
                 <h3>System Status</h3>
-                <div class="settings-row">
+                <div class="settings-row" title="SAGE memory engine status. If you can see this, it's running.">
                     <span class="label">${statusDot(true)} SAGE</span>
                     <span class="value" style="color:#10b981">Running</span>
                 </div>
-                <div class="settings-row">
+                <div class="settings-row" title="Ollama provides local AI embeddings for semantic search. Optional — SAGE falls back to hash-based embeddings if offline.">
                     <span class="label">${statusDot(ollama === 'running')} Ollama</span>
                     <span class="value" style="color: ${ollama === 'running' ? '#10b981' : '#6b7280'}">
                         ${ollama === 'running' ? 'Connected' : 'Offline'}
                     </span>
                 </div>
-                <div class="settings-row">
+                <div class="settings-row" title="When enabled, all memories are encrypted at rest with AES-256-GCM. Requires a vault passphrase to unlock.">
                     <span class="label">${statusDot(encrypted)} Encryption</span>
                     <span class="value" style="color: ${encrypted ? '#10b981' : '#6b7280'}">
                         ${encrypted ? 'AES-256-GCM' : 'Off'}
                     </span>
                 </div>
-                <div class="settings-row">
+                <div class="settings-row" title="Current SAGE version.">
                     <span class="label">Version</span>
                     <span class="value">${ver}</span>
                 </div>
-                <div class="settings-row">
+                <div class="settings-row" title="How long SAGE has been running since last restart.">
                     <span class="label">Uptime</span>
                     <span class="value">${uptime}</span>
                 </div>
-                <div class="settings-row">
-                    <span class="label">Dashboard API</span>
+                <div class="settings-row" title="The REST API endpoint that your AI agents connect to for memory operations.">
+                    <span class="label">API Endpoint</span>
                     <span class="value">${window.location.origin}</span>
                 </div>
             </div>
@@ -946,7 +1195,7 @@ function SettingsPage() {
             ${stats && html`
                 <div class="settings-section">
                     <h3>Memory Statistics</h3>
-                    <div class="settings-row">
+                    <div class="settings-row" title="Total number of memories across all statuses and domains.">
                         <span class="label">Total Memories</span>
                         <span class="value">${stats.total_memories || 0}</span>
                     </div>
@@ -964,6 +1213,8 @@ function SettingsPage() {
                     `}
                 </div>
             `}
+
+            ${html`<${CleanupSettings} />`}
 
             <div class="settings-section">
                 <h3>Export</h3>
@@ -1342,7 +1593,7 @@ function HelpOverlay({ onClose }) {
 
     const cards = [
         {
-            title: 'Brain View',
+            title: 'Cerebrum View',
             icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>`,
             body: 'Each bubble is a memory. Size = confidence level. Color = knowledge domain. Click a bubble to see details.',
         },
@@ -1381,13 +1632,18 @@ function HelpOverlay({ onClose }) {
             icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
             body: 'The search page (magnifying glass icon) lets you do full-text search across all memories.',
         },
+        {
+            title: 'Auto-Cleanup',
+            icon: html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2"/></svg>`,
+            body: 'Go to Settings to enable auto-cleanup. It removes stale observations and low-confidence memories over time, keeping your brain lean.',
+        },
     ];
 
     return html`
         <div class="help-overlay" onClick=${(e) => { if (e.target === e.currentTarget) handleDismiss(); }}>
             <div class="help-modal">
                 <div class="help-modal-header">
-                    <h2>SAGE Brain Dashboard Guide</h2>
+                    <h2>CEREBRUM Guide</h2>
                     <button class="detail-close" onClick=${handleDismiss}>x</button>
                 </div>
                 <div class="help-grid">
@@ -1450,7 +1706,7 @@ function LoginScreen({ onSuccess }) {
                     </svg>
                 </div>
                 <h2 class="login-title">SAGE is Encrypted</h2>
-                <p class="login-subtitle">Enter your vault passphrase to unlock the Brain Dashboard.</p>
+                <p class="login-subtitle">Enter your vault passphrase to unlock CEREBRUM.</p>
                 <form onSubmit=${handleSubmit}>
                     <input
                         type="password"
@@ -1539,7 +1795,7 @@ function App() {
     return html`
         <div class="sidebar">
             <div class="sidebar-logo">S</div>
-            <button class="sidebar-btn ${page === 'brain' ? 'active' : ''}" onClick=${() => navigate('brain')} title="Brain">
+            <button class="sidebar-btn ${page === 'brain' ? 'active' : ''}" onClick=${() => navigate('brain')} title="Cerebrum">
                 ${icons.brain}
             </button>
             <button class="sidebar-btn ${page === 'search' ? 'active' : ''}" onClick=${() => navigate('search')} title="Search">
@@ -1558,7 +1814,7 @@ function App() {
         </div>
         <div class="main-content">
             <div class="top-bar">
-                <h1>SAGE Brain</h1>
+                <h1>CEREBRUM <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">Your SAGE Brain</span></h1>
                 <div class="spacer"></div>
                 <div class="connection-badge">
                     <div class="connection-dot ${sseConnected ? '' : 'disconnected'}"></div>

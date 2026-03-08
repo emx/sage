@@ -77,3 +77,26 @@ export async function importMemories(file) {
     });
     return res.json();
 }
+
+export async function fetchCleanupSettings() {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/cleanup`);
+    return res.json();
+}
+
+export async function saveCleanupSettings(config) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/cleanup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+    });
+    return res.json();
+}
+
+export async function runCleanup(dryRun = true) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/cleanup/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dry_run: dryRun }),
+    });
+    return res.json();
+}

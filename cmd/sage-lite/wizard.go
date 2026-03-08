@@ -937,7 +937,7 @@ label { display: block; margin-top: 1rem; color: #9ca3af; font-size: 0.9rem; }
       <li>Your AI seeds its brain with foundational memories about how to use SAGE</li>
       <li>It starts recalling and storing context automatically</li>
       <li>Over time, it builds up knowledge about you, your projects, and your preferences</li>
-      <li>Open the Brain Dashboard to see its memory grow in real-time</li>
+      <li>Open CEREBRUM to see its memory grow in real-time</li>
     </ul>
   </div>
 
@@ -980,7 +980,7 @@ label { display: block; margin-top: 1rem; color: #9ca3af; font-size: 0.9rem; }
     <p style="margin-top:1.25rem">Now start the SAGE server:</p>
     <p style="margin-top:0.75rem"><code>sage-lite serve</code></p>
     <p style="margin-top:1.25rem">Then open your AI app and send the inception message.</p>
-    <p style="margin-top:1.25rem; font-size:0.9rem">Your Brain Dashboard will be at <strong style="color:#06b6d4">http://localhost:8080/ui/</strong></p>
+    <p style="margin-top:1.25rem; font-size:0.9rem">CEREBRUM will be at <strong style="color:#06b6d4">http://localhost:8080/ui/</strong></p>
 
     <div id="import-reminder" style="display:none; margin-top:1.5rem; padding:1rem; background:#111827; border-radius:8px; text-align:left; border:1px solid #1f2937">
       <p style="color:#10b981; font-weight:600; margin-bottom:0.25rem">&#10003; Chat history queued for import</p>

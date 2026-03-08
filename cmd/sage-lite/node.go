@@ -30,6 +30,7 @@ import (
 	"github.com/l33tdawg/sage/api/rest"
 	sageabci "github.com/l33tdawg/sage/internal/abci"
 	"github.com/l33tdawg/sage/internal/embedding"
+	"github.com/l33tdawg/sage/internal/memory"
 	"github.com/l33tdawg/sage/internal/metrics"
 	"github.com/l33tdawg/sage/internal/store"
 	"github.com/l33tdawg/sage/internal/vault"
@@ -227,6 +228,9 @@ func runServe() error {
 	// Mount dashboard routes (these don't collide — dashboard uses /v1/dashboard/ prefix)
 	dashboard.RegisterRoutes(r)
 
+	// Start background memory cleanup loop
+	memory.StartCleanupLoop(ctx, sqliteStore)
+
 	// Embedding endpoint override — use configured provider, not just Ollama
 	r.Post("/v1/embed/personal", handleEmbedPersonal(embedProvider))
 
@@ -245,7 +249,7 @@ func runServe() error {
 			Msg("SAGE Personal ready")
 
 		fmt.Fprintf(os.Stderr, "\n  SAGE Personal is running!\n")
-		fmt.Fprintf(os.Stderr, "  Dashboard: http://localhost%s/ui/\n", cfg.RESTAddr)
+		fmt.Fprintf(os.Stderr, "  CEREBRUM:  http://localhost%s/ui/\n", cfg.RESTAddr)
 		fmt.Fprintf(os.Stderr, "  REST API:  http://localhost%s/v1/\n\n", cfg.RESTAddr)
 
 		// Auto-open dashboard in browser
