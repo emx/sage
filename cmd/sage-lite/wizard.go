@@ -285,7 +285,7 @@ func handleInstallMCP(w http.ResponseWriter, r *http.Request) {
 
 	// Write back with pretty formatting
 	data, _ := json.MarshalIndent(existing, "", "  ")
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
 		writeWizardJSON(w, map[string]any{"ok": false, "error": "cannot write config: " + err.Error()})
 		return
 	}
