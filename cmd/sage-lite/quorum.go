@@ -190,13 +190,13 @@ func runQuorumJoin() error {
 		return fmt.Errorf("read manifest: %w", err)
 	}
 	var peerManifest QuorumManifest
-	if err := json.Unmarshal(data, &peerManifest); err != nil {
-		return fmt.Errorf("parse manifest: %w", err)
+	if unmarshalErr := json.Unmarshal(data, &peerManifest); unmarshalErr != nil {
+		return fmt.Errorf("parse manifest: %w", unmarshalErr)
 	}
 
 	// Ensure CometBFT is initialized
-	if err := initCometBFTConfig(cometHome); err != nil {
-		return fmt.Errorf("init CometBFT: %w", err)
+	if initErr := initCometBFTConfig(cometHome); initErr != nil {
+		return fmt.Errorf("init CometBFT: %w", initErr)
 	}
 
 	// Load this node's validator key
@@ -211,7 +211,7 @@ func runQuorumJoin() error {
 	}
 
 	// Convert peer manifest validators to CometBFT genesis validators
-	var validators []cmttypes.GenesisValidator
+	validators := make([]cmttypes.GenesisValidator, 0, len(peerManifest.Validators)+1)
 	for _, mv := range peerManifest.Validators {
 		gv, convErr := mv.toGenesis()
 		if convErr != nil {
@@ -228,7 +228,7 @@ func runQuorumJoin() error {
 	})
 
 	// Build peer list (just the peer nodes, not ourselves)
-	var peers []string
+	peers := make([]string, 0, len(peerManifest.Peers))
 	for _, p := range peerManifest.Peers {
 		peers = append(peers, fmt.Sprintf("%s@%s", p.NodeID, p.Address))
 	}
@@ -248,8 +248,8 @@ func runQuorumJoin() error {
 		ConsensusParams: cmttypes.DefaultConsensusParams(),
 		Validators:      validators,
 	}
-	if err := genDoc.ValidateAndComplete(); err != nil {
-		return fmt.Errorf("validate genesis: %w", err)
+	if valErr := genDoc.ValidateAndComplete(); valErr != nil {
+		return fmt.Errorf("validate genesis: %w", valErr)
 	}
 
 	// Back up existing genesis
@@ -263,8 +263,8 @@ func runQuorumJoin() error {
 	}
 
 	// Write new shared genesis
-	if err := genDoc.SaveAs(genesisPath); err != nil {
-		return fmt.Errorf("save genesis: %w", err)
+	if saveErr := genDoc.SaveAs(genesisPath); saveErr != nil {
+		return fmt.Errorf("save genesis: %w", saveErr)
 	}
 
 	// Also need to wipe CometBFT state since genesis changed
@@ -274,8 +274,8 @@ func runQuorumJoin() error {
   "round": 0,
   "step": 0
 }`
-	if err := os.WriteFile(statePath, []byte(resetState), 0600); err != nil {
-		return fmt.Errorf("reset validator state: %w", err)
+	if writeErr := os.WriteFile(statePath, []byte(resetState), 0600); writeErr != nil {
+		return fmt.Errorf("reset validator state: %w", writeErr)
 	}
 
 	// Remove old block data AND badger on-chain state (genesis changed, incompatible)
