@@ -243,6 +243,7 @@ func (s *Server) handleSubmitMemory(w http.ResponseWriter, r *http.Request) {
 			Content:         req.Content,
 			ParentHash:      req.ParentHash,
 			Classification:  tx.ClearanceLevel(classification), // #nosec G115 -- validated small int
+			TaskStatus:      req.TaskStatus,
 		},
 	}
 

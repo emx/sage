@@ -68,6 +68,7 @@ type MemorySubmit struct {
 	Content         string
 	ParentHash      string
 	Classification  ClearanceLevel // Defaults to ClearanceInternal (1)
+	TaskStatus      string         // For task memories: planned, in_progress, done, dropped
 }
 
 // MemoryVote records a validator's vote on a proposed memory.

@@ -85,7 +85,7 @@ func mockSageAPI(t *testing.T) *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("/v1/memory/tasks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/v1/dashboard/tasks", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"tasks": []map[string]any{

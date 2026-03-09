@@ -110,6 +110,10 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/v1/dashboard/settings/boot-instructions", h.handleGetBootInstructions)
 		r.Post("/v1/dashboard/settings/boot-instructions", h.handleSaveBootInstructions)
 
+		// Task backlog
+		r.Get("/v1/dashboard/tasks", h.handleGetTasks)
+		r.Put("/v1/dashboard/tasks/{id}/status", h.handleUpdateTaskStatusDashboard)
+
 		// Software Update
 		r.Get("/v1/dashboard/settings/update/check", h.handleCheckUpdate)
 		r.Post("/v1/dashboard/settings/update/apply", h.handleApplyUpdate)
@@ -445,6 +449,65 @@ func (h *DashboardHandler) handleUpdateMemory(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSONResp(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+// handleGetTasks returns open tasks from the backlog.
+func (h *DashboardHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	provider := r.URL.Query().Get("provider")
+	tasks, err := h.store.GetOpenTasks(r.Context(), domain, provider)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type taskResult struct {
+		MemoryID        string  `json:"memory_id"`
+		Content         string  `json:"content"`
+		DomainTag       string  `json:"domain_tag"`
+		TaskStatus      string  `json:"task_status"`
+		ConfidenceScore float64 `json:"confidence_score"`
+		CreatedAt       string  `json:"created_at"`
+	}
+	results := make([]taskResult, 0, len(tasks))
+	for _, t := range tasks {
+		results = append(results, taskResult{
+			MemoryID:        t.MemoryID,
+			Content:         t.Content,
+			DomainTag:       t.DomainTag,
+			TaskStatus:      string(t.TaskStatus),
+			ConfidenceScore: t.ConfidenceScore,
+			CreatedAt:       t.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		})
+	}
+	writeJSONResp(w, http.StatusOK, map[string]any{"tasks": results, "total": len(results)})
+}
+
+// handleUpdateTaskStatusDashboard updates a task's status from the dashboard.
+func (h *DashboardHandler) handleUpdateTaskStatusDashboard(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "missing task id")
+		return
+	}
+	var body struct {
+		TaskStatus string `json:"task_status"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	ts := memory.TaskStatus(body.TaskStatus)
+	if !memory.IsValidTaskStatus(ts) {
+		writeError(w, http.StatusBadRequest, "task_status must be one of: planned, in_progress, done, dropped")
+		return
+	}
+	if err := h.store.UpdateTaskStatus(r.Context(), id, ts); err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSONResp(w, http.StatusOK, map[string]string{"memory_id": id, "task_status": body.TaskStatus})
 }
 
 // handleHealth returns system health including Ollama status.

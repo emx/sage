@@ -720,7 +720,7 @@ func (s *Server) toolTask(ctx context.Context, params map[string]any) (any, erro
 		updateReq, _ := json.Marshal(map[string]any{
 			"task_status": status,
 		})
-		path := fmt.Sprintf("/v1/memory/%s/task-status", url.PathEscape(memoryID))
+		path := fmt.Sprintf("/v1/dashboard/tasks/%s/status", url.PathEscape(memoryID))
 		if err := s.doSignedJSON(ctx, "PUT", path, updateReq, nil); err != nil {
 			return nil, fmt.Errorf("update task status: %w", err)
 		}
@@ -794,7 +794,7 @@ func (s *Server) toolBacklog(ctx context.Context, params map[string]any) (any, e
 		q.Set("provider", s.provider)
 	}
 
-	path := "/v1/memory/tasks?" + q.Encode()
+	path := "/v1/dashboard/tasks?" + q.Encode()
 	var tasksResp struct {
 		Tasks []struct {
 			MemoryID        string  `json:"memory_id"`

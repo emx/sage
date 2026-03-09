@@ -437,6 +437,7 @@ func encodeMemorySubmit(s *MemorySubmit) []byte {
 	buf = appendBytes(buf, []byte(s.Content))
 	buf = appendBytes(buf, []byte(s.ParentHash))
 	buf = append(buf, byte(s.Classification))
+	buf = appendBytes(buf, []byte(s.TaskStatus))
 	return buf
 }
 
@@ -494,8 +495,17 @@ func decodeMemorySubmit(data []byte) (*MemorySubmit, error) {
 	// Classification: backward compatible — default to ClearanceInternal if absent
 	if off < len(data) {
 		s.Classification = ClearanceLevel(data[off])
+		off++
 	} else {
 		s.Classification = ClearanceInternal
+	}
+
+	// TaskStatus: backward compatible — empty string if absent
+	if off < len(data) {
+		b, _, err = readBytes(data, off)
+		if err == nil {
+			s.TaskStatus = string(b)
+		}
 	}
 
 	return s, nil

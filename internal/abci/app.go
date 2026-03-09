@@ -447,6 +447,7 @@ func (app *SageApp) processMemorySubmit(parsedTx *tx.ParsedTx, height int64, blo
 		DomainTag:       submit.DomainTag,
 		ConfidenceScore: submit.ConfidenceScore,
 		Status:          memory.StatusProposed,
+		TaskStatus:      memory.TaskStatus(submit.TaskStatus),
 		CreatedAt:       blockTime,
 	}
 	app.pendingWrites = append(app.pendingWrites, pendingWrite{writeType: "memory", data: record})
