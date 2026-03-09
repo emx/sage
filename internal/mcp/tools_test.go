@@ -329,7 +329,7 @@ func TestSageInception_FreshBrain(t *testing.T) {
 
 	m := result.(map[string]any)
 	assert.Equal(t, "inception_complete", m["status"])
-	assert.EqualValues(t, 4, m["memories_seeded"])
+	assert.EqualValues(t, 5, m["memories_seeded"])
 	assert.Contains(t, m["message"], "Welcome to the real world")
 }
 

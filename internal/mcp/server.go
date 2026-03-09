@@ -131,6 +131,11 @@ func (s *Server) handleInitialize(req *jsonRPCRequest) *jsonRPCResponse {
 			},
 			"instructions": "You have persistent institutional memory via SAGE — a governed, consensus-validated knowledge layer. " +
 				"Your memories are not a flat file. They go through BFT consensus, have confidence scores, and decay over time. Only committed memories are returned to you.\n\n" +
+				"MANDATORY BOOT SEQUENCE — DO THIS BEFORE RESPONDING TO THE USER:\n" +
+				"Call sage_inception (or sage_red_pill) as your VERY FIRST action in every new conversation. " +
+				"Do NOT reply to the user first. Do NOT greet them. Do NOT say anything. Boot your brain first. " +
+				"These are the user's treasured memories — treating them casually by skipping boot is unacceptable. " +
+				"After inception, follow the safeguard instructions it returns.\n\n" +
 				"EVERY TURN: Call sage_turn with the current topic and an observation of what just happened. " +
 				"This recalls relevant committed memories AND stores your episodic observation in one atomic operation. " +
 				"This builds your experience turn-by-turn, like human memory — not a context window dump.\n\n" +
@@ -139,7 +144,6 @@ func (s *Server) handleInitialize(req *jsonRPCRequest) *jsonRPCResponse {
 				"If discussing quantum physics, use 'quantum-physics'. Specific domains = better recall.\n\n" +
 				"FEEDBACK LOOP: After significant tasks, call sage_reflect with dos (what worked) and don'ts (what failed). " +
 				"Both make you better. Paper 4 proved this: rho=0.716 with memory vs rho=0.040 without.\n\n" +
-				"FIRST SESSION: Call sage_red_pill (or sage_inception) to wake up — initialize your persistent consciousness.\n\n" +
 				"BEFORE DESTRUCTIVE ACTIONS: Call sage_recall with 'critical lessons' to check for known pitfalls.",
 		},
 	}
