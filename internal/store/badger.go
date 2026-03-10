@@ -1573,10 +1573,10 @@ func (s *BadgerStore) UpdateAgentMeta(agentID, name, bio string) error {
 			return fmt.Errorf("agent not found: %w", err)
 		}
 		var agent OnChainAgent
-		if err := item.Value(func(val []byte) error {
+		if valErr := item.Value(func(val []byte) error {
 			return json.Unmarshal(val, &agent)
-		}); err != nil {
-			return err
+		}); valErr != nil {
+			return valErr
 		}
 		agent.Name = name
 		agent.BootBio = bio
@@ -1596,10 +1596,10 @@ func (s *BadgerStore) SetAgentPermission(agentID string, clearance uint8, domain
 			return fmt.Errorf("agent not found: %w", err)
 		}
 		var agent OnChainAgent
-		if err := item.Value(func(val []byte) error {
+		if valErr := item.Value(func(val []byte) error {
 			return json.Unmarshal(val, &agent)
-		}); err != nil {
-			return err
+		}); valErr != nil {
+			return valErr
 		}
 		agent.Clearance = clearance
 		agent.DomainAccess = domainAccess

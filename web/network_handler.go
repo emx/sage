@@ -160,7 +160,7 @@ func (h *DashboardHandler) handleCreateAgent(agentStore store.AgentStore) http.H
 			go func() {
 				registerTx := &tx.ParsedTx{
 					Type:      tx.TxTypeAgentRegister,
-					Nonce:     uint64(time.Now().UnixNano()),
+					Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
 					Timestamp: time.Now(),
 					AgentRegister: &tx.AgentRegister{
 						AgentID:    agentID,
@@ -171,11 +171,11 @@ func (h *DashboardHandler) handleCreateAgent(agentStore store.AgentStore) http.H
 						P2PAddress: req.P2PAddress,
 					},
 				}
-				if err := tx.SignTx(registerTx, h.SigningKey); err != nil {
+				if signErr := tx.SignTx(registerTx, h.SigningKey); signErr != nil {
 					return
 				}
-				encoded, err := tx.EncodeTx(registerTx)
-				if err != nil {
+				encoded, encErr := tx.EncodeTx(registerTx)
+				if encErr != nil {
 					return
 				}
 				broadcastTxSync(h.CometBFTRPC, encoded)
@@ -288,11 +288,11 @@ func (h *DashboardHandler) handleUpdateAgent(agentStore store.AgentStore) http.H
 							BootBio: existing.BootBio,
 						},
 					}
-					if err := tx.SignTx(updateTx, h.SigningKey); err != nil {
+					if signErr := tx.SignTx(updateTx, h.SigningKey); signErr != nil {
 						return
 					}
-					encoded, err := tx.EncodeTx(updateTx)
-					if err != nil {
+					encoded, encErr := tx.EncodeTx(updateTx)
+					if encErr != nil {
 						return
 					}
 					broadcastTxSync(h.CometBFTRPC, encoded)
@@ -313,11 +313,11 @@ func (h *DashboardHandler) handleUpdateAgent(agentStore store.AgentStore) http.H
 							DeptID:       existing.DeptID,
 						},
 					}
-					if err := tx.SignTx(permTx, h.SigningKey); err != nil {
+					if signErr := tx.SignTx(permTx, h.SigningKey); signErr != nil {
 						return
 					}
-					encoded, err := tx.EncodeTx(permTx)
-					if err != nil {
+					encoded, encErr := tx.EncodeTx(permTx)
+					if encErr != nil {
 						return
 					}
 					broadcastTxSync(h.CometBFTRPC, encoded)
@@ -669,8 +669,14 @@ This agent will connect to the primary node's network.
 // Used by dashboard handlers to put agent operations on-chain.
 func broadcastTxSync(cometRPC string, txBytes []byte) {
 	txHex := hex.EncodeToString(txBytes)
-	url := fmt.Sprintf("%s/broadcast_tx_sync?tx=0x%s", cometRPC, txHex)
-	resp, err := http.Get(url) // #nosec G107 -- internal CometBFT RPC
+	u := fmt.Sprintf("%s/broadcast_tx_sync?tx=0x%s", cometRPC, txHex)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
 	}

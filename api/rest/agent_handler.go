@@ -55,7 +55,7 @@ func (s *Server) handleAgentRegister(w http.ResponseWriter, r *http.Request) {
 
 	registerTx := &tx.ParsedTx{
 		Type:      tx.TxTypeAgentRegister,
-		Nonce:     uint64(time.Now().UnixNano()),
+		Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
 		Timestamp: time.Now(),
 		AgentRegister: &tx.AgentRegister{
 			AgentID:    agentID,
@@ -113,7 +113,7 @@ func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request) {
 
 	updateTx := &tx.ParsedTx{
 		Type:      tx.TxTypeAgentUpdate,
-		Nonce:     uint64(time.Now().UnixNano()),
+		Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
 		Timestamp: time.Now(),
 		AgentUpdateTx: &tx.AgentUpdate{
 			AgentID: agentID,
@@ -173,7 +173,7 @@ func (s *Server) handleAgentSetPermission(w http.ResponseWriter, r *http.Request
 
 	clearance := uint8(1)
 	if req.Clearance != nil {
-		clearance = uint8(*req.Clearance)
+		clearance = uint8(*req.Clearance) // #nosec G115 -- validated small int 0-4
 	}
 	domainAccess := ""
 	if req.DomainAccess != nil {
@@ -186,7 +186,7 @@ func (s *Server) handleAgentSetPermission(w http.ResponseWriter, r *http.Request
 
 	permTx := &tx.ParsedTx{
 		Type:      tx.TxTypeAgentSetPermission,
-		Nonce:     uint64(time.Now().UnixNano()),
+		Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
 		Timestamp: time.Now(),
 		AgentSetPermission: &tx.AgentSetPermission{
 			AgentID:       targetID,

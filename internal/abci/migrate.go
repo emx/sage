@@ -51,7 +51,7 @@ func MigrateAgentsOnChain(ctx context.Context, agentStore store.AgentStore, badg
 		// Build and broadcast registration tx
 		registerTx := &tx.ParsedTx{
 			Type:      tx.TxTypeAgentRegister,
-			Nonce:     uint64(time.Now().UnixNano()),
+			Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
 			Timestamp: time.Now(),
 			AgentRegister: &tx.AgentRegister{
 				AgentID:    agent.AgentID,
