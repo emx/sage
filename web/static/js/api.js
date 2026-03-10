@@ -294,3 +294,23 @@ export async function restartServer() {
     });
     return res.json();
 }
+
+// ─── Task Backlog API ───
+
+export async function fetchTasks(params = {}) {
+    const q = new URLSearchParams();
+    if (params.all) q.set('all', 'true');
+    if (params.domain) q.set('domain', params.domain);
+    if (params.limit) q.set('limit', params.limit);
+    const res = await fetch(`${API_BASE}/v1/dashboard/tasks?${q}`);
+    return res.json();
+}
+
+export async function updateTaskStatus(id, taskStatus) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/tasks/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_status: taskStatus }),
+    });
+    return res.json();
+}

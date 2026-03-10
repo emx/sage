@@ -2282,6 +2282,48 @@ func (s *SQLiteStore) GetOpenTasks(ctx context.Context, domain string, provider 
 	return records, rows.Err()
 }
 
+// GetAllTasks returns all task memories across all statuses for the Kanban board.
+func (s *SQLiteStore) GetAllTasks(ctx context.Context, domain string, limit int) ([]*memory.MemoryRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	query := `SELECT memory_id, submitting_agent, content, content_hash, embedding, embedding_hash,
+		memory_type, domain_tag, provider, confidence_score, status, parent_hash, created_at, committed_at, deprecated_at, COALESCE(task_status, '')
+		FROM memories
+		WHERE memory_type = 'task'
+		AND status NOT IN ('deprecated')`
+	var args []any
+
+	if domain != "" {
+		query += ` AND domain_tag = ?`
+		args = append(args, domain)
+	}
+
+	query += ` ORDER BY CASE task_status
+		WHEN 'in_progress' THEN 1
+		WHEN 'planned' THEN 2
+		WHEN 'done' THEN 3
+		WHEN 'dropped' THEN 4
+		ELSE 5 END, created_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.conn.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []*memory.MemoryRecord
+	for rows.Next() {
+		rec, err := s.scanMemoryRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, rec)
+	}
+	return records, rows.Err()
+}
+
 // ---- Tag operations ----
 
 // SetTags replaces all tags on a memory with the given set.

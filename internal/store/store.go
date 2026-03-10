@@ -126,6 +126,7 @@ type MemoryStore interface {
 	LinkMemories(ctx context.Context, sourceID, targetID, linkType string) error
 	GetLinkedMemories(ctx context.Context, memoryID string) ([]memory.MemoryLink, error)
 	GetOpenTasks(ctx context.Context, domain string, provider string) ([]*memory.MemoryRecord, error)
+	GetAllTasks(ctx context.Context, domain string, limit int) ([]*memory.MemoryRecord, error)
 	// Tags
 	SetTags(ctx context.Context, memoryID string, tags []string) error
 	GetTags(ctx context.Context, memoryID string) ([]string, error)

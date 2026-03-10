@@ -159,6 +159,16 @@ func (m *mockMemoryStore) GetOpenTasks(_ context.Context, _ string, _ string) ([
 	return tasks, nil
 }
 
+func (m *mockMemoryStore) GetAllTasks(_ context.Context, _ string, _ int) ([]*memory.MemoryRecord, error) {
+	var tasks []*memory.MemoryRecord
+	for _, rec := range m.memories {
+		if rec.MemoryType == memory.TypeTask {
+			tasks = append(tasks, rec)
+		}
+	}
+	return tasks, nil
+}
+
 func (m *mockMemoryStore) SetTags(_ context.Context, _ string, _ []string) error { return nil }
 func (m *mockMemoryStore) GetTags(_ context.Context, _ string) ([]string, error) { return nil, nil }
 func (m *mockMemoryStore) ListAllTags(_ context.Context) ([]store.TagCount, error) {

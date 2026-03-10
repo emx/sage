@@ -526,11 +526,24 @@ func (h *DashboardHandler) handleSetMemoryTags(w http.ResponseWriter, r *http.Re
 	writeJSONResp(w, http.StatusOK, map[string]any{"memory_id": id, "tags": body.Tags, "status": "updated"})
 }
 
-// handleGetTasks returns open tasks from the backlog.
+// handleGetTasks returns tasks from the backlog. Use ?all=true for all statuses (Kanban board).
 func (h *DashboardHandler) handleGetTasks(w http.ResponseWriter, r *http.Request) {
 	domain := r.URL.Query().Get("domain")
-	provider := r.URL.Query().Get("provider")
-	tasks, err := h.store.GetOpenTasks(r.Context(), domain, provider)
+
+	var tasks []*memory.MemoryRecord
+	var err error
+
+	if r.URL.Query().Get("all") == "true" {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		if limit <= 0 {
+			limit = 100
+		}
+		tasks, err = h.store.GetAllTasks(r.Context(), domain, limit)
+	} else {
+		provider := r.URL.Query().Get("provider")
+		tasks, err = h.store.GetOpenTasks(r.Context(), domain, provider)
+	}
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

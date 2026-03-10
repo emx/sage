@@ -1148,6 +1148,11 @@ func (s *PostgresStore) GetOpenTasks(ctx context.Context, domain string, provide
 	return records, rows.Err()
 }
 
+// GetAllTasks returns all task memories across all statuses for the Kanban board.
+func (s *PostgresStore) GetAllTasks(_ context.Context, _ string, _ int) ([]*memory.MemoryRecord, error) {
+	return nil, nil
+}
+
 // ---- Tag operations (stubs — Postgres uses enterprise deployment, tags are SQLite/personal) ----
 
 func (s *PostgresStore) SetTags(_ context.Context, _ string, _ []string) error {

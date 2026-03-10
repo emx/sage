@@ -1,6 +1,6 @@
 // CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus } from './api.js';
 
 const { h, render, createContext } = preact;
 const { useState, useEffect, useRef, useCallback, useContext } = preactHooks;
@@ -101,6 +101,7 @@ const icons = {
     import: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
     help: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
     network: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/><line x1="5" y1="19" x2="19" y2="19" opacity="0.3"/></svg>`,
+    tasks: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
 };
 
 // ============================================================================
@@ -125,10 +126,13 @@ function BrainView({ sse, onSelectMemory }) {
     const [searchOpen, setSearchOpen] = useState(false);
     const [tooltip, setTooltip] = useState(null);
     const [sseConnected, setSseConnected] = useState(false);
+    const [agentFilter, setAgentFilter] = useState(''); // '' = all agents
+    const [agentList, setAgentList] = useState([]);
 
-    // Load graph data
+    // Load graph data + agents
     useEffect(() => {
         loadData();
+        fetchAgents().then(data => setAgentList(data.agents || [])).catch(() => {});
         const interval = setInterval(loadData, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -214,6 +218,7 @@ function BrainView({ sse, onSelectMemory }) {
             // Update filter state from React
             s.filterDomains = filterDomains;
             s.searchFilter = searchText.toLowerCase();
+            s.agentFilter = agentFilter;
 
             // Force simulation
             simulateForces(s, W, H);
@@ -232,6 +237,7 @@ function BrainView({ sse, onSelectMemory }) {
             // Determine visible nodes
             const visibleNodes = s.nodes.filter(n => {
                 if (s.filterDomains.size > 0 && !s.filterDomains.has(n.domain)) return false;
+                if (s.agentFilter && n.agent !== s.agentFilter) return false;
                 if (s.searchFilter) {
                     const q = s.searchFilter;
                     const match = (n.content && n.content.toLowerCase().includes(q)) ||
@@ -372,7 +378,7 @@ function BrainView({ sse, onSelectMemory }) {
             cancelAnimationFrame(animFrame);
             window.removeEventListener('resize', resize);
         };
-    }, [filterDomains, searchText]);
+    }, [filterDomains, searchText, agentFilter]);
 
     // Mouse interactions
     useEffect(() => {
@@ -522,6 +528,23 @@ function BrainView({ sse, onSelectMemory }) {
                     </button>
                 `)}
             </div>
+
+            ${agentList.length > 0 && html`
+                <div class="agent-tab-bar">
+                    <button class="agent-tab ${agentFilter === '' ? 'active' : ''}"
+                            onClick=${() => setAgentFilter('')}>
+                        All
+                    </button>
+                    ${agentList.map(a => html`
+                        <button class="agent-tab ${agentFilter === a.agent_id ? 'active' : ''}"
+                                onClick=${() => setAgentFilter(agentFilter === a.agent_id ? '' : a.agent_id)}
+                                title=${a.agent_id}>
+                            <span class="agent-tab-avatar">${a.avatar || '🤖'}</span>
+                            ${a.name}
+                        </button>
+                    `)}
+                </div>
+            `}
 
             <div class="graph-search ${searchOpen ? 'open' : ''} ${searchText ? 'has-filter' : ''}">
                 <button class="graph-search-toggle" onClick=${() => { setSearchOpen(!searchOpen); if (searchOpen && !searchText) setSearchOpen(false); }}
@@ -819,6 +842,139 @@ function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
                     </button>
                     ${confirming && html`<span style="font-size: 12px; color: var(--danger); margin-left: 12px;">Click again to confirm</span>`}
                 </div>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================================
+// Tasks / Kanban Page
+// ============================================================================
+
+const TASK_COLUMNS = [
+    { key: 'planned', label: 'Planned', color: 'var(--text-muted)', icon: '○' },
+    { key: 'in_progress', label: 'In Progress', color: 'var(--warning)', icon: '◉' },
+    { key: 'done', label: 'Done', color: 'var(--accent)', icon: '✓' },
+    { key: 'dropped', label: 'Dropped', color: 'var(--danger)', icon: '✕' },
+];
+
+function TasksPage() {
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [domainFilter, setDomainFilter] = useState('');
+    const [domains, setDomains] = useState([]);
+    const [dragging, setDragging] = useState(null);
+    const [dragOver, setDragOver] = useState(null);
+
+    useEffect(() => { loadTasks(); }, []);
+
+    async function loadTasks() {
+        setLoading(true);
+        try {
+            const data = await fetchTasks({ all: true, limit: 200 });
+            const items = data.tasks || [];
+            setTasks(items);
+            const ds = [...new Set(items.map(t => t.domain_tag).filter(Boolean))].sort();
+            setDomains(ds);
+        } catch (e) { setTasks([]); }
+        setLoading(false);
+    }
+
+    async function moveTask(taskId, newStatus) {
+        // Optimistic update
+        setTasks(prev => prev.map(t => t.memory_id === taskId ? { ...t, task_status: newStatus } : t));
+        try {
+            await updateTaskStatus(taskId, newStatus);
+        } catch (e) {
+            loadTasks(); // revert on error
+        }
+    }
+
+    function handleDragStart(e, task) {
+        setDragging(task.memory_id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', task.memory_id);
+    }
+
+    function handleDragOver(e, colKey) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOver(colKey);
+    }
+
+    function handleDragLeave() {
+        setDragOver(null);
+    }
+
+    function handleDrop(e, colKey) {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId && colKey) {
+            moveTask(taskId, colKey);
+        }
+        setDragging(null);
+        setDragOver(null);
+    }
+
+    const filtered = domainFilter ? tasks.filter(t => t.domain_tag === domainFilter) : tasks;
+
+    return html`
+        <div class="tasks-page">
+            <div class="tasks-header">
+                <h2 class="tasks-title">Task Board</h2>
+                <div class="tasks-filters">
+                    <select class="filter-select" value=${domainFilter} onChange=${e => setDomainFilter(e.target.value)}>
+                        <option value="">All domains</option>
+                        ${domains.map(d => html`<option value=${d}>${d}</option>`)}
+                    </select>
+                    <button class="btn" onClick=${loadTasks} title="Refresh">↻</button>
+                </div>
+            </div>
+            <div class="kanban-board">
+                ${TASK_COLUMNS.map(col => {
+                    const colTasks = filtered.filter(t => t.task_status === col.key);
+                    return html`
+                        <div class="kanban-column ${dragOver === col.key ? 'drag-over' : ''}"
+                             onDragOver=${e => handleDragOver(e, col.key)}
+                             onDragLeave=${handleDragLeave}
+                             onDrop=${e => handleDrop(e, col.key)}>
+                            <div class="kanban-column-header">
+                                <span class="kanban-column-icon" style="color:${col.color}">${col.icon}</span>
+                                <span class="kanban-column-label">${col.label}</span>
+                                <span class="kanban-column-count">${colTasks.length}</span>
+                            </div>
+                            <div class="kanban-cards">
+                                ${colTasks.map(task => html`
+                                    <div class="kanban-card ${dragging === task.memory_id ? 'dragging' : ''}"
+                                         draggable="true"
+                                         onDragStart=${e => handleDragStart(e, task)}>
+                                        <div class="kanban-card-content">${task.content.replace(/^\[TASK\]\s*/i, '')}</div>
+                                        <div class="kanban-card-meta">
+                                            <span class="domain-badge" style="background:${getDomainColor(task.domain_tag)}20;color:${getDomainColor(task.domain_tag)};font-size:10px;padding:2px 6px;">
+                                                ${task.domain_tag}
+                                            </span>
+                                            <span style="font-size:11px;color:var(--text-muted);">${timeAgo(task.created_at)}</span>
+                                        </div>
+                                        ${col.key !== 'done' && col.key !== 'dropped' ? html`
+                                            <div class="kanban-card-actions">
+                                                ${col.key === 'planned' && html`
+                                                    <button class="kanban-action" title="Start" onClick=${() => moveTask(task.memory_id, 'in_progress')}>▶</button>
+                                                `}
+                                                ${col.key === 'in_progress' && html`
+                                                    <button class="kanban-action" title="Done" onClick=${() => moveTask(task.memory_id, 'done')}>✓</button>
+                                                `}
+                                                <button class="kanban-action kanban-action-drop" title="Drop" onClick=${() => moveTask(task.memory_id, 'dropped')}>✕</button>
+                                            </div>
+                                        ` : null}
+                                    </div>
+                                `)}
+                                ${colTasks.length === 0 && html`
+                                    <div class="kanban-empty">${loading ? 'Loading...' : 'No tasks'}</div>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                })}
             </div>
         </div>
     `;
@@ -3620,6 +3776,7 @@ function App() {
         function onHash() {
             const hash = window.location.hash.slice(1) || '/';
             if (hash === '/search') setPage('search');
+            else if (hash === '/tasks') setPage('tasks');
             else if (hash === '/settings') setPage('settings');
             else if (hash === '/import') setPage('import');
             else if (hash === '/network') setPage('network');
@@ -3661,6 +3818,9 @@ function App() {
             <button class="sidebar-btn ${page === 'search' ? 'active' : ''}" onClick=${() => navigate('search')} title="Search">
                 ${icons.search}
             </button>
+            <button class="sidebar-btn ${page === 'tasks' ? 'active' : ''}" onClick=${() => navigate('tasks')} title="Tasks">
+                ${icons.tasks}
+            </button>
             <button class="sidebar-btn ${page === 'import' ? 'active' : ''}" onClick=${() => navigate('import')} title="Import">
                 ${icons.import}
             </button>
@@ -3692,6 +3852,7 @@ function App() {
                 <${TimelineBar} />
             `}
             ${page === 'search' && html`<${SearchPage} onSelectMemory=${onSelectMemory} />`}
+            ${page === 'tasks' && html`<${TasksPage} />`}
             ${page === 'import' && html`<${ImportPage} />`}
             ${page === 'network' && html`<${NetworkPage} />`}
             ${page === 'settings' && html`<${SettingsPage} />`}
