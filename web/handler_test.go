@@ -224,3 +224,158 @@ func TestHandleTimeline(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Contains(t, resp, "buckets")
 }
+
+// ---------------------------------------------------------------------------
+// Network / Template tests
+// ---------------------------------------------------------------------------
+
+func TestHandleTemplates(t *testing.T) {
+	h, _ := newTestHandler(t)
+	r := testRouter(h)
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/network/templates", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Templates []struct {
+			Name      string `json:"name"`
+			Role      string `json:"role"`
+			Bio       string `json:"bio"`
+			Clearance int    `json:"clearance"`
+			Avatar    string `json:"avatar"`
+		} `json:"templates"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.GreaterOrEqual(t, len(resp.Templates), 2, "should have multiple templates")
+
+	// Verify Coding Assistant template is present
+	found := false
+	for _, tmpl := range resp.Templates {
+		if tmpl.Name == "Coding Assistant" {
+			found = true
+			assert.Equal(t, "member", tmpl.Role)
+			assert.NotEmpty(t, tmpl.Bio)
+			assert.Equal(t, 1, tmpl.Clearance)
+			break
+		}
+	}
+	assert.True(t, found, "Coding Assistant template should be present")
+}
+
+func TestHandleTemplatesContainsExpected(t *testing.T) {
+	h, _ := newTestHandler(t)
+	r := testRouter(h)
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/network/templates", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var resp struct {
+		Templates []struct {
+			Name string `json:"name"`
+		} `json:"templates"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+
+	names := make([]string, len(resp.Templates))
+	for i, t := range resp.Templates {
+		names[i] = t.Name
+	}
+	assert.Contains(t, names, "Coding Assistant")
+	assert.Contains(t, names, "Voice Assistant")
+	assert.Contains(t, names, "Research Agent")
+	assert.Contains(t, names, "Custom")
+}
+
+// ---------------------------------------------------------------------------
+// Unregistered agents test
+// ---------------------------------------------------------------------------
+
+func insertTestMemoryWithAgent(t *testing.T, s *store.SQLiteStore, id, domain, agentID string) {
+	t.Helper()
+	h := sha256.Sum256([]byte("content-" + id))
+	rec := &memory.MemoryRecord{
+		MemoryID:        id,
+		SubmittingAgent: agentID,
+		Content:         "content-" + id,
+		ContentHash:     h[:],
+		MemoryType:      memory.TypeObservation,
+		DomainTag:       domain,
+		ConfidenceScore: 0.85,
+		Status:          memory.StatusProposed,
+		CreatedAt:       time.Now().UTC(),
+	}
+	require.NoError(t, s.InsertMemory(context.Background(), rec))
+}
+
+func TestHandleUnregisteredAgents(t *testing.T) {
+	h, s := newTestHandler(t)
+	r := testRouter(h)
+
+	// Create an agent in the dashboard
+	agent := &store.AgentEntry{
+		AgentID:   "registered-agent-id",
+		Name:      "Registered Agent",
+		Role:      "admin",
+		Status:    "active",
+		CreatedAt: time.Now().UTC(),
+	}
+	require.NoError(t, s.CreateAgent(context.Background(), agent))
+
+	// Insert memories from the registered agent
+	insertTestMemoryWithAgent(t, s, "m1", "general", "registered-agent-id")
+
+	// Insert memories from an unregistered agent
+	insertTestMemoryWithAgent(t, s, "m2", "general", "orphan-agent-id")
+	insertTestMemoryWithAgent(t, s, "m3", "security", "orphan-agent-id")
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/network/unregistered", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Unregistered []struct {
+			AgentID     string `json:"agent_id"`
+			MemoryCount int    `json:"memory_count"`
+			ShortID     string `json:"short_id"`
+		} `json:"unregistered"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Unregistered, 1, "should find exactly one unregistered agent")
+	assert.Equal(t, "orphan-agent-id", resp.Unregistered[0].AgentID)
+	assert.Equal(t, 2, resp.Unregistered[0].MemoryCount)
+	assert.NotEmpty(t, resp.Unregistered[0].ShortID)
+}
+
+func TestHandleUnregisteredAgents_NoneOrphan(t *testing.T) {
+	h, s := newTestHandler(t)
+	r := testRouter(h)
+
+	// Create an agent and memories from only that agent
+	agent := &store.AgentEntry{
+		AgentID:   "only-agent",
+		Name:      "Only Agent",
+		Role:      "admin",
+		Status:    "active",
+		CreatedAt: time.Now().UTC(),
+	}
+	require.NoError(t, s.CreateAgent(context.Background(), agent))
+	insertTestMemoryWithAgent(t, s, "m1", "general", "only-agent")
+
+	req := httptest.NewRequest("GET", "/v1/dashboard/network/unregistered", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Unregistered []any `json:"unregistered"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Len(t, resp.Unregistered, 0, "no orphaned agents should be found")
+}

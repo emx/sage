@@ -51,7 +51,7 @@ func (h *DashboardHandler) handleCheckUpdate(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "sage-lite/"+current)
+	req.Header.Set("User-Agent", "sage-gui/"+current)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -108,7 +108,7 @@ func (h *DashboardHandler) handleCheckUpdate(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// handleApplyUpdate downloads and replaces the sage-lite binary.
+// handleApplyUpdate downloads and replaces the sage-gui binary.
 func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		DownloadURL string `json:"download_url"`
@@ -155,8 +155,8 @@ func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Extract sage-lite binary from tar.gz
-	newBinary, err := extractBinaryFromTarGz(resp.Body, "sage-lite")
+	// Extract sage-gui binary from tar.gz
+	newBinary, err := extractBinaryFromTarGz(resp.Body, "sage-gui")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "extraction failed: "+err.Error())
 		return
@@ -200,7 +200,7 @@ func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// handleRestart gracefully restarts sage-lite by re-exec'ing itself.
+// handleRestart gracefully restarts sage-gui by re-exec'ing itself.
 func (h *DashboardHandler) handleRestart(w http.ResponseWriter, r *http.Request) {
 	execPath, err := os.Executable()
 	if err != nil {
@@ -234,7 +234,7 @@ func findAssetName(version string) string {
 	if goos == "windows" {
 		ext = "zip"
 	}
-	return fmt.Sprintf("sage-lite_%s_%s_%s.%s", version, goos, goarch, ext)
+	return fmt.Sprintf("sage-gui_%s_%s_%s.%s", version, goos, goarch, ext)
 }
 
 // extractBinaryFromTarGz extracts a named binary from a .tar.gz stream to a temp file.

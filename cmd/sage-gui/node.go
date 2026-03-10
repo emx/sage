@@ -45,7 +45,7 @@ func runServe() error {
 	}
 
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).
-		With().Timestamp().Str("service", "sage-lite").Logger()
+		With().Timestamp().Str("service", "sage-gui").Logger()
 
 	logger.Info().
 		Str("data_dir", cfg.DataDir).
@@ -90,7 +90,7 @@ func runServe() error {
 	if cfg.Encryption.Enabled {
 		vaultKeyPath := filepath.Join(SageHome(), "vault.key")
 		if !vault.Exists(vaultKeyPath) {
-			return fmt.Errorf("encryption enabled but vault.key not found at %s — run 'sage-lite setup' first", vaultKeyPath)
+			return fmt.Errorf("encryption enabled but vault.key not found at %s — run 'sage-gui setup' first", vaultKeyPath)
 		}
 
 		passphrase := os.Getenv("SAGE_PASSPHRASE")
@@ -204,6 +204,17 @@ func runServe() error {
 
 	// Create dashboard handler
 	dashboard := web.NewDashboardHandler(sqliteStore, version)
+
+	// Bridge REST API events to dashboard SSE for the chain activity log
+	restServer.OnEvent = func(eventType, memoryID, domain, content string, data any) {
+		dashboard.SSE.Broadcast(web.SSEEvent{
+			Type:     web.EventType(eventType),
+			MemoryID: memoryID,
+			Domain:   domain,
+			Content:  content,
+			Data:     data,
+		})
+	}
 	dashboard.SetEmbedder(embedProvider)
 	dashboard.Encrypted = cfg.Encryption.Enabled
 	if cfg.Encryption.Enabled {

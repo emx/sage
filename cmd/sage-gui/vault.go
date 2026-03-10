@@ -81,7 +81,7 @@ func runExport() error {
 		listReq, _ := http.NewRequestWithContext(context.Background(), "GET", listURL, nil)
 		resp, doErr := http.DefaultClient.Do(listReq)
 		if doErr != nil {
-			return fmt.Errorf("fetch memories (is sage-lite serve running?): %w", doErr)
+			return fmt.Errorf("fetch memories (is sage-gui serve running?): %w", doErr)
 		}
 
 		var listResp struct {
@@ -156,7 +156,7 @@ func runExport() error {
 
 func runImport() error {
 	if len(os.Args) < 3 {
-		return fmt.Errorf("usage: sage-lite import <file.vault> [--key <agent.key>]")
+		return fmt.Errorf("usage: sage-gui import <file.vault> [--key <agent.key>]")
 	}
 
 	inputPath := os.Args[2]

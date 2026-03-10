@@ -50,7 +50,7 @@ quorum:
 	mcpJSON := `{
   "mcpServers": {
     "sage": {
-      "command": "sage-lite",
+      "command": "sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_API_URL": "http://localhost:8080"
@@ -67,11 +67,11 @@ quorum:
 ================================
 
 1. Copy this entire folder to the target machine
-2. Install sage-lite: download from github.com/l33tdawg/sage/releases
+2. Install sage-gui: download from github.com/l33tdawg/sage/releases
 3. Move agent.key to ~/.sage/agent.key
 4. Move config.yaml to ~/.sage/config.yaml
 5. Move .mcp.json to your project root
-6. Start the agent: sage-lite serve
+6. Start the agent: sage-gui serve
 
 Agent ID: %s
 Role: %s

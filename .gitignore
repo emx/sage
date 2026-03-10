@@ -1,6 +1,7 @@
 # Binaries
 bin/
 # Built binaries in repo root (not the cmd/ source dirs)
+/sage-gui
 /sage-lite
 /amid
 *.exe

@@ -185,6 +185,12 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		case strings.HasSuffix(path, ".json"):
 			w.Header().Set("Content-Type", "application/json")
+		case strings.HasSuffix(path, ".svg"):
+			w.Header().Set("Content-Type", "image/svg+xml")
+		case strings.HasSuffix(path, ".png"):
+			w.Header().Set("Content-Type", "image/png")
+		case strings.HasSuffix(path, ".ico"):
+			w.Header().Set("Content-Type", "image/x-icon")
 		}
 
 		w.Write(f) //nolint:errcheck

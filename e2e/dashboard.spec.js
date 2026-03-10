@@ -73,32 +73,34 @@ test.describe('CEREBRUM Guide', () => {
         await expect(guide).toContainText('CEREBRUM Guide');
     });
 
-    test('guide has expandable sections', async ({ page }) => {
+    test('guide has tabs and content', async ({ page }) => {
         await page.goto(`${BASE}/ui/`);
         await page.waitForSelector('.sidebar');
         await page.locator('.sidebar-btn[title="Help"]').click();
+        await page.waitForSelector('.guide-tab', { timeout: 5000 });
 
-        // Should have guide sections
-        const sections = page.locator('.guide-section');
-        const count = await sections.count();
+        // Should have guide tabs
+        const tabs = page.locator('.guide-tab');
+        const count = await tabs.count();
         expect(count).toBeGreaterThanOrEqual(6);
 
-        // Click first section to expand
-        await sections.first().locator('.guide-section-header').click();
-        await expect(sections.first()).toHaveClass(/open/);
+        // Click second tab
+        await tabs.nth(1).click();
+        await expect(tabs.nth(1)).toHaveClass(/active/);
 
         // Content should be visible
-        await expect(sections.first().locator('.guide-section-content')).toBeVisible();
+        await expect(page.locator('.guide-section-content')).toBeVisible();
     });
 
-    test('guide sections include Network and Access Control', async ({ page }) => {
+    test('guide tabs include Network and Settings', async ({ page }) => {
         await page.goto(`${BASE}/ui/`);
         await page.waitForSelector('.sidebar');
         await page.locator('.sidebar-btn[title="Help"]').click();
+        await page.waitForSelector('.guide-tab', { timeout: 5000 });
 
-        await expect(page.locator('.guide-section-title').filter({ hasText: 'Network & Agents' })).toBeVisible();
-        await expect(page.locator('.guide-section-title').filter({ hasText: 'Access Control' })).toBeVisible();
-        await expect(page.locator('.guide-section-title').filter({ hasText: 'Synaptic Ledger' })).toBeVisible();
+        await expect(page.locator('.guide-tab-label').filter({ hasText: 'Network & Agents' })).toBeVisible();
+        await expect(page.locator('.guide-tab-label').filter({ hasText: 'Search & Import' })).toBeVisible();
+        await expect(page.locator('.guide-tab-label').filter({ hasText: 'Cerebrum View' })).toBeVisible();
     });
 
     test('guide can be dismissed', async ({ page }) => {
@@ -262,6 +264,136 @@ test.describe('Brain Page — Domain Filters', () => {
         const domainPills = page.locator('.domain-pill');
         const count = await domainPills.count();
         expect(count).toBeGreaterThanOrEqual(1);
+    });
+});
+
+test.describe('Brain Page — Stats Panel', () => {
+    test('stats panel is visible and shows Memory Stats', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.stats-panel', { timeout: 10000 });
+        await expect(page.locator('.stats-panel h3')).toContainText('Memory Stats');
+    });
+
+    test('stats panel shows domain breakdown with bars', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.stats-panel', { timeout: 10000 });
+        const bars = page.locator('.stat-bar-container');
+        const count = await bars.count();
+        expect(count).toBeGreaterThanOrEqual(1);
+    });
+
+    test('stats panel h3 has grab cursor for dragging', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.stats-panel', { timeout: 10000 });
+        const h3 = page.locator('.stats-panel h3');
+        const cursor = await h3.evaluate(el => getComputedStyle(el).cursor);
+        expect(cursor).toBe('grab');
+    });
+});
+
+test.describe('Brain Page — Timeline Bar', () => {
+    test('timeline bar is visible on brain page', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.timeline-bar', { timeout: 10000 });
+        await expect(page.locator('.timeline-bar')).toBeVisible();
+    });
+
+    test('timeline shows 24h and Now labels', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.timeline-bar', { timeout: 10000 });
+        await expect(page.locator('.timeline-label').first()).toContainText('24h');
+        await expect(page.locator('.timeline-label').last()).toContainText('Now');
+    });
+
+    test('timeline buckets have pointer cursor (clickable)', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.timeline-bar', { timeout: 10000 });
+        // Wait for buckets to load
+        await page.waitForTimeout(2000);
+        const buckets = page.locator('.timeline-bucket-bar');
+        const count = await buckets.count();
+        if (count > 0) {
+            const cursor = await buckets.first().evaluate(el => getComputedStyle(el).cursor);
+            expect(cursor).toBe('pointer');
+        }
+    });
+
+    test('clicking a timeline bucket adds selected class and shows clear button', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.timeline-bar', { timeout: 10000 });
+        await page.waitForTimeout(2000);
+
+        const buckets = page.locator('.timeline-bucket-bar');
+        const count = await buckets.count();
+        if (count > 0) {
+            // Find a bucket with count > 0 (has visible height)
+            await buckets.first().click();
+            await page.waitForTimeout(500);
+
+            // Clear button should appear
+            const clearBtn = page.locator('.timeline-clear-btn');
+            await expect(clearBtn).toBeVisible();
+
+            // Click clear to deselect
+            await clearBtn.click();
+            await expect(clearBtn).not.toBeVisible();
+        }
+    });
+});
+
+test.describe('Brain Page — Chain Activity Log', () => {
+    test('chain activity toggle is visible', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.chain-activity', { timeout: 10000 });
+        await expect(page.locator('.chain-activity-toggle')).toBeVisible();
+        await expect(page.locator('.chain-activity-toggle')).toContainText('Chain Activity');
+    });
+
+    test('chain activity opens and closes on toggle click', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.chain-activity', { timeout: 10000 });
+
+        // Click to open
+        await page.locator('.chain-activity-toggle').click();
+        await expect(page.locator('.chain-activity-log')).toBeVisible();
+
+        // Click to close
+        await page.locator('.chain-activity-toggle').click();
+        await expect(page.locator('.chain-activity-log')).not.toBeVisible();
+    });
+
+    test('chain activity log shows waiting message when empty', async ({ page }) => {
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.chain-activity', { timeout: 10000 });
+
+        // Open the log
+        await page.locator('.chain-activity-toggle').click();
+
+        // Should show either events or empty state
+        const logContent = page.locator('.chain-activity-log');
+        await expect(logContent).toBeVisible();
+    });
+
+    test('chain activity is visible on all dashboard pages', async ({ page }) => {
+        // Brain page
+        await page.goto(`${BASE}/ui/`);
+        await page.waitForSelector('.chain-activity', { timeout: 10000 });
+        await expect(page.locator('.chain-activity')).toBeVisible();
+
+        // Search page
+        await page.locator('.sidebar-btn[title="Search"]').click();
+        await page.waitForTimeout(500);
+        await expect(page.locator('.chain-activity')).toBeVisible();
+
+        // Network page
+        await page.locator('.sidebar-btn[title="Network"]').click();
+        await page.waitForTimeout(500);
+        await expect(page.locator('.chain-activity')).toBeVisible();
+
+        // Settings page
+        await page.locator('.sidebar-btn[title="Settings"]').click();
+        await page.waitForTimeout(500);
+        await expect(page.locator('.chain-activity')).toBeVisible();
     });
 });
 

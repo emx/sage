@@ -587,7 +587,7 @@ For adding agents on a local network without manual key exchange:
 
 1. Admin clicks "Add Agent" in the CEREBRUM dashboard and selects "LAN Pairing"
 2. Server generates a 6-character alphanumeric pairing code (expires after 5 minutes)
-3. New agent runs `sage-lite pair <code>` or enters the code in their setup wizard
+3. New agent runs `sage-gui pair <code>` or enters the code in their setup wizard
 4. Agent and server perform a key exchange over the LAN
 5. Server registers the agent with its Ed25519 public key, assigns default role and permissions
 6. Admin can then adjust role, clearance, and domain access from the dashboard
@@ -941,7 +941,7 @@ sage/
 ├── cmd/
 │   ├── amid/main.go                  # ABCI daemon (CometBFT + REST + Prometheus)
 │   ├── sage-cli/main.go              # Admin CLI (keygen, status, health)
-│   └── sage-lite/                    # SAGE Personal (setup, serve, MCP)
+│   └── sage-gui/                    # SAGE Personal (setup, serve, MCP)
 ├── internal/
 │   ├── abci/                         # ABCI 2.0 state machine (FinalizeBlock, Commit)
 │   ├── auth/                         # Ed25519 keypair, sign/verify requests

@@ -660,6 +660,9 @@ func (m *mockAgentStore) UpdateRedeployLog(_ context.Context, _ int64, _, _ stri
 func (m *mockAgentStore) RotateAgentKey(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, nil
 }
+func (m *mockAgentStore) ReassignMemories(_ context.Context, _, _ string) (int64, error) {
+	return 0, nil
+}
 
 // --- Domain Access Read Enforcement Tests ------------------------------------
 

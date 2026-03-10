@@ -4,7 +4,7 @@
 
 SAGE has two distinct deployment models with fundamentally different threat models:
 
-| | SAGE Personal (sage-lite) | SAGE Enterprise |
+| | SAGE Personal (sage-gui) | SAGE Enterprise |
 |---|---|---|
 | **What** | Single binary, single-node, SQLite | Multi-node BFT consensus with CometBFT |
 | **Where** | Localhost only (`127.0.0.1:8080`) | Distributed cluster, 4+ validators |
@@ -69,7 +69,7 @@ Many concerns raised about the enterprise codebase do not apply to SAGE Personal
 
 **Current status:** These are development defaults. They exist to minimize setup friction for researchers reproducing the Paper 1 benchmarks. They are not intended for production.
 
-**SAGE Personal:** Not applicable. sage-lite does not use Docker, does not run a database server, and binds only to localhost.
+**SAGE Personal:** Not applicable. sage-gui does not use Docker, does not run a database server, and binds only to localhost.
 
 **Planned:** Add a `docker-compose.prod.yml` with locked-down CORS, secrets management, and non-root containers. Document the difference clearly.
 
@@ -111,7 +111,7 @@ Many concerns raised about the enterprise codebase do not apply to SAGE Personal
 
 **Current status:** Acknowledged. SAGE Personal uses SQLite with schema creation on first run, which is sufficient for a single-user tool. Enterprise PostgreSQL deployments need proper migrations.
 
-**Planned:** Adopt a migration tool (golang-migrate or similar) for the enterprise schema. sage-lite will continue to self-initialize on startup.
+**Planned:** Adopt a migration tool (golang-migrate or similar) for the enterprise schema. sage-gui will continue to self-initialize on startup.
 
 ### 10. Benchmark Not Reproducible (k6 Uses Placeholder Auth)
 
@@ -139,7 +139,7 @@ Many concerns raised about the enterprise codebase do not apply to SAGE Personal
 
 The following are honest limitations of the current codebase:
 
-**SAGE Personal (sage-lite v2.0.0):**
+**SAGE Personal (sage-gui v2.0.0):**
 - Designed for single-user, single-machine use. Not a networked service.
 - No authentication — anyone with access to your machine can access the API on localhost.
 - SQLite database is not encrypted at rest. Protect it as you would any local file.

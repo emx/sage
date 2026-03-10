@@ -1,6 +1,6 @@
 // CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, fetchUnregisteredAgents, mergeAgent } from './api.js';
 
 const { h, render, createContext } = preact;
 const { useState, useEffect, useRef, useCallback, useContext } = preactHooks;
@@ -21,6 +21,15 @@ function HelpTip({ text, align }) {
         <span class="help-tip-trigger" tabIndex="0">?</span>
         ${show && html`<span class="help-tip-popup ${align ? 'align-' + align : ''}">${text}</span>`}
     </span>`;
+}
+
+// PageHelp — contextual "?" button that opens the CEREBRUM guide to a specific section.
+// Place this in any page header to give users one-click access to relevant help.
+function PageHelp({ section, label }) {
+    return html`<button class="page-help-btn" onClick=${() => window.__sageOpenHelp && window.__sageOpenHelp(section)}
+        title=${label || 'Help for this page'}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>`;
 }
 
 // Domain color palette — vibrant, distinct hues for every domain.
@@ -108,16 +117,20 @@ const icons = {
 // Brain Visualization (Canvas)
 // ============================================================================
 
-function BrainView({ sse, onSelectMemory }) {
+function BrainView({ sse, onSelectMemory, timelineFilter }) {
     const canvasRef = useRef(null);
     const stateRef = useRef({
         nodes: [], edges: [], simulation: null,
-        camera: { x: 0, y: 0, zoom: 1 },
+        camera: { x: 0, y: 0, zoom: 0.6 },
         mouse: { x: 0, y: 0, dragging: false, dragStart: null, hoveredNode: null },
         filterDomains: new Set(),
         searchFilter: '',
         animTime: 0,
         pulseNodes: new Map(),
+        // Focus mode: click a node to see its domain group arranged in a timeline row
+        focusDomain: null,
+        focusTransition: 0, // 0 = normal, 1 = fully focused
+        focusTargetPositions: new Map(), // node id → {x, y} for timeline arrangement
     });
     const [stats, setStats] = useState(null);
     const [domains, setDomains] = useState([]);
@@ -128,11 +141,22 @@ function BrainView({ sse, onSelectMemory }) {
     const [sseConnected, setSseConnected] = useState(false);
     const [agentFilter, setAgentFilter] = useState(''); // '' = all agents
     const [agentList, setAgentList] = useState([]);
+    const [focusedDomain, setFocusedDomain] = useState(null); // for UI display
+    // Draggable stats panel
+    const [statsPos, setStatsPos] = useState(() => {
+        try { const s = JSON.parse(localStorage.getItem('sage_stats_pos')); if (s && s.x != null) return s; } catch {}
+        return null; // null = default CSS position
+    });
+    const statsDragRef = useRef({ dragging: false, startX: 0, startY: 0, startPosX: 0, startPosY: 0 });
+
+    const registeredAgentsRef = useRef([]);
 
     // Load graph data + agents
     useEffect(() => {
-        loadData();
-        fetchAgents().then(data => setAgentList(data.agents || [])).catch(() => {});
+        fetchAgents().then(data => {
+            registeredAgentsRef.current = data.agents || [];
+            loadData();
+        }).catch(() => loadData());
         const interval = setInterval(loadData, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -167,6 +191,18 @@ function BrainView({ sse, onSelectMemory }) {
 
             const domainSet = new Set(nodes.map(n => n.domain).filter(Boolean));
             setDomains([...domainSet].sort());
+
+            // Merge registered agents with agents discovered from graph data
+            const registered = registeredAgentsRef.current;
+            const knownIds = new Set(registered.map(a => a.agent_id));
+            const graphAgentIds = new Set(nodes.map(n => n.agent).filter(Boolean));
+            const merged = [...registered];
+            for (const aid of graphAgentIds) {
+                if (!knownIds.has(aid)) {
+                    merged.push({ agent_id: aid, name: aid.slice(0, 8) + '…', avatar: '🤖' });
+                }
+            }
+            setAgentList(merged);
         } catch (err) {
             // retry on next interval
         }
@@ -219,6 +255,7 @@ function BrainView({ sse, onSelectMemory }) {
             s.filterDomains = filterDomains;
             s.searchFilter = searchText.toLowerCase();
             s.agentFilter = agentFilter;
+            s.timelineFilter = timelineFilter;
 
             // Force simulation
             simulateForces(s, W, H);
@@ -229,27 +266,110 @@ function BrainView({ sse, onSelectMemory }) {
             ctx.scale(devicePixelRatio, devicePixelRatio);
             ctx.clearRect(0, 0, W, H);
 
-            // Camera transform
+            // Smooth camera pan (lerp toward target if set)
             const cam = s.camera;
+            if (s._cameraTarget) {
+                const lerpSpeed = 0.08;
+                cam.x += (s._cameraTarget.x - cam.x) * lerpSpeed;
+                cam.y += (s._cameraTarget.y - cam.y) * lerpSpeed;
+                cam.zoom += (s._cameraTarget.zoom - cam.zoom) * lerpSpeed;
+                // Clear target when close enough
+                if (Math.abs(cam.x - s._cameraTarget.x) < 0.5 &&
+                    Math.abs(cam.y - s._cameraTarget.y) < 0.5) {
+                    s._cameraTarget = null;
+                }
+            }
+
+            // Camera transform
             ctx.translate(W / 2 + cam.x, H / 2 + cam.y);
             ctx.scale(cam.zoom, cam.zoom);
 
-            // Determine visible nodes
-            const visibleNodes = s.nodes.filter(n => {
-                if (s.filterDomains.size > 0 && !s.filterDomains.has(n.domain)) return false;
-                if (s.agentFilter && n.agent !== s.agentFilter) return false;
-                if (s.searchFilter) {
-                    const q = s.searchFilter;
-                    const match = (n.content && n.content.toLowerCase().includes(q)) ||
-                        (n.domain && n.domain.toLowerCase().includes(q)) ||
-                        (n.memory_type && n.memory_type.toLowerCase().includes(q)) ||
-                        (n.agent && n.agent.toLowerCase().includes(q));
-                    if (!match) return false;
+            // Precompute node timestamps and search fields once (used by filter and focus)
+            if (!s._nodeTimestamps || s._nodeTimestamps.size !== s.nodes.length) {
+                s._nodeTimestamps = new Map();
+                for (const n of s.nodes) {
+                    const ct = n.created_at || n.createdAt;
+                    s._nodeTimestamps.set(n.id, ct ? new Date(ct).getTime() : 0);
                 }
-                return true;
-            });
-            const visibleIds = new Set(visibleNodes.map(n => n.id));
+            }
+            if (!s._searchFields || s._searchFields.size !== s.nodes.length) {
+                s._searchFields = new Map();
+                for (const n of s.nodes) {
+                    s._searchFields.set(n.id, [
+                        n.content ? n.content.toLowerCase() : '',
+                        n.domain ? n.domain.toLowerCase() : '',
+                        n.memory_type ? n.memory_type.toLowerCase() : '',
+                        n.agent ? n.agent.toLowerCase() : '',
+                    ].join('\0'));
+                }
+            }
+
+            // Determine visible nodes (cached — only recompute when filters change)
+            if (!s._filterCache || s._filterCache.filterDomains !== s.filterDomains ||
+                s._filterCache.searchFilter !== s.searchFilter || s._filterCache.agentFilter !== s.agentFilter ||
+                s._filterCache.timelineFilter !== s.timelineFilter || s._filterCache.nodeCount !== s.nodes.length) {
+                const filtered = [];
+                for (const n of s.nodes) {
+                    if (s.filterDomains.size > 0 && !s.filterDomains.has(n.domain)) continue;
+                    if (s.agentFilter && n.agent !== s.agentFilter) continue;
+                    if (s.searchFilter && !s._searchFields.get(n.id).includes(s.searchFilter)) continue;
+                    if (s.timelineFilter && s.timelineFilter.length > 0) {
+                        const nodeTime = s._nodeTimestamps.get(n.id);
+                        if (!nodeTime) continue;
+                        let inRange = false;
+                        for (const range of s.timelineFilter) {
+                            if (nodeTime >= range.from && nodeTime <= range.to) { inRange = true; break; }
+                        }
+                        if (!inRange) continue;
+                    }
+                    filtered.push(n);
+                }
+                s._visibleNodes = filtered;
+                s._visibleIds = new Set(filtered.map(n => n.id));
+                s._filterCache = { filterDomains: s.filterDomains, searchFilter: s.searchFilter,
+                    agentFilter: s.agentFilter, timelineFilter: s.timelineFilter, nodeCount: s.nodes.length };
+            }
+            const visibleNodes = s._visibleNodes;
+            const visibleIds = s._visibleIds;
             const searchMatch = null;
+
+            // Focus mode: animate transition (linear progress, eased in draw)
+            if (s.focusDomain) {
+                s.focusTransition = Math.min(1, s.focusTransition + 0.035);
+            } else {
+                s.focusTransition = Math.max(0, s.focusTransition - 0.05);
+            }
+
+            // Compute focus target positions (grid layout: L→R, old→new, wrapping rows)
+            if (s.focusDomain && s.focusTransition > 0) {
+                if (s._focusCacheDomain !== s.focusDomain || s._focusCacheCount !== visibleNodes.length) {
+                    const domainNodes = visibleNodes
+                        .filter(n => n.domain === s.focusDomain)
+                        .sort((a, b) => {
+                            const ta = s._nodeTimestamps ? s._nodeTimestamps.get(a.id) || 0 : new Date(a.created_at || a.createdAt || 0).getTime();
+                            const tb = s._nodeTimestamps ? s._nodeTimestamps.get(b.id) || 0 : new Date(b.created_at || b.createdAt || 0).getTime();
+                            return ta - tb;
+                        });
+                    const spacing = 50;
+                    // Grid: fit as many columns as the viewport allows
+                    const viewW = W / (s.camera?.zoom || 0.6);
+                    const cols = Math.max(3, Math.floor(viewW * 0.7 / spacing));
+                    const rows = Math.ceil(domainNodes.length / cols);
+                    const gridW = (cols - 1) * spacing;
+                    const gridH = (rows - 1) * spacing;
+                    s.focusTargetPositions.clear();
+                    domainNodes.forEach((n, i) => {
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        s.focusTargetPositions.set(n.id, {
+                            x: -gridW / 2 + col * spacing,
+                            y: -gridH / 2 + row * spacing,
+                        });
+                    });
+                    s._focusCacheDomain = s.focusDomain;
+                    s._focusCacheCount = visibleNodes.length;
+                }
+            }
 
             // Draw edges
             const nodeMap = {};
@@ -291,6 +411,13 @@ function BrainView({ sse, onSelectMemory }) {
                 let dim = false;
                 if (searchMatch && !searchMatch.has(n.id)) dim = true;
 
+                // Focus mode dimming
+                const isFocused = s.focusDomain && n.domain === s.focusDomain;
+                const focusT = s.focusTransition;
+                if (focusT > 0 && !isFocused) {
+                    dim = true;
+                }
+
                 const pulse = s.pulseNodes.get(n.id);
                 let extraGlow = 0;
                 let fadeOut = 1;
@@ -308,37 +435,67 @@ function BrainView({ sse, onSelectMemory }) {
                     }
                 }
 
-                // Organic drift
-                const drift = Math.sin(now / 2000 + n.x * 0.01) * 0.3;
+                // Organic drift (reduced in focus mode)
+                const driftAmt = focusT > 0 && isFocused ? 0.1 : 0.3;
+                const drift = Math.sin(now / 2000 + n.x * 0.01) * driftAmt;
 
-                const drawX = n.x;
-                const drawY = n.y + drift;
+                // In focus mode, lerp focused nodes toward grid positions (Minority Report fly-in)
+                let drawX = n.x;
+                let drawY = n.y + drift;
+                if (focusT > 0 && isFocused) {
+                    const target = s.focusTargetPositions.get(n.id);
+                    if (target) {
+                        // Stagger: each node starts its animation slightly later based on grid position
+                        const idx = [...s.focusTargetPositions.keys()].indexOf(n.id);
+                        const stagger = Math.min(0.3, idx * 0.015);
+                        const t = Math.max(0, Math.min(1, (focusT - stagger) / (1 - stagger)));
+                        // Ease-out cubic for dramatic deceleration
+                        const eased = 1 - Math.pow(1 - t, 3);
+                        drawX = n.x + (target.x - n.x) * eased;
+                        drawY = (n.y + drift) + (target.y - (n.y + drift)) * eased;
+                    }
+                }
                 const r = n.radius;
 
-                ctx.globalAlpha = dim ? 0.15 * fadeOut : fadeOut;
+                const dimAlpha = focusT > 0 ? 0.06 : 0.15;
+                ctx.globalAlpha = dim ? dimAlpha * fadeOut : fadeOut;
 
-                // Glow
+                // Glow (optimized: solid arc instead of per-frame gradient)
                 const glowSize = r + 8 + extraGlow + Math.sin(now / 1000 + n.x) * 2;
-                const glow = ctx.createRadialGradient(drawX, drawY, r * 0.3, drawX, drawY, glowSize);
-                glow.addColorStop(0, n.color + '40');
-                glow.addColorStop(1, n.color + '00');
-                ctx.fillStyle = glow;
+                ctx.fillStyle = n.color;
+                const glowAlpha = (dim ? (focusT > 0 ? 0.02 : 0.05) : 0.15) * fadeOut;
+                ctx.globalAlpha = glowAlpha;
                 ctx.beginPath();
                 ctx.arc(drawX, drawY, glowSize, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.globalAlpha = dim ? dimAlpha * fadeOut : fadeOut;
 
                 // Node body
                 ctx.beginPath();
                 ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
                 ctx.fillStyle = n.color;
-                ctx.globalAlpha = (dim ? 0.2 : 0.85) * fadeOut;
+                ctx.globalAlpha = (dim ? (focusT > 0 ? 0.08 : 0.2) : 0.85) * fadeOut;
                 ctx.fill();
+
+                // Focus mode: draw date label below focused nodes
+                if (focusT > 0.5 && isFocused) {
+                    const ct = n.created_at || n.createdAt;
+                    if (ct) {
+                        const d = new Date(ct);
+                        const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        ctx.globalAlpha = focusT * 0.8;
+                        ctx.font = '9px system-ui, sans-serif';
+                        ctx.fillStyle = n.color;
+                        ctx.textAlign = 'center';
+                        ctx.fillText(label, drawX, drawY + r + 14);
+                    }
+                }
 
                 // Inner highlight
                 ctx.beginPath();
                 ctx.arc(drawX - r * 0.2, drawY - r * 0.2, r * 0.4, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(255,255,255,0.25)';
-                ctx.globalAlpha = (dim ? 0.1 : 0.5) * fadeOut;
+                ctx.globalAlpha = (dim ? (focusT > 0 ? 0.04 : 0.1) : 0.5) * fadeOut;
                 ctx.fill();
 
                 // Remember ring animation
@@ -357,14 +514,37 @@ function BrainView({ sse, onSelectMemory }) {
                 ctx.globalAlpha = 1;
             }
 
-            // Hover highlight
+            // Hover highlight — strong white outer glow
             if (s.mouse.hoveredNode && visibleIds.has(s.mouse.hoveredNode.id)) {
                 const n = s.mouse.hoveredNode;
+                // Compute drawn position (same as in node drawing)
+                let hx = n.x, hy = n.y;
+                const focusTH = s.focusTransition || 0;
+                if (focusTH > 0 && s.focusDomain && n.domain === s.focusDomain) {
+                    const target = s.focusTargetPositions.get(n.id);
+                    if (target) {
+                        hx = n.x + (target.x - n.x) * focusTH;
+                        hy = n.y + (target.y - n.y) * focusTH;
+                    }
+                }
+                // Outer glow ring (soft)
                 ctx.beginPath();
-                ctx.arc(n.x, n.y, n.radius + 4, 0, Math.PI * 2);
+                ctx.arc(hx, hy, n.radius + 14, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.1;
+                ctx.fill();
+                // Mid glow ring
+                ctx.beginPath();
+                ctx.arc(hx, hy, n.radius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.15;
+                ctx.fill();
+                // Inner bright ring
+                ctx.beginPath();
+                ctx.arc(hx, hy, n.radius + 4, 0, Math.PI * 2);
                 ctx.strokeStyle = '#ffffff';
-                ctx.globalAlpha = 0.5;
-                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 2.5;
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
@@ -378,7 +558,7 @@ function BrainView({ sse, onSelectMemory }) {
             cancelAnimationFrame(animFrame);
             window.removeEventListener('resize', resize);
         };
-    }, [filterDomains, searchText, agentFilter]);
+    }, [filterDomains, searchText, agentFilter, timelineFilter]);
 
     // Mouse interactions
     useEffect(() => {
@@ -397,10 +577,24 @@ function BrainView({ sse, onSelectMemory }) {
 
         function findNode(wx, wy) {
             const s = stateRef.current;
+            const focusT = s.focusTransition || 0;
+            // In focus mode, only allow selecting focused domain nodes
             for (let i = s.nodes.length - 1; i >= 0; i--) {
                 const n = s.nodes[i];
-                const dx = n.x - wx;
-                const dy = n.y - wy;
+                // Skip non-focused nodes when in focus mode
+                if (focusT > 0.3 && s.focusDomain && n.domain !== s.focusDomain) continue;
+                // Use drawn position (accounting for focus mode lerp)
+                let nx = n.x;
+                let ny = n.y;
+                if (focusT > 0 && s.focusDomain && n.domain === s.focusDomain) {
+                    const target = s.focusTargetPositions.get(n.id);
+                    if (target) {
+                        nx = n.x + (target.x - n.x) * focusT;
+                        ny = n.y + (target.y - n.y) * focusT;
+                    }
+                }
+                const dx = nx - wx;
+                const dy = ny - wy;
                 if (dx * dx + dy * dy < (n.radius + 4) * (n.radius + 4)) return n;
             }
             return null;
@@ -452,8 +646,31 @@ function BrainView({ sse, onSelectMemory }) {
             if (wasDragging && s.mouse.dragStart) {
                 const dx = e.clientX - s.mouse.dragStart.x;
                 const dy = e.clientY - s.mouse.dragStart.y;
-                if (Math.abs(dx) < 4 && Math.abs(dy) < 4 && s.mouse.hoveredNode) {
-                    onSelectMemory(s.mouse.hoveredNode);
+                if (Math.abs(dx) < 4 && Math.abs(dy) < 4) {
+                    if (s.mouse.hoveredNode) {
+                        const clickedDomain = s.mouse.hoveredNode.domain;
+                        if (s.focusDomain === clickedDomain) {
+                            // Second click on same domain: open the memory detail
+                            onSelectMemory(s.mouse.hoveredNode);
+                        } else {
+                            // First click: enter focus mode for this domain
+                            s.focusDomain = clickedDomain;
+                            s.focusTransition = 0;
+                            s.focusTargetPositions.clear();
+                            s._focusCacheDomain = null; // force recompute
+                            // Set camera target for smooth pan (lerped in tick)
+                            s._cameraTarget = { x: 80, y: 0, zoom: Math.max(0.5, Math.min(s.camera.zoom, 0.8)) };
+                            setFocusedDomain(clickedDomain);
+                        }
+                    } else {
+                        // Clicked empty space: exit focus mode and close detail panel
+                        if (s.focusDomain) {
+                            s.focusDomain = null;
+                            s.focusTargetPositions.clear();
+                            setFocusedDomain(null);
+                        }
+                        onSelectMemory(null);
+                    }
                 }
             }
             canvas.style.cursor = s.mouse.hoveredNode ? 'pointer' : 'grab';
@@ -491,6 +708,38 @@ function BrainView({ sse, onSelectMemory }) {
     }
 
     return html`
+        ${agentList.length > 0 && html`
+            <div class="agent-tab-bar">
+                <button class="agent-tab ${agentFilter === '' ? 'active' : ''}"
+                        onClick=${() => setAgentFilter('')}>
+                    All
+                </button>
+                ${[...agentList].sort((a, b) => {
+                    // Admins first, then registered members, then unregistered
+                    const order = r => r === 'admin' ? 0 : r ? 1 : 2;
+                    return order(a.role) - order(b.role);
+                }).map(a => html`
+                    <button class="agent-tab ${agentFilter === a.agent_id ? 'active' : ''} ${a.role === 'admin' ? 'admin' : ''} ${!a.role ? 'unregistered' : ''}"
+                            onClick=${() => setAgentFilter(agentFilter === a.agent_id ? '' : a.agent_id)}
+                            title=${a.role ? `${a.name} (${a.role}) — ${a.agent_id}` : `Unregistered agent — ${a.agent_id}`}>
+                        <span class="agent-tab-avatar">${a.avatar || '🤖'}</span>
+                        ${a.name}
+                        ${a.role === 'admin' ? html`<span class="agent-role-badge admin">★</span>` : ''}
+                        ${!a.role ? html`<span class="agent-role-badge unknown">?</span>` : ''}
+                    </button>
+                `)}
+            </div>
+        `}
+        <div class="domain-bar">
+            <${HelpTip} text="Click a domain to filter the graph. Click again to show all." />
+            ${domains.map(d => html`
+                <button class="domain-pill ${filterDomains.has(d) ? 'active' : ''}"
+                        style="color: ${getDomainColor(d)}; ${filterDomains.has(d) ? `background: ${getDomainColor(d)}20` : ''}"
+                        onClick=${() => toggleDomain(d)}>
+                    ${d}
+                </button>
+            `)}
+        </div>
         <div class="brain-container">
             <canvas ref=${canvasRef} class="brain-canvas"></canvas>
 
@@ -501,7 +750,7 @@ function BrainView({ sse, onSelectMemory }) {
                 <button class="nav-btn nav-left" onClick=${() => { stateRef.current.camera.x += 60; }} title="Pan left">
                     <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l6-5v10z" fill="currentColor"/></svg>
                 </button>
-                <button class="nav-btn nav-center" onClick=${() => { stateRef.current.camera.zoom = 1; stateRef.current.camera.x = 0; stateRef.current.camera.y = 0; }} title="Reset view">
+                <button class="nav-btn nav-center" onClick=${() => { stateRef.current.camera.zoom = 0.6; stateRef.current.camera.x = 0; stateRef.current.camera.y = 0; }} title="Reset view">
                     <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="currentColor"/></svg>
                 </button>
                 <button class="nav-btn nav-right" onClick=${() => { stateRef.current.camera.x -= 60; }} title="Pan right">
@@ -517,34 +766,6 @@ function BrainView({ sse, onSelectMemory }) {
                     <svg width="14" height="14" viewBox="0 0 14 14"><line x1="3" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="2"/></svg>
                 </button>
             </div>
-
-            <div class="domain-bar">
-                <${HelpTip} text="Click a domain to filter the graph. Click again to show all." />
-                ${domains.map(d => html`
-                    <button class="domain-pill ${filterDomains.has(d) ? 'active' : ''}"
-                            style="color: ${getDomainColor(d)}; ${filterDomains.has(d) ? `background: ${getDomainColor(d)}20` : ''}"
-                            onClick=${() => toggleDomain(d)}>
-                        ${d}
-                    </button>
-                `)}
-            </div>
-
-            ${agentList.length > 0 && html`
-                <div class="agent-tab-bar">
-                    <button class="agent-tab ${agentFilter === '' ? 'active' : ''}"
-                            onClick=${() => setAgentFilter('')}>
-                        All
-                    </button>
-                    ${agentList.map(a => html`
-                        <button class="agent-tab ${agentFilter === a.agent_id ? 'active' : ''}"
-                                onClick=${() => setAgentFilter(agentFilter === a.agent_id ? '' : a.agent_id)}
-                                title=${a.agent_id}>
-                            <span class="agent-tab-avatar">${a.avatar || '🤖'}</span>
-                            ${a.name}
-                        </button>
-                    `)}
-                </div>
-            `}
 
             <div class="graph-search ${searchOpen ? 'open' : ''} ${searchText ? 'has-filter' : ''}">
                 <button class="graph-search-toggle" onClick=${() => { setSearchOpen(!searchOpen); if (searchOpen && !searchText) setSearchOpen(false); }}
@@ -565,9 +786,59 @@ function BrainView({ sse, onSelectMemory }) {
                 `}
             </div>
 
+            ${focusedDomain && html`
+                <div class="focus-indicator">
+                    <span style="color: ${getDomainColor(focusedDomain)}">
+                        Focused: ${focusedDomain}
+                    </span>
+                    <button class="focus-exit-btn" onClick=${() => {
+                        stateRef.current.focusDomain = null;
+                        stateRef.current.focusTargetPositions.clear();
+                        setFocusedDomain(null);
+                    }}>Exit Focus</button>
+                    <span class="focus-hint">Click a bubble to view details. Click empty space to exit.</span>
+                </div>
+            `}
+
             ${stats && html`
-                <div class="stats-panel">
-                    <h3>Memory Stats</h3>
+                <div class="stats-panel ${statsPos ? 'stats-dragged' : ''}"
+                     style=${statsPos ? `left:${statsPos.x}px;top:${statsPos.y}px;bottom:auto;` : ''}>
+                    <h3 class="stats-drag-handle"
+                        onMouseDown=${(e) => {
+                            // Only drag from the h3 header bar
+                            if (e.target.tagName === 'BUTTON') return;
+                            const panel = e.currentTarget.parentElement;
+                            const rect = panel.getBoundingClientRect();
+                            const startX = e.clientX;
+                            const startY = e.clientY;
+                            const origLeft = rect.left;
+                            const origTop = rect.top;
+                            let lastPos = null;
+                            function onMove(ev) {
+                                lastPos = {
+                                    x: origLeft + (ev.clientX - startX),
+                                    y: origTop + (ev.clientY - startY),
+                                };
+                                setStatsPos(lastPos);
+                            }
+                            function onUp() {
+                                document.removeEventListener('mousemove', onMove);
+                                document.removeEventListener('mouseup', onUp);
+                                if (lastPos) {
+                                    try { localStorage.setItem('sage_stats_pos', JSON.stringify(lastPos)); } catch {}
+                                }
+                            }
+                            document.addEventListener('mousemove', onMove);
+                            document.addEventListener('mouseup', onUp);
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}>Memory Stats
+                        ${statsPos ? html`<button class="stats-reset-btn" onClick=${(e) => {
+                            e.stopPropagation();
+                            setStatsPos(null);
+                            try { localStorage.removeItem('sage_stats_pos'); } catch {}
+                        }} title="Reset position">Reset</button>` : ''}
+                    </h3>
                     <div class="stat-row">
                         <span class="stat-label">Total</span>
                         <span class="stat-value">${stats.total_memories || 0}</span>
@@ -599,7 +870,7 @@ function BrainView({ sse, onSelectMemory }) {
             ${tooltip && html`
                 <div class="tooltip" style="left: ${tooltip.x}px; top: ${tooltip.y}px;">
                     <div class="tooltip-domain" style="color: ${getDomainColor(tooltip.node.domain)}; background: ${getDomainColor(tooltip.node.domain)}20;">${tooltip.node.domain || 'unknown'}</div>
-                    <div class="tooltip-content">${tooltip.node.content ? tooltip.node.content.slice(0, 120) : 'No content'}${tooltip.node.content && tooltip.node.content.length > 120 ? '...' : ''}</div>
+                    <div class="tooltip-content">${tooltip.node.content ? tooltip.node.content.slice(0, 200) : 'No content'}${tooltip.node.content && tooltip.node.content.length > 200 ? '...' : ''}</div>
                     <div class="tooltip-meta">
                         <span class="tooltip-meta-item">${tooltip.node.memory_type || tooltip.node.memoryType || 'memory'}</span>
                         <span class="tooltip-meta-sep"></span>
@@ -607,6 +878,7 @@ function BrainView({ sse, onSelectMemory }) {
                         <span class="tooltip-meta-sep"></span>
                         <span class="tooltip-meta-item">${timeAgo(tooltip.node.created_at || tooltip.node.createdAt)}</span>
                     </div>
+                    <div class="tooltip-hint">Click to focus domain · Double-click for full details</div>
                 </div>
             `}
         </div>
@@ -619,31 +891,75 @@ function simulateForces(state, W, H) {
     const edges = state.edges;
     if (nodes.length === 0) return;
 
+    // Skip simulation if nodes have settled (check every 30 frames)
+    if (!state._forceFrame) state._forceFrame = 0;
+    state._forceFrame++;
+    if (state._forceFrame % 30 === 0) {
+        let totalV = 0;
+        for (let i = 0; i < Math.min(50, nodes.length); i++) {
+            totalV += Math.abs(nodes[i].vx) + Math.abs(nodes[i].vy);
+        }
+        state._settled = totalV < 0.5;
+    }
+    if (state._settled && !state.focusDomain && state._forceFrame > 120) return;
+
     const dt = 0.3;
     const repulsion = 800;
     const attraction = 0.005;
     const centerGravity = 0.002;
     const damping = 0.92;
 
-    // Build node index
-    const nodeIdx = {};
-    for (let i = 0; i < nodes.length; i++) nodeIdx[nodes[i].id] = i;
+    // Build node index (cache it)
+    if (!state._nodeIdx || state._nodeIdxLen !== nodes.length) {
+        state._nodeIdx = {};
+        for (let i = 0; i < nodes.length; i++) state._nodeIdx[nodes[i].id] = i;
+        state._nodeIdxLen = nodes.length;
+    }
+    const nodeIdx = state._nodeIdx;
 
-    // Repulsion (Barnes-Hut approximation: only check nearby)
+    // Repulsion — grid-based spatial partitioning for O(n) avg case
+    const cellSize = 300;
+    const grid = new Map();
     for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-            const a = nodes[i], b = nodes[j];
-            let dx = b.x - a.x;
-            let dy = b.y - a.y;
-            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            if (dist > 300) continue; // Skip far nodes
-            const force = repulsion / (dist * dist);
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
-            a.vx -= fx * dt;
-            a.vy -= fy * dt;
-            b.vx += fx * dt;
-            b.vy += fy * dt;
+        const n = nodes[i];
+        const cx = Math.floor(n.x / cellSize);
+        const cy = Math.floor(n.y / cellSize);
+        const key = cx + ',' + cy;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(i);
+    }
+    for (const [key, cell] of grid) {
+        const [cx, cy] = key.split(',').map(Number);
+        // Check own cell + 4 neighbors (right, below, below-left, below-right)
+        const neighbors = [
+            key,
+            (cx+1)+','+cy,
+            cx+','+(cy+1),
+            (cx-1)+','+(cy+1),
+            (cx+1)+','+(cy+1),
+        ];
+        for (const nk of neighbors) {
+            const other = grid.get(nk);
+            if (!other) continue;
+            const isSelf = nk === key;
+            for (let ci = 0; ci < cell.length; ci++) {
+                const startJ = isSelf ? ci + 1 : 0;
+                for (let cj = startJ; cj < other.length; cj++) {
+                    const a = nodes[cell[ci]], b = nodes[other[cj]];
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq > 90000) continue; // 300^2
+                    const dist = Math.sqrt(distSq) || 1;
+                    const force = repulsion / distSq;
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+                    a.vx -= fx * dt;
+                    a.vy -= fy * dt;
+                    b.vx += fx * dt;
+                    b.vy += fy * dt;
+                }
+            }
         }
     }
 
@@ -663,6 +979,31 @@ function simulateForces(state, W, H) {
         b.vy -= fy * dt;
     }
 
+    // Zoom-repulsion: when zoomed in, push nodes away from camera center (ball pit effect)
+    // Disabled during focus mode — focused nodes need to stay in their timeline positions
+    const cam = state.camera;
+    if (cam && cam.zoom > 1.0 && !state.focusDomain) {
+        // Camera center in world coords
+        const viewCX = -cam.x / cam.zoom;
+        const viewCY = -cam.y / cam.zoom;
+        // Strength scales with zoom level — deeper zoom = stronger push
+        const zoomForce = (cam.zoom - 1.0) * 150;
+        // Only affect nodes within a radius that shrinks as you zoom in (visible area)
+        const viewRadius = Math.max(W, H) / (cam.zoom * 1.5);
+        for (const n of nodes) {
+            const dx = n.x - viewCX;
+            const dy = n.y - viewCY;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            if (dist < viewRadius) {
+                // Stronger push for nodes closer to center
+                const proximity = 1 - (dist / viewRadius);
+                const push = zoomForce * proximity * proximity;
+                n.vx += (dx / dist) * push * dt;
+                n.vy += (dy / dist) * push * dt;
+            }
+        }
+    }
+
     // Center gravity + damping + integration
     for (const n of nodes) {
         n.vx -= n.x * centerGravity;
@@ -671,6 +1012,15 @@ function simulateForces(state, W, H) {
         n.vy *= damping;
         n.x += n.vx * dt;
         n.y += n.vy * dt;
+    }
+
+    // Reset settled state when camera changes (ball pit needs to recalculate)
+    if (cam && (state._lastZoom !== cam.zoom || state._lastCamX !== cam.x || state._lastCamY !== cam.y)) {
+        state._settled = false;
+        state._forceFrame = 0;
+        state._lastZoom = cam.zoom;
+        state._lastCamX = cam.x;
+        state._lastCamY = cam.y;
     }
 }
 
@@ -735,8 +1085,24 @@ function TagEditor({ memoryId }) {
 function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
     const [confirming, setConfirming] = useState(false);
     const [agentInfo, setAgentInfo] = useState(null);
+    const [visible, setVisible] = useState(false);
+    const [lastMemory, setLastMemory] = useState(null);
 
-    const agentId = memory?.agent || memory?.submitting_agent;
+    // Keep last memory data for closing animation
+    useEffect(() => {
+        if (memory) {
+            setLastMemory(memory);
+            // Double-rAF: first frame renders the element off-screen, second triggers transition
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => setVisible(true));
+            });
+        } else {
+            setVisible(false);
+        }
+    }, [memory]);
+
+    const displayMemory = memory || lastMemory;
+    const agentId = displayMemory?.agent || displayMemory?.submitting_agent;
     useEffect(() => {
         if (!agentId) return;
         fetchAgents().then(data => {
@@ -746,20 +1112,27 @@ function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
         }).catch(() => {});
     }, [agentId]);
 
-    if (!memory) return null;
+    // After closing animation completes, clear the last memory
+    function handleTransitionEnd() {
+        if (!visible && !memory) setLastMemory(null);
+    }
+
+    if (!displayMemory) return null;
 
     async function handleDelete() {
         if (!confirming) { setConfirming(true); return; }
-        await deleteMemory(memory.id);
-        if (onDelete) onDelete(memory.id);
+        await deleteMemory(m.id);
+        if (onDelete) onDelete(m.id);
         onClose();
     }
 
-    const conf = memory.confidence;
-    const color = getDomainColor(memory.domain);
+    // Use displayMemory for rendering (keeps last data during close animation)
+    const m = displayMemory;
+    const conf = m.confidence;
+    const color = getDomainColor(m.domain);
 
     return html`
-        <div class="detail-overlay open fade-in">
+        <div class="detail-overlay ${visible ? 'open' : ''}" onTransitionEnd=${handleTransitionEnd}>
             <div class="detail-header">
                 <h2>Memory Detail</h2>
                 <button class="detail-close" onClick=${onClose}>x</button>
@@ -767,7 +1140,7 @@ function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
             <div class="detail-body">
                 <div class="detail-section">
                     <label>Content</label>
-                    <div class="detail-content">${memory.content || 'No content available'}</div>
+                    <div class="detail-content">${m.content || 'No content available'}</div>
                 </div>
 
                 <div class="detail-section">
@@ -783,19 +1156,19 @@ function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
                 <div class="detail-meta">
                     <div class="detail-meta-item">
                         <label>Domain</label>
-                        <span class="domain-badge" style="background: ${color}20; color: ${color};">${memory.domain}</span>
+                        <span class="domain-badge" style="background: ${color}20; color: ${color};">${m.domain}</span>
                     </div>
                     <div class="detail-meta-item">
                         <label>Type</label>
-                        <span class="value">${memory.memory_type || memory.memoryType || 'unknown'}</span>
+                        <span class="value">${m.memory_type || m.memoryType || 'unknown'}</span>
                     </div>
                     <div class="detail-meta-item">
                         <label>Status</label>
-                        <span class="value">${memory.status}</span>
+                        <span class="value">${m.status}</span>
                     </div>
                     <div class="detail-meta-item">
                         <label>Created</label>
-                        <span class="value">${memory.created_at ? timeAgo(memory.created_at) : 'unknown'}</span>
+                        <span class="value">${m.created_at ? timeAgo(m.created_at) : 'unknown'}</span>
                     </div>
                     <div class="detail-meta-item">
                         <label>Agent</label>
@@ -810,36 +1183,36 @@ function MemoryDetail({ memory, onClose, onDelete, onNavigate }) {
                                 <span style="margin-left:4px;font-size:10px;color:var(--primary);">→</span>
                             </span>
                         ` : html`
-                            <span class="value" style="font-size: 11px; word-break: break-all;">${memory.agent || memory.submitting_agent || 'unknown'}</span>
+                            <span class="value" style="font-size: 11px; word-break: break-all;">${m.agent || m.submitting_agent || 'unknown'}</span>
                         `}
                     </div>
                     <div class="detail-meta-item">
                         <label>Memory ID</label>
-                        <span class="value" style="font-size: 10px; word-break: break-all;">${memory.id || memory.memory_id}</span>
+                        <span class="value" style="font-size: 10px; word-break: break-all;">${m.id || m.memory_id}</span>
                     </div>
-                    ${memory.content_hash && html`
+                    ${m.content_hash && html`
                         <div class="detail-meta-item">
                             <label>Content Hash</label>
-                            <span class="value" style="font-size: 10px; word-break: break-all; font-family: var(--font-mono, monospace);">${typeof memory.content_hash === 'string' ? memory.content_hash : btoa(String.fromCharCode(...new Uint8Array(memory.content_hash)))}</span>
+                            <span class="value" style="font-size: 10px; word-break: break-all; font-family: var(--font-mono, monospace);">${typeof m.content_hash === 'string' ? m.content_hash : btoa(String.fromCharCode(...new Uint8Array(m.content_hash)))}</span>
                         </div>
                     `}
-                    ${memory.committed_at && html`
+                    ${m.committed_at && html`
                         <div class="detail-meta-item">
                             <label>Committed</label>
-                            <span class="value">${timeAgo(memory.committed_at)}</span>
+                            <span class="value">${timeAgo(m.committed_at)}</span>
                         </div>
                     `}
-                    ${memory.provider && html`
+                    ${m.provider && html`
                         <div class="detail-meta-item">
                             <label>Provider</label>
-                            <span class="value">${memory.provider}</span>
+                            <span class="value">${m.provider}</span>
                         </div>
                     `}
                 </div>
 
                 <div class="detail-section" style="margin-top: 16px;">
                     <label>Tags</label>
-                    ${html`<${TagEditor} memoryId=${memory.id || memory.memory_id} />`}
+                    ${html`<${TagEditor} memoryId=${m.id || m.memory_id} />`}
                 </div>
 
                 <div class="detail-section" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
@@ -1063,6 +1436,7 @@ function SearchPage({ onSelectMemory }) {
                    value=${query} onInput=${handleSearch} />
             <div class="search-filters">
                 <${HelpTip} text="Search across all committed memories by content, domain, or tags. Results are ranked by relevance." />
+                <${PageHelp} section="search" label="Search & Import guide" />
                 <select class="filter-select" value=${domainFilter} onChange=${handleDomainFilter}>
                     <option value="">All domains</option>
                     ${domains.map(d => html`<option value=${d}>${d}</option>`)}
@@ -2036,6 +2410,7 @@ function SettingsPage() {
                         <span>${t.label}</span>
                     </button>
                 `)}
+                <${PageHelp} section="settings" label="Settings guide" />
             </div>
 
             ${settingsTab === 'overview' && html`
@@ -2210,14 +2585,28 @@ function SettingsPage() {
 // Import Page
 // ============================================================================
 
-function ImportPage() {
+function ImportPage({ sse }) {
     const [selectedFile, setSelectedFile] = useState(null);
     const [dragging, setDragging] = useState(false);
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const [suggestion, setSuggestion] = useState(null);
+    const [progress, setProgress] = useState(null);
     const fileInputRef = useRef(null);
+
+    // Listen for import progress SSE events
+    useEffect(() => {
+        if (!sse) return;
+        const unsub = sse.on('import', (data) => {
+            if (data.phase === 'complete') {
+                setProgress(null);
+            } else {
+                setProgress(data);
+            }
+        });
+        return unsub;
+    }, [sse]);
 
     function handleDragOver(e) {
         e.preventDefault();
@@ -2336,11 +2725,11 @@ function ImportPage() {
                 </div>
             </div>
 
-            <div class="drop-zone ${dragging ? 'drop-zone-active' : ''} ${selectedFile ? 'drop-zone-has-file' : ''}"
-                 onDragOver=${handleDragOver}
-                 onDragLeave=${handleDragLeave}
-                 onDrop=${handleDrop}
-                 onClick=${() => fileInputRef.current && fileInputRef.current.click()}>
+            <div class="drop-zone ${dragging ? 'drop-zone-active' : ''} ${selectedFile ? 'drop-zone-has-file' : ''} ${importing ? 'drop-zone-disabled' : ''}"
+                 onDragOver=${!importing ? handleDragOver : undefined}
+                 onDragLeave=${!importing ? handleDragLeave : undefined}
+                 onDrop=${!importing ? handleDrop : undefined}
+                 onClick=${() => !importing && fileInputRef.current && fileInputRef.current.click()}>
                 <input type="file" ref=${fileInputRef} accept=".json,.zip,.md,.txt"
                        style="display:none" onChange=${handleFileSelect} />
                 ${selectedFile ? html`
@@ -2374,6 +2763,23 @@ function ImportPage() {
                     ` : 'Import Memories'}
                 </button>
             </div>
+
+            ${(importing && progress) && html`
+                <div class="import-progress fade-in">
+                    <div class="import-progress-header">
+                        <span>Processing memories on-chain...</span>
+                        <span class="import-progress-count">${progress.current || 0} / ${progress.total || 0}</span>
+                    </div>
+                    <div class="import-progress-bar-track">
+                        <div class="import-progress-bar-fill" style="width: ${progress.total ? Math.round(((progress.current || 0) / progress.total) * 100) : 0}%"></div>
+                    </div>
+                    <div class="import-progress-detail">
+                        <span>${progress.imported || 0} imported</span>
+                        ${progress.skipped > 0 ? html`<span> · ${progress.skipped} skipped</span>` : ''}
+                    </div>
+                    <div class="import-progress-hint">You can browse other tabs — the import continues in the background. Watch Chain Activity to see memories being committed.</div>
+                </div>
+            `}
 
             ${error && html`
                 <div class="import-error">
@@ -2449,7 +2855,7 @@ function ImportPage() {
 // Timeline Bar
 // ============================================================================
 
-function TimelineBar() {
+function TimelineBar({ selectedRanges, onSelectRange }) {
     const [buckets, setBuckets] = useState([]);
 
     useEffect(() => {
@@ -2471,27 +2877,211 @@ function TimelineBar() {
         }
     }
 
+    function toggleBucket(bucket) {
+        if (!onSelectRange) return;
+        const from = new Date(bucket.period).getTime();
+        const to = from + 3600000; // 1 hour
+        const existing = (selectedRanges || []).find(r => r.from === from);
+        if (existing) {
+            // Deselect
+            onSelectRange(selectedRanges.filter(r => r.from !== from));
+        } else {
+            // Select (add to multi-select)
+            onSelectRange([...(selectedRanges || []), { from, to }]);
+        }
+    }
+
+    function isSelected(bucket) {
+        if (!selectedRanges || selectedRanges.length === 0) return false;
+        const from = new Date(bucket.period).getTime();
+        return selectedRanges.some(r => r.from === from);
+    }
+
     return html`
         <div class="timeline-bar">
             <span class="timeline-label">24h</span>
             <div class="timeline-track">
                 ${buckets.map((b, i) => {
                     const pct = (b.count / maxCount) * 100;
+                    const sel = isSelected(b);
                     return html`
-                        <div class="timeline-bucket-bar"
+                        <div class="timeline-bucket-bar ${sel ? 'selected' : ''}"
                              style="left: ${(i / Math.max(1, buckets.length)) * 100}%;
                                     width: ${100 / Math.max(1, buckets.length)}%;
-                                    height: ${Math.max(pct, 4)}%;">
+                                    height: ${Math.max(pct, 4)}%;
+                                    ${sel ? 'background: #22d3ee; opacity: 1;' : ''}"
+                             onClick=${() => toggleBucket(b)}>
                             <div class="timeline-tooltip">
                                 <span class="timeline-tooltip-count">${b.count}</span> memor${b.count === 1 ? 'y' : 'ies'}
                                 <br/>
                                 <span class="timeline-tooltip-time">${formatPeriod(b.period)}</span>
+                                ${sel ? html`<br/><span style="color:var(--primary);font-size:10px;">Click to deselect</span>` : ''}
                             </div>
                         </div>
                     `;
                 })}
             </div>
             <span class="timeline-label" style="text-align: right;">Now</span>
+            ${selectedRanges && selectedRanges.length > 0 && html`
+                <button class="timeline-clear-btn" onClick=${() => onSelectRange([])}
+                        title="Clear time filter">Clear</button>
+            `}
+        </div>
+    `;
+}
+
+// ============================================================================
+// Chain Activity Log — collapsible real-time event stream
+// ============================================================================
+
+function ChainActivityLog({ sse }) {
+    const [open, setOpen] = useState(false);
+    const [events, setEvents] = useState([]);
+    const [logHeight, setLogHeight] = useState(200);
+    const [expandedEvent, setExpandedEvent] = useState(null);
+    const maxEvents = 200;
+
+    useEffect(() => {
+        if (!sse) return;
+
+        function addEvent(type, data) {
+            const entry = {
+                id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                type,
+                timestamp: new Date().toISOString(),
+                data,
+            };
+            setEvents(prev => {
+                const next = [entry, ...prev];
+                return next.length > maxEvents ? next.slice(0, maxEvents) : next;
+            });
+        }
+
+        const unsubs = [
+            sse.on('remember', (data) => addEvent('remember', data)),
+            sse.on('recall', (data) => addEvent('recall', data)),
+            sse.on('forget', (data) => addEvent('forget', data)),
+            sse.on('vote', (data) => addEvent('vote', data)),
+            sse.on('consensus', (data) => addEvent('consensus', data)),
+            sse.on('agent', (data) => addEvent('agent', data)),
+            sse.on('connection', (data) => addEvent('connection', data)),
+        ];
+        return () => unsubs.forEach(u => u());
+    }, [sse]);
+
+    function formatTs(ts) {
+        try {
+            const d = new Date(ts);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch { return ts; }
+    }
+
+    const typeIcons = {
+        remember: { icon: '+', color: '#10b981', label: 'Memory Stored' },
+        recall: { icon: '?', color: '#06b6d4', label: 'Memory Retrieved' },
+        forget: { icon: '-', color: '#ef4444', label: 'Memory Forgotten' },
+        vote: { icon: 'V', color: '#f59e0b', label: 'Consensus Vote' },
+        consensus: { icon: 'C', color: '#a78bfa', label: 'Consensus Reached' },
+        agent: { icon: 'A', color: '#f472b6', label: 'Agent Activity' },
+        connection: { icon: '*', color: '#8b5cf6', label: 'Connection' },
+    };
+
+    return html`
+        <div class="chain-activity ${open ? 'open' : ''}">
+            <button class="chain-activity-toggle" onClick=${() => setOpen(!open)}>
+                <svg width="12" height="12" viewBox="0 0 12 12" style="transform: rotate(${open ? '180' : '0'}deg); transition: transform 0.2s;">
+                    <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <span>Chain Activity</span>
+                ${events.length > 0 ? html`<span class="chain-activity-count">${events.length}</span>` : ''}
+                ${!open && events.length > 0 ? html`
+                    <span class="chain-activity-latest" style="color: ${(typeIcons[events[0]?.type] || typeIcons.connection).color}">
+                        ${(typeIcons[events[0]?.type] || typeIcons.connection).label}
+                        — ${formatTs(events[0]?.timestamp)}
+                    </span>
+                ` : ''}
+            </button>
+            ${open && html`
+                <div class="chain-activity-log" style="max-height: ${logHeight}px;">
+                    ${events.length === 0 ? html`
+                        <div class="chain-activity-empty">Waiting for chain events...</div>
+                    ` : events.map(ev => {
+                        const info = typeIcons[ev.type] || typeIcons.connection;
+                        const isExpanded = expandedEvent === ev.id;
+                        const hasDetail = ev.data?.data?.full_content || ev.data?.data?.retrieved;
+                        return html`
+                            <div class="chain-event ${isExpanded ? 'expanded' : ''}" key=${ev.id}
+                                 onClick=${() => hasDetail && setExpandedEvent(isExpanded ? null : ev.id)}>
+                                <span class="chain-event-icon" style="background: ${info.color}20; color: ${info.color};">${info.icon}</span>
+                                <span class="chain-event-time">${formatTs(ev.timestamp)}</span>
+                                <span class="chain-event-type" style="color: ${info.color};">${info.label}</span>
+                                <span class="chain-event-detail">
+                                    ${ev.data?.memory_id ? html`<code>${ev.data.memory_id.slice(0, 12)}...</code>` : ''}
+                                    ${ev.data?.domain ? html`<span class="chain-event-domain">${ev.data.domain}</span>` : ''}
+                                    ${ev.data?.content ? html`<span class="chain-event-content">${ev.data.content.slice(0, 60)}${ev.data.content.length > 60 ? '...' : ''}</span>` : ''}
+                                    ${ev.data?.connected !== undefined ? (ev.data.connected ? 'Connected' : 'Disconnected') : ''}
+                                    ${ev.data?.agent_id ? html`<span>Agent: <code>${ev.data.agent_id.slice(0, 8)}...</code></span>` : ''}
+                                </span>
+                                ${hasDetail ? html`<span class="chain-event-chevron ${isExpanded ? 'open' : ''}">▸</span>` : ''}
+                                ${isExpanded && ev.type === 'remember' && ev.data?.data?.full_content ? html`
+                                    <div class="chain-event-expand" onClick=${(e) => e.stopPropagation()}>
+                                        <div class="chain-event-expand-label">Full Content</div>
+                                        <div class="chain-event-expand-content">${ev.data.data.full_content}</div>
+                                        <div style="display:flex;gap:12px;margin-top:4px;">
+                                            ${ev.data.data.memory_type ? html`<span style="font-size:10px;color:var(--text-muted);">Type: <strong>${ev.data.data.memory_type}</strong></span>` : ''}
+                                            ${ev.data.data.confidence ? html`<span style="font-size:10px;color:var(--text-muted);">Confidence: <strong>${(ev.data.data.confidence * 100).toFixed(0)}%</strong></span>` : ''}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                ${isExpanded && ev.type === 'recall' && ev.data?.data?.retrieved ? html`
+                                    <div class="chain-event-expand" onClick=${(e) => e.stopPropagation()}>
+                                        <div class="chain-event-expand-label">Retrieved Memories (${ev.data.data.retrieved.length})</div>
+                                        <div class="chain-event-retrieved">
+                                            ${ev.data.data.retrieved.map((m, i) => html`
+                                                <div class="chain-event-retrieved-item" key=${i}>
+                                                    <code>${m.memory_id?.slice(0, 8)}...</code>
+                                                    <span class="chain-event-domain" style="font-size:9px;">${m.domain}</span>
+                                                    <span class="retrieved-content">${m.content?.slice(0, 150)}${m.content?.length > 150 ? '...' : ''}</span>
+                                                </div>
+                                            `)}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    })}
+                </div>
+                <div class="chain-activity-resize-handle"
+                     onMouseDown=${(e) => {
+                         e.preventDefault();
+                         e.stopPropagation();
+                         const startY = e.clientY;
+                         const startH = logHeight;
+                         let lastHeight = startH;
+                         let rafId = 0;
+                         document.body.style.userSelect = 'none';
+                         document.body.style.cursor = 'ns-resize';
+                         function onMove(ev) {
+                             ev.preventDefault();
+                             const dy = ev.clientY - startY;
+                             const newH = Math.max(80, Math.min(600, startH + dy));
+                             if (newH !== lastHeight) {
+                                 lastHeight = newH;
+                                 cancelAnimationFrame(rafId);
+                                 rafId = requestAnimationFrame(() => setLogHeight(newH));
+                             }
+                         }
+                         function onUp() {
+                             document.removeEventListener('mousemove', onMove);
+                             document.removeEventListener('mouseup', onUp);
+                             document.body.style.userSelect = '';
+                             document.body.style.cursor = '';
+                             cancelAnimationFrame(rafId);
+                         }
+                         document.addEventListener('mousemove', onMove);
+                         document.addEventListener('mouseup', onUp);
+                     }}></div>
+            `}
         </div>
     `;
 }
@@ -2513,9 +3103,7 @@ function formatUptime(totalSec) {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm' + String(s).padStart(2, '0') + 's';
-    if (m > 0) return m + 'm' + String(s).padStart(2, '0') + 's';
-    return s + 's';
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
 function HealthBar() {
@@ -2572,7 +3160,7 @@ function HealthBar() {
             </div>
             <div class="health-sep"></div>
             <div class="health-item">
-                <span style="color: var(--text-muted)">uptime</span> ${formatUptime(uptimeSec)}
+                <span style="color: var(--text-muted)">uptime</span> ${formatUptime(uptimeSec)} <${PageHelp} section="cerebrum-view" label="Cerebrum guide" />
             </div>
         </div>
     `;
@@ -2582,9 +3170,10 @@ function HealthBar() {
 // Help Overlay
 // ============================================================================
 
-function HelpOverlay({ onClose }) {
+function HelpOverlay({ onClose, initialSection }) {
     const [dontShow, setDontShow] = useState(false);
-    const [openSection, setOpenSection] = useState(null);
+    const [openSection, setOpenSection] = useState(initialSection || null);
+    const [animClass, setAnimClass] = useState('');
 
     function handleDismiss() {
         if (dontShow) {
@@ -2593,7 +3182,15 @@ function HelpOverlay({ onClose }) {
         onClose();
     }
 
-    const toggleSection = (key) => setOpenSection(openSection === key ? null : key);
+    const selectSection = (key) => {
+        if (key === openSection) return;
+        setAnimClass('guide-anim-out');
+        setTimeout(() => {
+            setOpenSection(key);
+            setAnimClass('guide-anim-in');
+            setTimeout(() => setAnimClass(''), 300);
+        }, 200);
+    };
 
     const sections = [
         {
@@ -2628,15 +3225,31 @@ function HelpOverlay({ onClose }) {
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Navigation</div>
-                        <div class="guide-detail-desc">Scroll to zoom in/out. Click and drag to pan. Use the navigation pad in the corner for precise movement. Click any bubble to open its detail panel with full content, metadata, and actions.</div>
+                        <div class="guide-detail-desc">Scroll to zoom in/out. Click and drag to pan. Use the navigation pad in the corner for precise movement.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Click-to-Focus</div>
+                        <div class="guide-detail-desc">Click any bubble to focus its domain group. Other domains fade out, and the focused memories arrange in a timeline row sorted by creation date. Click a focused bubble again to open its detail panel. Click empty space to exit focus mode.</div>
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Domain filter</div>
                         <div class="guide-detail-desc">Click the colored domain pills at the top to filter. Only bubbles from selected domains will appear. Click again to remove the filter.</div>
                     </div>
                     <div class="guide-detail-item">
-                        <div class="guide-detail-label">Timeline bar</div>
-                        <div class="guide-detail-desc">The bar at the bottom shows memory activity over the last 24 hours. Hover over segments to see how many memories were created in each time window.</div>
+                        <div class="guide-detail-label">Agent tabs</div>
+                        <div class="guide-detail-desc">Filter memories by agent. Admin agents appear first. Click an agent tab to see only their memories; click again to show all.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Interactive timeline</div>
+                        <div class="guide-detail-desc">The bar at the bottom shows memory activity over the last 24 hours. Click any time bucket to filter the graph to only those hours. Multi-select by clicking multiple buckets. Click "Clear" to reset.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Memory Stats panel</div>
+                        <div class="guide-detail-desc">Shows domain breakdown and totals. Grab the header to drag it anywhere on screen — position persists between sessions. Use the resize handle at the bottom-right to expand.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Chain Activity</div>
+                        <div class="guide-detail-desc">The collapsible bar at the very bottom shows real-time chain events — memories stored, recalled, forgotten, and consensus votes. Drag the top edge to resize. Visible on all pages.</div>
                     </div>
                 </div>
             `,
@@ -2701,15 +3314,38 @@ function HelpOverlay({ onClose }) {
             icon: html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>`,
             summary: 'Manage agents on your SAGE chain — add peers, set roles, and control permissions.',
             content: html`
-                <p>The Network page manages all agents participating in your SAGE consensus chain. Each agent is a separate node (a different machine, assistant, or identity) that shares the same memory network.</p>
+                <p>The Network page manages all agents participating in your SAGE consensus chain. Each agent is a separate identity — a different Claude Code project, machine, or assistant — that shares the same memory network.</p>
                 <div class="guide-detail-grid">
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Agent list</div>
-                        <div class="guide-detail-desc">Each agent appears as a row showing its name, role badge, status indicator (green = active, yellow = pending, red = offline), memory count, and clearance level. Click any row to expand its detail view.</div>
+                        <div class="guide-detail-desc">Each agent appears as a card showing its name, role badge, status indicator (green = active, yellow = pending, red = offline), memory count, and clearance level. Click any card to expand its detail view.</div>
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Adding an agent</div>
-                        <div class="guide-detail-desc">Click the "+" card to launch the Add Agent wizard. You'll set the agent's identity (name, avatar, role), permissions (clearance, domain access), and choose a connection method — either download a configuration bundle or use LAN pairing. The LAN pairing code (e.g. SAG-X7K) is valid for 15 minutes and single-use. On the new machine, run <code>sage-lite pair CODE</code> or enter it in the setup wizard. The new agent auto-fetches its keys and config over the local network — no manual file copying needed.</div>
+                        <div class="guide-detail-desc">Click the "+" card to launch the Add Agent wizard. Configure the agent's identity (name, avatar, role), permissions (clearance, domain access), and connection method:
+                            <br/><br/>
+                            <strong>Local Project</strong> (recommended) — For Claude Code sessions on this machine. The wizard shows a one-line install command: <code>sage-gui mcp install --token XXXX</code>. Run it in your project folder. The agent's key and config are set up automatically, and it connects with the exact identity and RBAC you configured. The token is one-time use and expires in 24 hours.
+                            <br/><br/>
+                            <strong>Download Bundle</strong> — For remote machines. Downloads a ZIP with keys and config to copy manually.
+                            <br/><br/>
+                            <strong>LAN Pairing</strong> — For agents on your local network. Generates a pairing code (valid 15 minutes). Run <code>sage-gui pair CODE</code> on the new machine.
+                        </div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Per-project identity</div>
+                        <div class="guide-detail-desc">Each Claude Code session in a different project folder automatically gets its own Ed25519 keypair — no shared keys between projects. Keys are stored at <code>~/.sage/agents/&lt;project-name&gt;-&lt;hash&gt;/agent.key</code>. This means your "sage" project, "levelupctf" project, and "cfp-directory" project each have distinct agents with separate memory attribution and permissions — all managed from this dashboard.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Claim token flow</div>
+                        <div class="guide-detail-desc">The recommended way to onboard an agent: create it in the dashboard first (name, role, RBAC permissions), then copy the install command shown in the wizard. Run <code>sage-gui mcp install --token XXXX</code> in your project folder. The CLI claims the pre-configured identity and writes <code>.mcp.json</code>. On next session start, the agent connects with the exact identity and permissions you set up — no manual key wrangling needed. The claim token is single-use and expires after 24 hours.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Unregistered agents</div>
+                        <div class="guide-detail-desc">Agents that submit memories via MCP but are not formally registered in the dashboard show up in the Brain view agent filter tabs with a dashed border and a "?" badge. Their memories are stored normally, but they lack a configured name, role, and permissions. You can link an unregistered agent to a dashboard identity at any time from the Network page.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Admin role indicator</div>
+                        <div class="guide-detail-desc">Admin agents display a gold star (\u2605) next to their name in the agent filter tabs across the Brain and Search views. The admin is the primary identity that manages other agents' permissions, RBAC settings, and network configuration.</div>
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Overview tab</div>
@@ -2769,8 +3405,16 @@ function HelpOverlay({ onClose }) {
                 <p>Starting in v3.5, agent identity is a first-class on-chain concept. Every registration, metadata update, and permission change goes through CometBFT consensus — giving you auditability, tamper resistance, and federation readiness.</p>
                 <div class="guide-detail-grid">
                     <div class="guide-detail-item">
+                        <div class="guide-detail-label">How agents join</div>
+                        <div class="guide-detail-desc">
+                            <strong>Option 1: Dashboard-first (recommended)</strong> — Create the agent in the Network page with name, role, and RBAC. Copy the install command and run it in your project folder. The agent claims its pre-configured identity automatically.
+                            <br/><br/>
+                            <strong>Option 2: Auto-register</strong> — Just install MCP config (<code>sage-gui mcp install</code>) without a token. The agent self-registers on-chain during its first <code>sage_inception</code> call with a default identity. Configure permissions later from the dashboard.
+                        </div>
+                    </div>
+                    <div class="guide-detail-item">
                         <div class="guide-detail-label">Auto-registration</div>
-                        <div class="guide-detail-desc">Agents connecting via MCP automatically register on-chain during their first <code>sage_inception</code> call. No manual setup required. The registration is idempotent — connecting again returns the existing record.</div>
+                        <div class="guide-detail-desc">Agents connecting via MCP automatically register on-chain during their first <code>sage_inception</code> call. The registration is idempotent — connecting again returns the existing record. If a claim token was used, the agent already has its identity.</div>
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">On-chain badge</div>
@@ -2787,6 +3431,18 @@ function HelpOverlay({ onClose }) {
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Transaction types</div>
                         <div class="guide-detail-desc">Three new on-chain transactions: <strong>AgentRegister</strong> (self-registration), <strong>AgentUpdate</strong> (self-update of name/bio), and <strong>AgentSetPermission</strong> (admin sets clearance, domains, visibility). All are cryptographically signed.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Claim token lifecycle</div>
+                        <div class="guide-detail-desc">When you create an agent via the dashboard, a one-time claim token is generated. Running <code>sage-gui mcp install --token XXXX</code> in a project folder does three things: generates an Ed25519 keypair at <code>~/.sage/agents/&lt;project-name&gt;-&lt;hash&gt;/agent.key</code>, claims the pre-configured on-chain identity (name, role, RBAC), and writes the <code>.mcp.json</code> config. The token is consumed on claim and cannot be reused. If expired, generate a new one from the agent's detail view in the dashboard.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Unregistered agents on-chain</div>
+                        <div class="guide-detail-desc">Agents that auto-register (no claim token) get an on-chain record but appear in the Brain view agent tabs with a dashed border and "?" badge, indicating they lack a dashboard-configured identity. Their memories are valid and consensus-verified, but they operate with default permissions until an admin links them to a named identity or configures their RBAC from the Network page.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Admin role indicator</div>
+                        <div class="guide-detail-desc">Admin agents are visually distinguished with a gold star (\u2605) in the agent filter tabs throughout the dashboard. The admin role is the only one that can execute <strong>AgentSetPermission</strong> transactions and manage other agents' clearance, domain access, and visibility settings.</div>
                     </div>
                 </div>
             `,
@@ -2838,12 +3494,14 @@ function HelpOverlay({ onClose }) {
                     </div>
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Peers</div>
-                        <div class="guide-detail-desc">View connected peers on your SAGE network. Each peer is another node running sage-lite that participates in consensus. Peers sync memories and validate each other's submissions through BFT.</div>
+                        <div class="guide-detail-desc">View connected peers on your SAGE network. Each peer is another node running sage-gui that participates in consensus. Peers sync memories and validate each other's submissions through BFT.</div>
                     </div>
                 </div>
             `,
         },
     ];
+
+    const activeSection = sections.find(s => s.key === openSection) || sections[0];
 
     return html`
         <div class="help-overlay" onClick=${(e) => { if (e.target === e.currentTarget) handleDismiss(); }}>
@@ -2852,24 +3510,19 @@ function HelpOverlay({ onClose }) {
                     <h2>CEREBRUM Guide</h2>
                     <button class="detail-close" onClick=${handleDismiss}>x</button>
                 </div>
-                <div class="guide-intro">Welcome to CEREBRUM — the visual dashboard for your SAGE institutional memory. This guide covers everything you need to know.</div>
-                <div class="guide-sections">
+                <div class="guide-tabs">
                     ${sections.map(s => html`
-                        <div class="guide-section ${openSection === s.key ? 'open' : ''}" key=${s.key}>
-                            <div class="guide-section-header" onClick=${() => toggleSection(s.key)} role="button" tabIndex="0"
-                                onKeyDown=${e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(s.key); } }}>
-                                <div class="guide-section-icon">${s.icon}</div>
-                                <div class="guide-section-text">
-                                    <div class="guide-section-title">${s.title}</div>
-                                    <div class="guide-section-summary">${s.summary}</div>
-                                </div>
-                                <svg class="guide-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                            </div>
-                            <div class="guide-section-body">
-                                ${openSection === s.key && html`<div class="guide-section-content">${s.content}</div>`}
-                            </div>
-                        </div>
+                        <button key=${s.key}
+                                class="guide-tab ${(openSection || sections[0].key) === s.key ? 'active' : ''}"
+                                onClick=${() => selectSection(s.key)}
+                                title=${s.summary}>
+                            <span class="guide-tab-icon">${s.icon}</span>
+                            <span class="guide-tab-label">${s.title}</span>
+                        </button>
                     `)}
+                </div>
+                <div class="guide-tab-content">
+                    <div class="guide-section-content ${animClass}">${activeSection.content}</div>
                 </div>
                 <div class="help-footer">
                     <label class="help-dismiss-check">
@@ -2966,9 +3619,24 @@ function DeployProgress({ currentPhase, status, error }) {
     const currentIdx = DEPLOY_PHASES.findIndex(p => p.key === currentPhase);
     const isFailed = status === 'failed';
     const isComplete = currentPhase === 'COMPLETED' && !isFailed;
+    const isRunning = !isFailed && !isComplete;
+    const [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        if (!isRunning) return;
+        const start = Date.now();
+        const timer = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+        return () => clearInterval(timer);
+    }, [isRunning]);
 
     return html`
         <div class="deploy-progress">
+            ${isRunning && html`
+                <div class="deploy-timer">
+                    <span class="deploy-spinner" style="width:12px;height:12px;border-width:1.5px;"></span>
+                    <span style="color:var(--text-muted);font-size:12px;">Elapsed: ${elapsed}s</span>
+                </div>
+            `}
             ${DEPLOY_PHASES.map((phase, i) => {
                 let phaseStatus = 'pending';
                 if (isFailed && i === currentIdx) phaseStatus = 'failed';
@@ -2995,9 +3663,12 @@ function DeployProgress({ currentPhase, status, error }) {
 }
 
 // --- Domain Access Matrix ---
-function DomainAccessMatrix({ domains, domainAccess, onChange, disabled }) {
+function DomainAccessMatrix({ domains, domainAccess, onChange, onAddDomain, disabled }) {
     const [filter, setFilter] = useState('');
-    const filtered = domains.filter(d => !filter || d.toLowerCase().includes(filter.toLowerCase()));
+    const [newDomain, setNewDomain] = useState('');
+    // Merge externally-passed domains with any custom-added domains in domainAccess
+    const allDomains = [...new Set([...domains, ...Object.keys(domainAccess)])].sort();
+    const filtered = allDomains.filter(d => !filter || d.toLowerCase().includes(filter.toLowerCase()));
 
     const toggle = (domain, field) => {
         const cur = domainAccess[domain] || { read: false, write: false };
@@ -3008,12 +3679,20 @@ function DomainAccessMatrix({ domains, domainAccess, onChange, disabled }) {
     };
     const bulkSet = (field, val) => {
         const upd = { ...domainAccess };
-        domains.forEach(d => {
+        allDomains.forEach(d => {
             upd[d] = { ...(upd[d] || { read: false, write: false }), [field]: val };
             if (field === 'write' && val) upd[d].read = true;
             if (field === 'read' && !val) upd[d].write = false;
         });
         onChange(upd);
+    };
+    const handleAddDomain = () => {
+        const cleaned = newDomain.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+        if (!cleaned) return;
+        // Add with read+write enabled
+        onChange({ ...domainAccess, [cleaned]: { read: true, write: true } });
+        if (onAddDomain) onAddDomain(cleaned);
+        setNewDomain('');
     };
 
     if (disabled) return html`<div class="domain-matrix"><div class="domain-matrix-empty" style="color:var(--accent);">Admins have full access to all domains.</div></div>`;
@@ -3029,16 +3708,24 @@ function DomainAccessMatrix({ domains, domainAccess, onChange, disabled }) {
                     <button onClick=${e => { e.stopPropagation(); bulkSet('read', false); }}>Revoke All</button>
                 </div>
             </div>
+            <div class="domain-matrix-add" onClick=${e => e.stopPropagation()}>
+                <input class="domain-matrix-search" type="text" placeholder="Add new domain tag..."
+                    value=${newDomain} onInput=${e => setNewDomain(e.target.value)}
+                    onKeyDown=${e => { if (e.key === 'Enter') { e.preventDefault(); handleAddDomain(); } }} />
+                <button class="domain-add-btn" onClick=${handleAddDomain} disabled=${!newDomain.trim()}>+ Add</button>
+            </div>
             <div class="domain-matrix-columns"><span>Domain</span><span style="text-align:center;">Read</span><span style="text-align:center;">Write</span></div>
             <div class="domain-matrix-body">
-                ${filtered.length === 0 && domains.length > 0 ? html`<div class="domain-matrix-no-results">No domains matching "${filter}"</div>` : ''}
-                ${domains.length === 0 ? html`<div class="domain-matrix-empty">No domains found. Domains appear as memories are submitted.</div>` : ''}
+                ${filtered.length === 0 && allDomains.length > 0 ? html`<div class="domain-matrix-no-results">No domains matching "${filter}"</div>` : ''}
+                ${allDomains.length === 0 ? html`<div class="domain-matrix-empty">No domains yet. Add one above or they'll appear as memories are submitted.</div>` : ''}
                 ${filtered.map(domain => {
                     const a = domainAccess[domain] || { read: false, write: false };
-                    return html`<div class="domain-matrix-row" key=${domain}>
+                    const isCustom = !domains.includes(domain);
+                    return html`<div class="domain-matrix-row ${isCustom ? 'custom' : ''}" key=${domain}>
                         <div class="domain-matrix-domain">
                             <span class="domain-matrix-dot" style="background:${getDomainColor(domain)};"></span>
                             ${domain}
+                            ${isCustom ? html`<span style="font-size:10px;color:var(--text-muted);margin-left:6px;">new</span>` : ''}
                         </div>
                         <div class="domain-matrix-toggle" onClick=${e => e.stopPropagation()}>
                             <label class="toggle-switch"><input type="checkbox" checked=${a.read} onChange=${() => toggle(domain, 'read')} /><span class="toggle-slider"></span></label>
@@ -3127,6 +3814,10 @@ function NetworkPage() {
     // Key rotation state
     const [showRotateConfirm, setShowRotateConfirm] = useState(null);
     const [rotating, setRotating] = useState(false);
+    // Unregistered agents state
+    const [unregistered, setUnregistered] = useState([]);
+    const [mergeTarget, setMergeTarget] = useState(null); // {source, target}
+    const [merging, setMerging] = useState(false);
 
     const loadAgents = useCallback(async () => {
         try {
@@ -3136,8 +3827,16 @@ function NetworkPage() {
         finally { setLoading(false); }
     }, []);
 
+    const loadUnregistered = useCallback(async () => {
+        try {
+            const data = await fetchUnregisteredAgents();
+            setUnregistered(data.unregistered || []);
+        } catch (e) { console.error(e); }
+    }, []);
+
     useEffect(() => {
         loadAgents();
+        loadUnregistered();
         fetchStats().then(data => {
             if (data?.by_domain) setAllDomains(Object.keys(data.by_domain).sort());
         }).catch(() => {});
@@ -3231,6 +3930,19 @@ function NetworkPage() {
         setRotating(false);
     }, [loadAgents, startRedeployPoll]);
 
+    const handleMerge = useCallback(async (sourceId, targetId) => {
+        setMerging(true);
+        try {
+            const res = await mergeAgent(sourceId, targetId);
+            if (res.error) { alert(res.error); setMerging(false); return; }
+            alert(res.message || 'Memories merged successfully.');
+            setMergeTarget(null);
+            loadAgents();
+            loadUnregistered();
+        } catch (e) { alert('Failed to merge: ' + e.message); }
+        setMerging(false);
+    }, [loadAgents, loadUnregistered]);
+
     if (loading) return html`<div class="network-page"><p style="color:var(--text-muted);text-align:center;padding:40px;">Loading agents...</p></div>`;
 
     const isRedeploying = redeployStatus?.status && !['idle','completed','failed'].includes(redeployStatus.status);
@@ -3239,7 +3951,7 @@ function NetworkPage() {
         <div class="network-page fade-in">
             ${isRedeploying && html`<div class="redeploy-banner"><span class="deploy-spinner"></span> Network reconfiguration in progress... Phase: ${(DEPLOY_PHASES.find(p => p.key === redeployStatus.current_phase) || {}).label || redeployStatus.current_phase}</div>`}
             <div class="network-header">
-                <div><h2>Network <${HelpTip} text="Manage agents on your SAGE chain. Each agent is a separate node that participates in BFT consensus. Click any agent to expand its details and permissions." /></h2><div class="network-header-sub">${agents.length} agent${agents.length !== 1 ? 's' : ''} on this network</div></div>
+                <div><h2>Network <${HelpTip} text="Manage agents on your SAGE chain. Each agent is a separate node that participates in BFT consensus. Click any agent to expand its details and permissions." /><${PageHelp} section="network" label="Network & Agents guide" /></h2><div class="network-header-sub">${agents.length} agent${agents.length !== 1 ? 's' : ''} on this network</div></div>
             </div>
 
             <div class="agent-list">
@@ -3326,9 +4038,9 @@ function NetworkPage() {
                                                 <span class="agent-info-value mono">${agent.validator_pubkey}</span>
                                             </div>` : ''}
                                             <div class="agent-info-block" style="grid-column:1/-1;">
-                                                <span class="agent-info-label">Bio</span>
+                                                <span class="agent-info-label">Purpose</span>
                                                 ${editing ? html`<textarea class="wizard-textarea" value=${editBio} onInput=${e => setEditBio(e.target.value)} onClick=${e => e.stopPropagation()} />`
-                                                    : html`<span class="agent-info-value" style="font-weight:400;color:var(--text-dim);">${agent.boot_bio || 'No bio set'}</span>`}
+                                                    : html`<span class="agent-info-value" style="font-weight:400;color:var(--text-dim);">${agent.boot_bio || 'No purpose set'}</span>`}
                                             </div>
                                         </div>
                                     `}
@@ -3392,7 +4104,10 @@ function NetworkPage() {
                                                 <button class="btn" onClick=${() => setEditing(false)}>Cancel</button>
                                             ` : html`
                                                 <button class="btn" onClick=${() => setEditing(true)}>Edit</button>
-                                                <button class="btn" onClick=${() => downloadBundle(agent.agent_id)}>Download Bundle</button>
+                                                <button class="btn" onClick=${async () => {
+                                                    const ok = await downloadBundle(agent.agent_id);
+                                                    if (!ok) alert('No bundle available for this agent. Bundles are only created when agents are added via the wizard.');
+                                                }}>Download Bundle</button>
                                                 <button class="btn" onClick=${() => setShowRotateConfirm(agent)}>Rotate Key</button>
                                                 ${isLastAdmin
                                                     ? html`<button class="btn btn-danger btn-disabled" disabled=${true} title="Cannot remove the last admin — network needs at least one admin">Remove</button>`
@@ -3412,6 +4127,56 @@ function NetworkPage() {
                 </div>
             </div>
 
+            ${unregistered.length > 0 && html`
+                <div class="unregistered-section">
+                    <h3 style="color:var(--text-muted);font-size:14px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                        <span style="color:var(--warning, #f5a623);">?</span> Unregistered Agents
+                        <${HelpTip} text="These agents have memories in your SAGE database but aren't registered in the dashboard. They were likely created by per-project Claude Code sessions. You can merge their memories into a registered agent." />
+                    </h3>
+                    <div class="unregistered-list">
+                        ${unregistered.map(u => html`
+                            <div class="unregistered-card" key=${u.agent_id}>
+                                <div class="unregistered-info">
+                                    <span class="mono" style="font-size:12px;color:var(--text-dim);">${u.short_id}</span>
+                                    <span style="font-size:12px;color:var(--text-muted);">${u.memory_count} memor${u.memory_count === 1 ? 'y' : 'ies'}</span>
+                                </div>
+                                <button class="merge-btn" onClick=${() => setMergeTarget({ source: u.agent_id, sourceShort: u.short_id, memoryCount: u.memory_count })}>
+                                    Merge into...
+                                </button>
+                            </div>
+                        `)}
+                    </div>
+                </div>
+            `}
+            ${mergeTarget && html`
+                <div class="wizard-overlay" onClick=${e => { if (e.target === e.currentTarget) setMergeTarget(null); }}>
+                    <div class="wizard-modal" style="max-width:480px;">
+                        <div class="wizard-header">
+                            <h2>Merge Agent Memories</h2>
+                            <button class="detail-close" onClick=${() => setMergeTarget(null)}>x</button>
+                        </div>
+                        <div class="wizard-body" style="padding:20px;">
+                            <p style="color:var(--text-dim);margin-bottom:16px;">
+                                Reassign <strong>${mergeTarget.memoryCount}</strong> memor${mergeTarget.memoryCount === 1 ? 'y' : 'ies'} from
+                                <code style="font-size:11px;">${mergeTarget.sourceShort}</code> to a registered agent.
+                            </p>
+                            <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px;">
+                                This operation goes through BFT consensus on-chain. The memories will be re-attributed on the next block.
+                            </p>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                ${agents.filter(a => a.status !== 'removed').map(a => html`
+                                    <button class="merge-target-btn" onClick=${() => handleMerge(mergeTarget.source, a.agent_id)} disabled=${merging}>
+                                        <span>${a.avatar || '\u{1F916}'}</span>
+                                        <span>${a.name}</span>
+                                        <span class="agent-role-badge ${a.role}" style="margin-left:auto;">${a.role}</span>
+                                    </button>
+                                `)}
+                            </div>
+                            ${merging && html`<p style="color:var(--primary);font-size:12px;margin-top:12px;">Submitting to blockchain consensus...</p>`}
+                        </div>
+                    </div>
+                </div>
+            `}
             ${showWizard && html`<${AddAgentWizard} onClose=${() => setShowWizard(false)} onCreated=${() => { setShowWizard(false); loadAgents(); }} />`}
             ${showRemoveConfirm && html`<${RemoveConfirmModal} agent=${showRemoveConfirm} onConfirm=${() => handleRemove(showRemoveConfirm)} onCancel=${() => setShowRemoveConfirm(null)} />`}
             ${showRotateConfirm && html`
@@ -3459,7 +4224,7 @@ function AddAgentWizard({ onClose, onCreated }) {
     const [allDomains, setAllDomains] = useState([]);
 
     // Step 3 state
-    const [connectMethod, setConnectMethod] = useState('bundle');
+    const [connectMethod, setConnectMethod] = useState('local');
 
     // Step 4 state — deploy progress
     const [deploying, setDeploying] = useState(false);
@@ -3588,14 +4353,6 @@ function AddAgentWizard({ onClose, onCreated }) {
                             <input class="wizard-input" placeholder="Agent name" value=${name} onInput=${e => setName(e.target.value)} />
                         </div>
                         <div class="wizard-field">
-                            <label>Role</label>
-                            <select class="wizard-select" value=${role} onChange=${e => setRole(e.target.value)}>
-                                <option value="admin">Admin</option>
-                                <option value="member">Member</option>
-                                <option value="observer">Observer</option>
-                            </select>
-                        </div>
-                        <div class="wizard-field">
                             <label>Avatar</label>
                             <div class="emoji-grid">
                                 ${AGENT_EMOJIS.map(e => html`
@@ -3604,12 +4361,19 @@ function AddAgentWizard({ onClose, onCreated }) {
                             </div>
                         </div>
                         <div class="wizard-field">
-                            <label>Boot Bio</label>
-                            <textarea class="wizard-textarea" placeholder="System prompt / job scope for this agent" value=${bio} onInput=${e => setBio(e.target.value)} />
+                            <label>Purpose <${HelpTip} text="Describe what this agent does. This is shown in the dashboard and returned to the AI during boot so it knows its role in the network. Think of it as a job description." /></label>
+                            <textarea class="wizard-textarea" placeholder="What does this agent do? e.g. 'Coding assistant for the sage project — tracks architecture decisions, debugging insights, and release notes'" value=${bio} onInput=${e => setBio(e.target.value)} />
                         </div>
                         <div class="wizard-field">
-                            <label>Provider <${HelpTip} text="The AI platform this agent connects from (e.g. claude-code, cursor, chatgpt). Optional — auto-detected on first MCP connection." /></label>
-                            <input class="wizard-input" placeholder="e.g. claude-code, cursor, chatgpt" value=${provider} onInput=${e => setProvider(e.target.value)} />
+                            <label>Provider <${HelpTip} text="Which AI tool will this agent connect from? Auto-detected on first connection if left as Auto-detect." /></label>
+                            <select class="wizard-select" value=${provider} onChange=${e => setProvider(e.target.value)}>
+                                <option value="">Auto-detect</option>
+                                <option value="claude-code">Claude Code</option>
+                                <option value="cursor">Cursor</option>
+                                <option value="windsurf">Windsurf</option>
+                                <option value="chatgpt">ChatGPT</option>
+                                <option value="other">Other</option>
+                            </select>
                         </div>
                     `}
 
@@ -3657,6 +4421,11 @@ function AddAgentWizard({ onClose, onCreated }) {
                                 <${HelpTip} text="Bundle: download a ZIP to copy manually. LAN: generate a pairing code — the new agent fetches config automatically over your local network." />
                             </p>
                             <div class="connect-cards">
+                                <div class="connect-card ${connectMethod === 'local' ? 'selected' : ''}" onClick=${() => setConnectMethod('local')}>
+                                    <div class="connect-card-icon">💻</div>
+                                    <h4>Local Project</h4>
+                                    <p>Install into a Claude Code project on this machine. One command.</p>
+                                </div>
                                 <div class="connect-card ${connectMethod === 'bundle' ? 'selected' : ''}" onClick=${() => setConnectMethod('bundle')}>
                                     <div class="connect-card-icon">📦</div>
                                     <h4>Download Bundle</h4>
@@ -3677,7 +4446,7 @@ function AddAgentWizard({ onClose, onCreated }) {
                             <div class="summary-row"><span class="label">Avatar</span><span class="value">${avatar}</span></div>
                             <div class="summary-row"><span class="label">Clearance</span><span class="value">${CLEARANCE_LABELS[clearance]}</span></div>
                             <div class="summary-row"><span class="label">Domains</span><span class="value">${role === 'admin' ? 'All (admin)' : (() => { const c = Object.values(domainAccess).filter(v => v.read || v.write).length; return c > 0 ? c + ' domain' + (c !== 1 ? 's' : '') : 'None'; })()}</span></div>
-                            <div class="summary-row"><span class="label">Connect</span><span class="value">${connectMethod === 'bundle' ? 'Bundle Download' : 'LAN Pairing'}</span></div>
+                            <div class="summary-row"><span class="label">Connect</span><span class="value">${connectMethod === 'local' ? 'Local Project' : connectMethod === 'bundle' ? 'Bundle Download' : 'LAN Pairing'}</span></div>
                         </div>
 
                         <div class="warning-banner">
@@ -3719,7 +4488,7 @@ function AddAgentWizard({ onClose, onCreated }) {
                                             <div style="font-size:48px;margin-bottom:12px;">✓</div>
                                             <h3 style="font-size:18px;font-weight:700;color:var(--accent);margin-bottom:4px;">Agent Deployed</h3>
                                             <p style="font-size:13px;color:var(--text-dim);margin-bottom:20px;">
-                                                ${name} is live on the network. ${connectMethod === 'bundle' ? 'Download the bundle to set up the agent.' : 'Use the pairing code on the target machine.'}
+                                                ${name} is live on the network. ${connectMethod === 'local' ? 'Run the install command in your project folder.' : connectMethod === 'bundle' ? 'Download the bundle to set up the agent.' : 'Use the pairing code on the target machine.'}
                                             </p>
                                         </div>
                                         ${deployStatus && deployStatus.status === 'completed' && html`
@@ -3729,9 +4498,29 @@ function AddAgentWizard({ onClose, onCreated }) {
                                             />
                                         `}
                                         <div style="margin-top:20px;text-align:center;">
+                                            ${connectMethod === 'local' && createdAgent && createdAgent.claim_token && html`
+                                                <div style="text-align:left;margin-bottom:16px;">
+                                                    <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px;">
+                                                        Open a terminal in your project folder and run:
+                                                    </p>
+                                                    <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:monospace;font-size:14px;word-break:break-all;position:relative;">
+                                                        <span style="color:var(--primary);">sage-gui mcp install</span> <span style="color:var(--accent);">--token ${createdAgent.claim_token}</span>
+                                                        <button style="position:absolute;top:8px;right:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;color:var(--text-dim);" onClick=${() => {
+                                                            navigator.clipboard.writeText('sage-gui mcp install --token ' + createdAgent.claim_token);
+                                                        }}>Copy</button>
+                                                    </div>
+                                                    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+                                                        Token expires in 24 hours. One-time use — the key is delivered securely and the token is invalidated.
+                                                    </p>
+                                                    <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                                                        After running, restart your Claude Code session. The agent will connect with the identity and permissions you just configured.
+                                                    </p>
+                                                </div>
+                                            `}
                                             ${connectMethod === 'bundle' && createdAgent && html`
-                                                <button class="btn btn-primary" style="padding:12px 28px;font-size:14px;" onClick=${() => {
-                                                    downloadBundle(createdAgent.agent_id);
+                                                <button class="btn btn-primary" style="padding:12px 28px;font-size:14px;" onClick=${async () => {
+                                                    const ok = await downloadBundle(createdAgent.agent_id);
+                                                    if (!ok) alert('Bundle generation failed. Please try again.');
                                                 }}>Download Bundle ZIP</button>
                                             `}
                                             ${connectMethod === 'lan' && html`
@@ -3740,7 +4529,7 @@ function AddAgentWizard({ onClose, onCreated }) {
                                                         ${pairingCode}
                                                     </div>
                                                     <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
-                                                        Valid for 15 minutes. Run <code style="background:var(--bg-elevated);padding:2px 6px;border-radius:4px;">sage-lite pair ${pairingCode}</code> on the new machine.
+                                                        Valid for 15 minutes. Run <code style="background:var(--bg-elevated);padding:2px 6px;border-radius:4px;">sage-gui pair ${pairingCode}</code> on the new machine.
                                                     </p>
                                                 ` : html`
                                                     <button class="btn btn-primary" style="padding:12px 28px;font-size:14px;" onClick=${async () => {
@@ -3852,11 +4641,22 @@ function App() {
     const [page, setPage] = useState('brain');
     const [selectedMemory, setSelectedMemory] = useState(null);
     const [sseConnected, setSseConnected] = useState(false);
+    const [timelineFilter, setTimelineFilter] = useState([]); // [{from, to}, ...]
     const [showHelp, setShowHelp] = useState(false);
+    const [helpSection, setHelpSection] = useState(null);
+    const openHelp = (section) => { setHelpSection(section || null); setShowHelp(true); };
+    window.__sageOpenHelp = openHelp;
     const [tooltipsEnabled, setTooltipsEnabled] = useState(() => {
         try { return localStorage.getItem('sage-tooltips') === '1'; } catch (e) { return false; }
     });
     const sseRef = useRef(null);
+    const [textSize, setTextSize] = useState(() => {
+        try { return localStorage.getItem('sage-text-size') || 'medium'; } catch (e) { return 'medium'; }
+    });
+    const changeTextSize = (size) => {
+        setTextSize(size);
+        try { localStorage.setItem('sage-text-size', size); } catch (e) {}
+    };
 
     // Expose tooltip toggle for SettingsPage
     window.__sageTooltips = { enabled: tooltipsEnabled, toggle: () => {
@@ -3945,14 +4745,19 @@ function App() {
                 ${icons.settings}
             </button>
             <div style="flex:1;"></div>
-            <button class="sidebar-btn" onClick=${() => setShowHelp(true)} title="Help">
+            <button class="sidebar-btn" onClick=${() => openHelp(null)} title="Help">
                 ${icons.help}
             </button>
         </div>
-        <div class="main-content">
+        <div class="main-content zoom-${textSize}">
             <div class="top-bar">
                 <h1>CEREBRUM <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">Your SAGE Brain</span></h1>
                 <div class="spacer"></div>
+                <div class="text-size-toggle" title="Text size">
+                    <button class="text-size-btn sz-s ${textSize === 'small' ? 'active' : ''}" onClick=${() => changeTextSize('small')}>A</button>
+                    <button class="text-size-btn sz-m ${textSize === 'medium' ? 'active' : ''}" onClick=${() => changeTextSize('medium')}>A</button>
+                    <button class="text-size-btn sz-l ${textSize === 'large' ? 'active' : ''}" onClick=${() => changeTextSize('large')}>A</button>
+                </div>
                 <div class="connection-badge">
                     <div class="connection-dot ${sseConnected ? '' : 'disconnected'}"></div>
                     ${sseConnected ? 'Live' : 'Connecting...'}
@@ -3960,14 +4765,15 @@ function App() {
                 </div>
             </div>
             <${HealthBar} />
+            <${ChainActivityLog} sse=${sseRef.current} />
 
             ${page === 'brain' && html`
-                <${BrainView} sse=${sseRef.current} onSelectMemory=${onSelectMemory} />
-                <${TimelineBar} />
+                <${BrainView} sse=${sseRef.current} onSelectMemory=${onSelectMemory} timelineFilter=${timelineFilter} />
+                <${TimelineBar} selectedRanges=${timelineFilter} onSelectRange=${setTimelineFilter} />
             `}
             ${page === 'search' && html`<${SearchPage} onSelectMemory=${onSelectMemory} />`}
             ${page === 'tasks' && html`<${TasksPage} />`}
-            ${page === 'import' && html`<${ImportPage} />`}
+            ${page === 'import' && html`<${ImportPage} sse=${sseRef.current} />`}
             ${page === 'network' && html`<${NetworkPage} />`}
             ${page === 'settings' && html`<${SettingsPage} />`}
 
@@ -3978,7 +4784,7 @@ function App() {
                 onNavigate=${(p) => { setPage(p); window.location.hash = '#/' + p; }}
             />
         </div>
-        ${showHelp && html`<${HelpOverlay} onClose=${() => setShowHelp(false)} />`}
+        ${showHelp && html`<${HelpOverlay} onClose=${() => setShowHelp(false)} initialSection=${helpSection} />`}
     </${TooltipsContext.Provider}>`;
 }
 

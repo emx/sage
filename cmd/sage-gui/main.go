@@ -23,7 +23,11 @@ func main() {
 	case "serve":
 		err = runServe()
 	case "mcp":
-		err = runMCP()
+		if len(os.Args) > 2 && os.Args[2] == "install" {
+			err = runMCPInstall()
+		} else {
+			err = runMCP()
+		}
 	case "setup":
 		err = runSetup()
 	case "seed":
@@ -41,7 +45,7 @@ func main() {
 	case "quorum-join":
 		err = runQuorumJoin()
 	case "version":
-		fmt.Printf("sage-lite %s (commit %s, built %s)\n", version, commit, date)
+		fmt.Printf("sage-gui %s (commit %s, built %s)\n", version, commit, date)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -59,7 +63,7 @@ func main() {
 func printUsage() {
 	fmt.Println(`SAGE Personal — Give your AI a memory
 
-Usage: sage-lite <command>
+Usage: sage-gui <command>
 
 Commands:
   serve     Start the SAGE personal node (CometBFT + REST + Dashboard)
@@ -76,5 +80,10 @@ Commands:
 
 Environment:
   SAGE_HOME       Data directory (default: ~/.sage)
-  SAGE_API_URL    REST API base URL (default: http://localhost:8080)`)
+  SAGE_API_URL    REST API base URL (default: http://localhost:8080)
+  SAGE_AGENT_KEY  Explicit agent key path (overrides per-project derivation)
+
+MCP Subcommands:
+  mcp             Run as MCP server (stdio)
+  mcp install     Install .mcp.json in the current project directory`)
 }

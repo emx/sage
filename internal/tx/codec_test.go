@@ -82,6 +82,16 @@ func TestEncodeDecode(t *testing.T) {
 		{"MemoryVote", sampleVoteTx()},
 		{"MemoryChallenge", sampleChallengeTx()},
 		{"MemoryCorroborate", sampleCorroborateTx()},
+		{"MemoryReassign", &ParsedTx{
+			Type: TxTypeMemoryReassign,
+			MemoryReassign: &MemoryReassign{
+				SourceAgentID: "source-orphan",
+				TargetAgentID: "target-registered",
+			},
+			Nonce:     10,
+			Timestamp: time.Date(2025, 1, 1, 0, 0, 10, 0, time.UTC),
+		}},
+
 	}
 
 	for _, tt := range tests {
@@ -118,6 +128,10 @@ func TestEncodeDecode(t *testing.T) {
 			case TxTypeMemoryCorroborate:
 				assert.Equal(t, tt.tx.MemoryCorroborate.MemoryID, decoded.MemoryCorroborate.MemoryID)
 				assert.Equal(t, tt.tx.MemoryCorroborate.Evidence, decoded.MemoryCorroborate.Evidence)
+			case TxTypeMemoryReassign:
+				require.NotNil(t, decoded.MemoryReassign)
+				assert.Equal(t, tt.tx.MemoryReassign.SourceAgentID, decoded.MemoryReassign.SourceAgentID)
+				assert.Equal(t, tt.tx.MemoryReassign.TargetAgentID, decoded.MemoryReassign.TargetAgentID)
 			}
 		})
 	}
@@ -218,6 +232,87 @@ func TestVerifyTxBadSignatureLength(t *testing.T) {
 
 	_, err := VerifyTx(tx)
 	assert.ErrorIs(t, err, ErrSignatureLength)
+}
+
+func TestMemoryReassignRoundTrip(t *testing.T) {
+	original := &ParsedTx{
+		Type:      TxTypeMemoryReassign,
+		Nonce:     50,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		MemoryReassign: &MemoryReassign{
+			SourceAgentID: "orphaned-agent-id-from-per-project-session",
+			TargetAgentID: "registered-agent-id-in-dashboard",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+	require.NotEmpty(t, encoded)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.MemoryReassign)
+
+	assert.Equal(t, TxTypeMemoryReassign, decoded.Type)
+	assert.Equal(t, original.MemoryReassign.SourceAgentID, decoded.MemoryReassign.SourceAgentID)
+	assert.Equal(t, original.MemoryReassign.TargetAgentID, decoded.MemoryReassign.TargetAgentID)
+	assert.Equal(t, original.Nonce, decoded.Nonce)
+}
+
+func TestMemoryReassignEmptyFields(t *testing.T) {
+	// Empty source/target should still encode/decode cleanly
+	original := &ParsedTx{
+		Type:      TxTypeMemoryReassign,
+		Nonce:     51,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		MemoryReassign: &MemoryReassign{
+			SourceAgentID: "",
+			TargetAgentID: "",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.MemoryReassign)
+
+	assert.Empty(t, decoded.MemoryReassign.SourceAgentID)
+	assert.Empty(t, decoded.MemoryReassign.TargetAgentID)
+}
+
+func TestMemoryReassignSignAndVerify(t *testing.T) {
+	_, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	ptx := &ParsedTx{
+		Type:      TxTypeMemoryReassign,
+		Nonce:     52,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		MemoryReassign: &MemoryReassign{
+			SourceAgentID: "source-agent",
+			TargetAgentID: "target-agent",
+		},
+	}
+
+	require.NoError(t, SignTx(ptx, privKey))
+	require.NotEmpty(t, ptx.Signature)
+	require.NotEmpty(t, ptx.PublicKey)
+
+	valid, err := VerifyTx(ptx)
+	require.NoError(t, err)
+	assert.True(t, valid)
+
+	// Tamper and verify failure
+	ptx.MemoryReassign.TargetAgentID = "tampered-target"
+	encoded, err := EncodeTx(ptx)
+	require.NoError(t, err)
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	valid, err = VerifyTx(decoded)
+	require.NoError(t, err)
+	assert.False(t, valid)
 }
 
 func TestAgentRegisterRoundTrip(t *testing.T) {

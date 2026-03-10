@@ -140,6 +140,11 @@ func (s *Server) handleVoteMemory(w http.ResponseWriter, r *http.Request) {
 
 	metrics.VotesTotal.WithLabelValues(req.Decision).Inc()
 
+	// Emit vote event for SSE chain activity log
+	if s.OnEvent != nil {
+		s.OnEvent("vote", memoryID, "", req.Decision+": "+req.Rationale, nil)
+	}
+
 	writeJSON(w, http.StatusOK, VoteResponse{
 		Message: "Vote recorded successfully.",
 		TxHash:  txHash,

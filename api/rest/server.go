@@ -23,6 +23,11 @@ import (
 )
 
 // Server is the SAGE REST API server.
+// EventCallback is a function that receives event notifications (type, memoryID, domain, content, data).
+// Used to bridge REST API events to the dashboard SSE broadcaster.
+// The data parameter carries rich detail (e.g., retrieved memory list for recall events).
+type EventCallback func(eventType, memoryID, domain, content string, data any)
+
 type Server struct {
 	router      chi.Router
 	cometbftRPC string
@@ -37,6 +42,7 @@ type Server struct {
 	httpServer  *http.Server
 	signingKey  ed25519.PrivateKey      // Node-level key for signing on-chain txs
 	embedder    *embedding.Client       // Local Ollama embedding client
+	OnEvent     EventCallback           // Optional: called when notable events occur
 }
 
 // NewServer creates a new REST API server.
@@ -153,6 +159,9 @@ func (s *Server) setupRouter() chi.Router {
 	r.Get("/health", s.health.HealthHandler)
 	r.Get("/ready", s.health.ReadinessHandler)
 
+	// Public read-only agent identity endpoints (no auth required)
+	r.Get("/v1/agents", s.handleListRegisteredAgents)
+
 	// Authenticated API routes
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Ed25519AuthMiddleware)
@@ -174,9 +183,8 @@ func (s *Server) setupRouter() chi.Router {
 		// On-chain agent identity endpoints
 		r.Post("/v1/agent/register", s.handleAgentRegister)
 		r.Put("/v1/agent/update", s.handleAgentUpdate)
-		r.Put("/v1/agent/{id}/permission", s.handleAgentSetPermission)
 		r.Get("/v1/agent/{id}", s.handleGetRegisteredAgent)
-		r.Get("/v1/agents", s.handleListRegisteredAgents)
+		r.Put("/v1/agent/{id}/permission", s.handleAgentSetPermission)
 
 		// Validator endpoints
 		r.Get("/v1/validator/pending", s.handleGetPending)

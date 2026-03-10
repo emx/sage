@@ -34,7 +34,7 @@ SetCompressor /SOLID lzma
 !define MUI_WELCOMEPAGE_TITLE "Welcome to SAGE Setup"
 !define MUI_WELCOMEPAGE_TEXT "SAGE gives your AI a memory.$\r$\n$\r$\nThis wizard will install SAGE Personal on your computer. After installation, run the setup wizard to configure your personal memory node.$\r$\n$\r$\nYour data stays on your machine. No cloud. No tracking.$\r$\n$\r$\nClick Next to continue."
 
-!define MUI_FINISHPAGE_RUN "$INSTDIR\sage-lite.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\sage-gui.exe"
 !define MUI_FINISHPAGE_RUN_PARAMETERS "setup"
 !define MUI_FINISHPAGE_RUN_TEXT "Run SAGE Setup Wizard"
 !define MUI_FINISHPAGE_LINK "Visit SAGE on GitHub"
@@ -60,7 +60,7 @@ Section "SAGE Personal" SecMain
     SetOutPath "$INSTDIR"
 
     ; Copy files
-    File "sage-lite.exe"
+    File "sage-gui.exe"
     File "sage-cli.exe"
     File "..\..\README.md"
     File "..\..\LICENSE"
@@ -68,17 +68,17 @@ Section "SAGE Personal" SecMain
     ; Create start menu shortcuts
     CreateDirectory "$SMPROGRAMS\SAGE"
     CreateShortCut "$SMPROGRAMS\SAGE\SAGE Brain Dashboard.lnk" \
-        "http://localhost:8080" "" "$INSTDIR\sage-lite.exe" 0
+        "http://localhost:8080" "" "$INSTDIR\sage-gui.exe" 0
     CreateShortCut "$SMPROGRAMS\SAGE\Start SAGE.lnk" \
-        "$INSTDIR\sage-lite.exe" "serve" "" 0
+        "$INSTDIR\sage-gui.exe" "serve" "" 0
     CreateShortCut "$SMPROGRAMS\SAGE\SAGE Setup Wizard.lnk" \
-        "$INSTDIR\sage-lite.exe" "setup" "" 0
+        "$INSTDIR\sage-gui.exe" "setup" "" 0
     CreateShortCut "$SMPROGRAMS\SAGE\Uninstall SAGE.lnk" \
         "$INSTDIR\uninstall.exe" "" "" 0
 
     ; Create desktop shortcut
     CreateShortCut "$DESKTOP\SAGE.lnk" \
-        "$INSTDIR\sage-lite.exe" "serve" "" 0
+        "$INSTDIR\sage-gui.exe" "serve" "" 0
 
     ; Add to PATH
     EnVar::AddValue "PATH" "$INSTDIR"
@@ -89,7 +89,7 @@ Section "SAGE Personal" SecMain
     ; Write registry keys for Add/Remove Programs
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_FULL_NAME}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninstall.exe"
-    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\sage-lite.exe"
+    WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\sage-gui.exe"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${VERSION}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
     WriteRegStr HKLM "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
@@ -104,7 +104,7 @@ SectionEnd
 ; ---- Uninstall Section ----
 Section "Uninstall"
     ; Remove files
-    Delete "$INSTDIR\sage-lite.exe"
+    Delete "$INSTDIR\sage-gui.exe"
     Delete "$INSTDIR\sage-cli.exe"
     Delete "$INSTDIR\README.md"
     Delete "$INSTDIR\LICENSE"

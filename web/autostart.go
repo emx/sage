@@ -119,14 +119,17 @@ func launchdPlistExists() bool {
 
 func sageBinaryPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".sage", "bin", "sage-lite")
+	return filepath.Join(home, ".sage", "bin", "sage-gui")
 }
 
 func installLaunchdPlist() error {
+	// Migrate: remove old com.sage.lite plist if it exists (renamed in v3.6.0)
+	removeLegacyLaunchdPlist()
+
 	binPath := sageBinaryPath()
 	// Verify the binary exists
 	if _, err := os.Stat(binPath); err != nil {
-		return fmt.Errorf("sage-lite binary not found at %s — launch SAGE from the app first", binPath)
+		return fmt.Errorf("sage-gui binary not found at %s — launch SAGE from the app first", binPath)
 	}
 
 	dir := launchAgentsDir()
@@ -176,5 +179,17 @@ func removeLaunchdPlist() error {
 		return fmt.Errorf("remove plist: %w", err)
 	}
 	return nil
+}
+
+// removeLegacyLaunchdPlist removes the old com.sage.lite plist from before the v3.6.0 rename.
+func removeLegacyLaunchdPlist() {
+	legacyFiles := []string{"com.sage.lite.plist", "com.sage-lite.plist"}
+	dir := launchAgentsDir()
+	for _, f := range legacyFiles {
+		path := filepath.Join(dir, f)
+		if _, err := os.Stat(path); err == nil {
+			os.Remove(path) //nolint:errcheck
+		}
+	}
 }
 

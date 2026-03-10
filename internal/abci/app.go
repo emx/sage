@@ -104,6 +104,12 @@ type memClassificationData struct {
 	Classification store.ClearanceLevel
 }
 
+// memoryReassignData carries the fields needed to reassign memories in offchain store.
+type memoryReassignData struct {
+	SourceAgentID string
+	TargetAgentID string
+}
+
 // SageApp implements the CometBFT ABCI 2.0 Application interface.
 type SageApp struct {
 	badgerStore   *store.BadgerStore
@@ -385,6 +391,8 @@ func (app *SageApp) processTx(parsedTx *tx.ParsedTx, height int64, blockTime tim
 		return app.processAgentUpdate(parsedTx, height, blockTime)
 	case tx.TxTypeAgentSetPermission:
 		return app.processAgentSetPermission(parsedTx, height, blockTime)
+	case tx.TxTypeMemoryReassign:
+		return app.processMemoryReassign(parsedTx, height, blockTime)
 	default:
 		return &abcitypes.ExecTxResult{Code: 10, Log: "unknown tx type"}
 	}
@@ -1581,6 +1589,56 @@ func (app *SageApp) processAgentSetPermission(parsedTx *tx.ParsedTx, height int6
 	return &abcitypes.ExecTxResult{Code: 0, Data: []byte(perm.AgentID), Log: fmt.Sprintf("agent %s permissions updated", perm.AgentID[:16])}
 }
 
+func (app *SageApp) processMemoryReassign(parsedTx *tx.ParsedTx, height int64, blockTime time.Time) *abcitypes.ExecTxResult {
+	reassign := parsedTx.MemoryReassign
+	if reassign == nil {
+		return &abcitypes.ExecTxResult{Code: 66, Log: "missing memory reassign payload"}
+	}
+
+	// Verify sender is admin — only admins can reassign memories.
+	senderID, err := verifyAgentIdentity(parsedTx)
+	if err != nil {
+		return &abcitypes.ExecTxResult{Code: 66, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
+	senderAgent, senderErr := app.badgerStore.GetRegisteredAgent(senderID)
+	if senderErr != nil {
+		return &abcitypes.ExecTxResult{Code: 67, Log: fmt.Sprintf("sender agent %s not registered", senderID[:16])}
+	}
+	if senderAgent.Role != "admin" {
+		return &abcitypes.ExecTxResult{Code: 67, Log: fmt.Sprintf("access denied: %s is not an admin", senderID[:16])}
+	}
+
+	// Target agent must be registered on-chain
+	if !app.badgerStore.IsAgentRegistered(reassign.TargetAgentID) {
+		return &abcitypes.ExecTxResult{Code: 68, Log: fmt.Sprintf("target agent %s not registered", reassign.TargetAgentID[:16])}
+	}
+
+	// Source agent does NOT need to be registered — that's the whole point:
+	// unregistered agents have orphaned memories that need to be merged.
+
+	// Buffer offchain write — the actual SQLite UPDATE happens in flushPendingWrites
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "memory_reassign",
+		data: &memoryReassignData{
+			SourceAgentID: reassign.SourceAgentID,
+			TargetAgentID: reassign.TargetAgentID,
+		},
+	})
+
+	app.logger.Info().
+		Str("source", reassign.SourceAgentID[:16]).
+		Str("target", reassign.TargetAgentID[:16]).
+		Str("admin", senderID[:16]).
+		Msg("memory reassignment approved on-chain")
+
+	return &abcitypes.ExecTxResult{
+		Code: 0,
+		Data: []byte(reassign.TargetAgentID),
+		Log:  fmt.Sprintf("memories reassigned from %s to %s", reassign.SourceAgentID[:16], reassign.TargetAgentID[:16]),
+	}
+}
+
 func (app *SageApp) processEpoch(height int64, blockTime time.Time) {
 	epochNum := poe.EpochNumber(height)
 	app.state.EpochNum = epochNum
@@ -1878,6 +1936,19 @@ func (app *SageApp) flushPendingWrites(ctx context.Context, s store.OffchainStor
 						existing.DeptID = d.DeptID
 					}
 					err = s.UpdateAgent(ctx, existing)
+				}
+			}
+		case "memory_reassign":
+			if d, ok := pw.data.(*memoryReassignData); ok {
+				count, reassignErr := s.ReassignMemories(ctx, d.SourceAgentID, d.TargetAgentID)
+				if reassignErr != nil {
+					err = reassignErr
+				} else {
+					app.logger.Info().
+						Str("source", d.SourceAgentID[:16]).
+						Str("target", d.TargetAgentID[:16]).
+						Int64("count", count).
+						Msg("memories reassigned in offchain store")
 				}
 			}
 		}

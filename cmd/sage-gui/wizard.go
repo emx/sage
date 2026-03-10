@@ -32,7 +32,7 @@ func runSetup() error {
 	configPath := filepath.Join(home, "config.yaml")
 	if _, err := os.Stat(configPath); err == nil {
 		fmt.Println("SAGE is already configured at", home)
-		fmt.Println("Run 'sage-lite serve' to start the node.")
+		fmt.Println("Run 'sage-gui serve' to start the node.")
 		fmt.Println("To reconfigure, delete", configPath)
 		return nil
 	}
@@ -94,7 +94,7 @@ func runSetup() error {
 	defer cancel()
 	_ = server.Shutdown(ctx)
 
-	fmt.Println("\n  Setup complete! Run 'sage-lite serve' to start SAGE.")
+	fmt.Println("\n  Setup complete! Run 'sage-gui serve' to start SAGE.")
 	return nil
 }
 
@@ -183,10 +183,10 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request, cfg *Config, home 
 }
 
 func handleMCPConfig(w http.ResponseWriter, r *http.Request) {
-	// Find the sage-lite binary path
+	// Find the sage-gui binary path
 	execPath, _ := os.Executable()
 	if execPath == "" {
-		execPath = "/usr/local/bin/sage-lite"
+		execPath = "/usr/local/bin/sage-gui"
 	}
 
 	mcpConfig := map[string]any{
@@ -223,7 +223,7 @@ func handleInstallMCP(w http.ResponseWriter, r *http.Request) {
 
 	execPath, _ := os.Executable()
 	if execPath == "" {
-		execPath = "/usr/local/bin/sage-lite"
+		execPath = "/usr/local/bin/sage-gui"
 	}
 
 	sageEntry := map[string]any{
@@ -384,8 +384,10 @@ func parseChatGPTZip(data []byte) ([]seedMemory, error) {
 		return nil, fmt.Errorf("invalid zip file: %w", err)
 	}
 
+	// Look for conversation JSON files (case-insensitive)
 	for _, f := range r.File {
-		if f.Name == "conversations.json" || strings.HasSuffix(f.Name, "/conversations.json") {
+		base := strings.ToLower(filepath.Base(f.Name))
+		if base == "conversations.json" {
 			rc, err := f.Open()
 			if err != nil {
 				return nil, err
@@ -396,6 +398,25 @@ func parseChatGPTZip(data []byte) ([]seedMemory, error) {
 				return nil, err
 			}
 			return parseChatGPTJSON(jsonData)
+		}
+	}
+
+	// Fallback: try any .json file in the zip
+	for _, f := range r.File {
+		if strings.HasSuffix(strings.ToLower(f.Name), ".json") {
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			jsonData, readErr := io.ReadAll(rc)
+			rc.Close()
+			if readErr != nil {
+				continue
+			}
+			memories, parseErr := parseChatGPTJSON(jsonData)
+			if parseErr == nil && len(memories) > 0 {
+				return memories, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("no conversations.json found in zip")
@@ -434,6 +455,53 @@ func parseChatGPTJSON(data []byte) ([]seedMemory, error) {
 		var direct []seedMemory
 		if err2 := json.Unmarshal(data, &direct); err2 == nil && len(direct) > 0 && direct[0].Content != "" {
 			return direct, nil
+		}
+		// Try as array of objects with "content" or "text" fields (ChatGPT memory.json, etc.)
+		var generic []map[string]any
+		if err3 := json.Unmarshal(data, &generic); err3 == nil && len(generic) > 0 {
+			var mems []seedMemory
+			for _, item := range generic {
+				content := ""
+				if c, ok := item["content"].(string); ok && c != "" {
+					content = c
+				} else if c, ok := item["text"].(string); ok && c != "" {
+					content = c
+				} else if c, ok := item["memory"].(string); ok && c != "" {
+					content = c
+				} else if c, ok := item["title"].(string); ok && c != "" {
+					content = c
+				}
+				if content != "" && len(content) >= 10 {
+					domain := "imported"
+					if d, ok := item["domain"].(string); ok && d != "" {
+						domain = d
+					} else if d, ok := item["category"].(string); ok && d != "" {
+						domain = sanitizeDomain(d)
+					}
+					mems = append(mems, seedMemory{
+						Content:    content,
+						Domain:     domain,
+						Type:       "observation",
+						Confidence: 0.70,
+					})
+				}
+			}
+			if len(mems) > 0 {
+				return mems, nil
+			}
+		}
+		// Try as single object with array values (Claude export, etc.)
+		var obj map[string]any
+		if err4 := json.Unmarshal(data, &obj); err4 == nil {
+			for _, v := range obj {
+				if arr, ok := v.([]any); ok && len(arr) > 0 {
+					arrData, _ := json.Marshal(arr)
+					mems, parseErr := parseChatGPTJSON(arrData)
+					if parseErr == nil && len(mems) > 0 {
+						return mems, nil
+					}
+				}
+			}
 		}
 		return nil, fmt.Errorf("not a recognized JSON format: %w", err)
 	}
@@ -1092,13 +1160,13 @@ label { display: block; margin-top: 1rem; color: #9ca3af; font-size: 0.9rem; }
     </div>
 
     <p style="margin-top:1.25rem">Now start the SAGE server:</p>
-    <p style="margin-top:0.75rem"><code>sage-lite serve</code></p>
+    <p style="margin-top:0.75rem"><code>sage-gui serve</code></p>
     <p style="margin-top:1.25rem">Then open your AI app and send the inception message.</p>
     <p style="margin-top:1.25rem; font-size:0.9rem">CEREBRUM will be at <strong style="color:#06b6d4">http://localhost:8080/ui/</strong></p>
 
     <div id="import-reminder" style="display:none; margin-top:1.5rem; padding:1rem; background:#111827; border-radius:8px; text-align:left; border:1px solid #1f2937">
       <p style="color:#10b981; font-weight:600; margin-bottom:0.25rem">&#10003; Chat history queued for import</p>
-      <p style="color:#9ca3af; font-size:0.9rem">Your conversations will be imported automatically when you run <code style="color:#06b6d4">sage-lite serve</code> for the first time.</p>
+      <p style="color:#9ca3af; font-size:0.9rem">Your conversations will be imported automatically when you run <code style="color:#06b6d4">sage-gui serve</code> for the first time.</p>
     </div>
 
     <div style="margin-top:2rem">

@@ -207,6 +207,20 @@ export async function startRedeploy(operation, agentId) {
     return res.json();
 }
 
+export async function fetchUnregisteredAgents() {
+    const res = await fetch(`${API_BASE}/v1/dashboard/network/unregistered`);
+    return res.json();
+}
+
+export async function mergeAgent(sourceAgentId, targetAgentId) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/network/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_agent_id: sourceAgentId, target_agent_id: targetAgentId }),
+    });
+    return res.json();
+}
+
 export async function fetchBootInstructions() {
     const res = await fetch(`${API_BASE}/v1/dashboard/settings/boot-instructions`);
     return res.json();

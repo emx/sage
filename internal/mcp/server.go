@@ -44,6 +44,7 @@ type Server struct {
 	agentKey   ed25519.PrivateKey
 	agentID    string
 	provider   string // Provider identity (e.g. "claude-code", "chatgpt") from SAGE_PROVIDER env var.
+	project    string // Project directory name (e.g. "sage", "levelupctf") — derived from CWD.
 	httpClient *http.Client
 	tools      map[string]Tool
 
@@ -77,6 +78,9 @@ func NewServer(baseURL string, agentKey ed25519.PrivateKey) *Server {
 
 // SetVersion sets the version string reported in the MCP initialize response.
 func (s *Server) SetVersion(v string) { s.version = v }
+
+// SetProject sets the project name for per-project agent identity.
+func (s *Server) SetProject(name string) { s.project = name }
 
 // Run starts the stdio MCP server loop.
 func (s *Server) Run(ctx context.Context) error {
@@ -384,10 +388,13 @@ func (s *Server) maybeAutoInception(ctx context.Context) string {
 // after inception to ensure every agent has an on-chain identity without
 // manual intervention. Failures are silent — registration can be retried later.
 func (s *Server) autoRegister(ctx context.Context) {
-	// Derive a name from the provider or use a default
+	// Build a descriptive agent name: "provider/project" or fallback
 	name := s.provider
 	if name == "" {
 		name = "sage-agent"
+	}
+	if s.project != "" {
+		name = name + "/" + s.project
 	}
 
 	body, _ := json.Marshal(map[string]any{

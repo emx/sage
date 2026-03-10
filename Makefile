@@ -14,9 +14,9 @@ help: ## Show this help
 build: ## Build the ABCI application binary
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/amid
 
-build-all: ## Build all binaries (amid, sage-lite, sage-cli)
+build-all: ## Build all binaries (amid, sage-gui, sage-cli)
 	go build -ldflags "$(LDFLAGS)" -o bin/amid ./cmd/amid
-	go build -ldflags "$(LDFLAGS)" -o bin/sage-lite ./cmd/sage-lite
+	go build -ldflags "$(LDFLAGS)" -o bin/sage-gui ./cmd/sage-gui
 	go build -ldflags "$(LDFLAGS)" -o bin/sage-cli ./cmd/sage-cli
 
 test: ## Run unit tests

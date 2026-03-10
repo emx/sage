@@ -401,7 +401,7 @@ p code, li code {
   <!-- Prerequisite check -->
   <div class="check-badge">
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-    <p><strong>Before you start:</strong> Make sure SAGE is running. If you installed the app, just open it. If you built from source, run <code>sage-lite serve</code>. You should see the CEREBRUM at <code>http://localhost:8080/ui/</code></p>
+    <p><strong>Before you start:</strong> Make sure SAGE is running. If you installed the app, just open it. If you built from source, run <code>sage-gui serve</code>. You should see the CEREBRUM at <code>http://localhost:8080/ui/</code></p>
   </div>
 
   <!-- Provider Tabs -->
@@ -428,7 +428,7 @@ p code, li code {
       <pre><code>{
   "mcpServers": {
     "sage": {
-      "command": "/Applications/SAGE.app/Contents/MacOS/sage-lite",
+      "command": "/Applications/SAGE.app/Contents/MacOS/sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_HOME": "~/.sage",
@@ -439,7 +439,7 @@ p code, li code {
 }</code><button class="copy-btn" onclick="copyCode(this)">Copy</button></pre>
       <div class="info-box warn" style="margin-top:12px;">
         <strong>Windows?</strong> Change the command to:<br>
-        <code>"command": "C:\\Program Files\\SAGE\\sage-lite.exe"</code>
+        <code>"command": "C:\\Program Files\\SAGE\\sage-gui.exe"</code>
       </div>
     </div>
 
@@ -464,13 +464,13 @@ p code, li code {
   <div id="claude-code" class="tab-content">
     <div class="step">
       <span class="step-num">1</span>
-      <h3>Find your sage-lite path</h3>
+      <h3>Find your sage-gui path</h3>
       <p>If you installed from the DMG, it's inside the app bundle. If you built from source, it's wherever you put it.</p>
       <pre><code># macOS (DMG install):
-/Applications/SAGE.app/Contents/MacOS/sage-lite
+/Applications/SAGE.app/Contents/MacOS/sage-gui
 
 # Built from source:
-which sage-lite</code><button class="copy-btn" onclick="copyCode(this)">Copy</button></pre>
+which sage-gui</code><button class="copy-btn" onclick="copyCode(this)">Copy</button></pre>
     </div>
 
     <div class="step">
@@ -480,7 +480,7 @@ which sage-lite</code><button class="copy-btn" onclick="copyCode(this)">Copy</bu
       <pre><code>{
   "mcpServers": {
     "sage": {
-      "command": "/Applications/SAGE.app/Contents/MacOS/sage-lite",
+      "command": "/Applications/SAGE.app/Contents/MacOS/sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_HOME": "~/.sage",
@@ -535,7 +535,7 @@ which sage-lite</code><button class="copy-btn" onclick="copyCode(this)">Copy</bu
       <pre><code>{
   "mcpServers": {
     "sage": {
-      "command": "/Applications/SAGE.app/Contents/MacOS/sage-lite",
+      "command": "/Applications/SAGE.app/Contents/MacOS/sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_HOME": "~/.sage",
@@ -546,7 +546,7 @@ which sage-lite</code><button class="copy-btn" onclick="copyCode(this)">Copy</bu
 }</code><button class="copy-btn" onclick="copyCode(this)">Copy</button></pre>
       <div class="info-box warn" style="margin-top:12px;">
         <strong>Windows?</strong> Change the command to:<br>
-        <code>"command": "C:\\Program Files\\SAGE\\sage-lite.exe"</code>
+        <code>"command": "C:\\Program Files\\SAGE\\sage-gui.exe"</code>
       </div>
     </div>
 
@@ -578,7 +578,7 @@ which sage-lite</code><button class="copy-btn" onclick="copyCode(this)">Copy</bu
       <span class="step-num">2</span>
       <h3>Add SAGE in the extension</h3>
       <p>Open the extension sidebar and add a new MCP server:</p>
-      <pre><code>Command: /Applications/SAGE.app/Contents/MacOS/sage-lite
+      <pre><code>Command: /Applications/SAGE.app/Contents/MacOS/sage-gui
 Arguments: mcp
 Environment:
   SAGE_HOME=~/.sage
@@ -596,7 +596,7 @@ Environment:
   <!-- ========== Other AIs ========== -->
   <div id="other" class="tab-content">
     <div class="info-box" style="margin-left:0;margin-bottom:24px;">
-      <strong>SAGE works with any AI that supports MCP</strong> (Model Context Protocol). This includes DeepSeek, Gemini, Mistral, Cursor, Windsurf, Cody, LM Studio, and any tool adopting the standard &mdash; cloud or local. The setup is the same pattern: point the MCP config at <code>sage-lite mcp</code>.
+      <strong>SAGE works with any AI that supports MCP</strong> (Model Context Protocol). This includes DeepSeek, Gemini, Mistral, Cursor, Windsurf, Cody, LM Studio, and any tool adopting the standard &mdash; cloud or local. The setup is the same pattern: point the MCP config at <code>sage-gui mcp</code>.
     </div>
 
     <div class="step">
@@ -612,7 +612,7 @@ Environment:
       <pre><code>{
   "mcpServers": {
     "sage": {
-      "command": "/path/to/sage-lite",
+      "command": "/path/to/sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_HOME": "~/.sage",
@@ -640,7 +640,7 @@ Environment:
 
     <div class="faq-item">
       <h4>"SAGE tools don't appear"</h4>
-      <p>Make sure SAGE is running &mdash; check <code>http://localhost:8080/ui/</code> in your browser. If the CEREBRUM loads, SAGE is running. Also verify the path to <code>sage-lite</code> in your config is correct.</p>
+      <p>Make sure SAGE is running &mdash; check <code>http://localhost:8080/ui/</code> in your browser. If the CEREBRUM loads, SAGE is running. Also verify the path to <code>sage-gui</code> in your config is correct.</p>
     </div>
 
     <div class="faq-item">
@@ -650,7 +650,7 @@ Environment:
 
     <div class="faq-item">
       <h4>"Initialization fails"</h4>
-      <p>This usually means the embedding provider isn't configured. Open the SAGE app (or run <code>sage-lite setup</code>) to re-run the setup wizard. Pick "Hash" for zero-setup or "Ollama" for semantic search.</p>
+      <p>This usually means the embedding provider isn't configured. Open the SAGE app (or run <code>sage-gui setup</code>) to re-run the setup wizard. Pick "Hash" for zero-setup or "Ollama" for semantic search.</p>
     </div>
 
     <div class="faq-item">

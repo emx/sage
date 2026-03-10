@@ -28,6 +28,7 @@ const (
 	TxTypeAgentRegister      TxType = 20
 	TxTypeAgentUpdate        TxType = 21
 	TxTypeAgentSetPermission TxType = 22
+	TxTypeMemoryReassign     TxType = 23
 )
 
 // VoteDecision represents a validator's vote on a proposed memory.
@@ -233,6 +234,12 @@ type AgentUpdate struct {
 	BootBio string
 }
 
+// MemoryReassign reassigns all memories from one agent to another (admin only).
+type MemoryReassign struct {
+	SourceAgentID string // agent whose memories will be moved
+	TargetAgentID string // agent receiving the memories
+}
+
 // AgentSetPermission sets permissions on an agent (admin only).
 type AgentSetPermission struct {
 	AgentID       string
@@ -268,6 +275,7 @@ type ParsedTx struct {
 	AgentRegister      *AgentRegister
 	AgentUpdateTx      *AgentUpdate        // Named AgentUpdateTx to avoid collision with existing method names
 	AgentSetPermission *AgentSetPermission
+	MemoryReassign     *MemoryReassign
 	Signature          []byte // Node validator Ed25519 signature (64 bytes)
 	PublicKey          []byte // Node validator Ed25519 public key (32 bytes)
 	Nonce              uint64

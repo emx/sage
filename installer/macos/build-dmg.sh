@@ -41,12 +41,12 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 # Build the binary
-echo "==> Compiling sage-lite..."
+echo "==> Compiling sage-gui..."
 LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 CGO_ENABLED=0 GOOS=darwin GOARCH="$GOARCH" go build \
     -ldflags "$LDFLAGS" \
-    -o "${BUILD_DIR}/sage-lite" \
-    "${PROJECT_ROOT}/cmd/sage-lite"
+    -o "${BUILD_DIR}/sage-gui" \
+    "${PROJECT_ROOT}/cmd/sage-gui"
 
 # Create .app bundle structure
 echo "==> Creating app bundle..."
@@ -54,16 +54,16 @@ mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources"
 
 # Copy binary
-cp "${BUILD_DIR}/sage-lite" "${APP_DIR}/Contents/MacOS/sage-lite"
+cp "${BUILD_DIR}/sage-gui" "${APP_DIR}/Contents/MacOS/sage-gui"
 
-# Create launcher script that opens Terminal with sage-lite
+# Create launcher script that opens Terminal with sage-gui
 cat > "${APP_DIR}/Contents/MacOS/SAGE" << 'LAUNCHER'
 #!/bin/bash
 # SAGE Launcher — copies binary out of .app bundle so the bundle can be replaced freely.
-# The running sage-lite process lives in ~/.sage/bin/, NOT inside SAGE.app.
-APP_BIN="$(dirname "$0")/sage-lite"
+# The running sage-gui process lives in ~/.sage/bin/, NOT inside SAGE.app.
+APP_BIN="$(dirname "$0")/sage-gui"
 SAGE_DIR="$HOME/.sage"
-SAGE_BIN="$SAGE_DIR/bin/sage-lite"
+SAGE_BIN="$SAGE_DIR/bin/sage-gui"
 LOG_DIR="$SAGE_DIR/logs"
 mkdir -p "$LOG_DIR" "$SAGE_DIR/bin"
 LOG_FILE="$LOG_DIR/sage.log"
@@ -113,6 +113,14 @@ fi
 cp -f "$APP_BIN" "$SAGE_BIN"
 chmod +x "$SAGE_BIN"
 
+# Migrate: remove old com.sage.lite launchd plist (renamed in v3.6.0)
+OLD_PLIST="$HOME/Library/LaunchAgents/com.sage.lite.plist"
+if [ -f "$OLD_PLIST" ]; then
+    launchctl unload "$OLD_PLIST" 2>/dev/null || true
+    rm -f "$OLD_PLIST"
+    echo "$(date): Migrated — removed legacy com.sage.lite plist" >> "$LOG_FILE"
+fi
+
 # If SAGE is already running, check if it's the same version
 if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     # Compare binary checksums to detect version change
@@ -132,8 +140,8 @@ if curl -s -o /dev/null http://localhost:8080/health 2>/dev/null; then
     PORT_PID=$(lsof -ti tcp:8080 -s tcp:listen 2>/dev/null)
     if [ -n "$PORT_PID" ]; then
         PORT_CMD=$(ps -p "$PORT_PID" -o command= 2>/dev/null)
-        if echo "$PORT_CMD" | grep -q "sage-lite"; then
-            # Existing sage-lite (maybe from CLI) — stop and replace with new version
+        if echo "$PORT_CMD" | grep -q "sage-gui"; then
+            # Existing sage-gui (maybe from CLI) — stop and replace with new version
             stop_existing
         fi
     fi
@@ -204,7 +212,7 @@ if [ -n "${SIGN_IDENTITY:-}" ]; then
     codesign --force --options runtime --deep \
         --sign "$SIGN_IDENTITY" \
         --timestamp \
-        "${APP_DIR}/Contents/MacOS/sage-lite"
+        "${APP_DIR}/Contents/MacOS/sage-gui"
     codesign --force --options runtime --deep \
         --sign "$SIGN_IDENTITY" \
         --timestamp \
@@ -258,12 +266,12 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
-# Kill any sage-lite on port 8080
+# Kill any sage-gui on port 8080
 ORPHAN_PID=$(lsof -ti tcp:8080 -s tcp:listen 2>/dev/null)
 if [ -n "$ORPHAN_PID" ]; then
     ORPHAN_CMD=$(ps -p "$ORPHAN_PID" -o command= 2>/dev/null)
-    if echo "$ORPHAN_CMD" | grep -q "sage-lite"; then
-        echo "        Stopping sage-lite on port 8080 (PID $ORPHAN_PID)..."
+    if echo "$ORPHAN_CMD" | grep -q "sage-gui"; then
+        echo "        Stopping sage-gui on port 8080 (PID $ORPHAN_PID)..."
         kill "$ORPHAN_PID" 2>/dev/null
         sleep 1
         kill -0 "$ORPHAN_PID" 2>/dev/null && kill -9 "$ORPHAN_PID" 2>/dev/null
@@ -271,7 +279,8 @@ if [ -n "$ORPHAN_PID" ]; then
     fi
 fi
 
-# Also kill any other sage-lite processes
+# Also kill any other sage-gui processes (and legacy sage-lite)
+killall sage-gui 2>/dev/null && STOPPED=1
 killall sage-lite 2>/dev/null && STOPPED=1
 
 if [ "$STOPPED" -eq 1 ]; then
@@ -279,6 +288,14 @@ if [ "$STOPPED" -eq 1 ]; then
     sleep 1  # Brief pause to let macOS release file locks
 else
     echo "        No running SAGE found."
+fi
+
+# Migrate: remove old com.sage.lite launchd plist (renamed in v3.6.0)
+OLD_PLIST="$HOME/Library/LaunchAgents/com.sage.lite.plist"
+if [ -f "$OLD_PLIST" ]; then
+    launchctl unload "$OLD_PLIST" 2>/dev/null || true
+    rm -f "$OLD_PLIST"
+    echo "        Migrated — removed legacy com.sage.lite plist"
 fi
 
 # --- Step 2: Copy SAGE.app to /Applications ---
@@ -343,8 +360,8 @@ Dashboard in your browser at http://localhost:8080.
 You can also update from the dashboard: Settings > Update tab.
 
 For Claude Code / CLI usage:
-  ~/.sage/bin/sage-lite serve
-  ~/.sage/bin/sage-lite mcp
+  ~/.sage/bin/sage-gui serve
+  ~/.sage/bin/sage-gui mcp
 
 More info: https://github.com/l33tdawg/sage
 License: Apache 2.0

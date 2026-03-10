@@ -415,6 +415,8 @@ func (s *SQLiteStore) initSchema(ctx context.Context) error {
 		"ALTER TABLE network_agents ADD COLUMN on_chain_height INTEGER DEFAULT 0",
 		"ALTER TABLE network_agents ADD COLUMN visible_agents TEXT DEFAULT ''",
 		"ALTER TABLE network_agents ADD COLUMN provider TEXT DEFAULT ''",
+		"ALTER TABLE network_agents ADD COLUMN claim_token TEXT DEFAULT ''",
+		"ALTER TABLE network_agents ADD COLUMN claim_expires_at TEXT",
 	}
 	for _, m := range agentMigrations {
 		_, _ = s.conn.ExecContext(ctx, m) // Ignore "duplicate column" errors for idempotency
@@ -1752,7 +1754,8 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 			COALESCE(a.domain_access,''), COALESCE(a.bundle_path,''),
 			a.first_seen, a.last_seen, a.created_at, a.removed_at,
 			COALESCE(a.on_chain_height, 0), COALESCE(a.visible_agents, ''), COALESCE(a.provider, ''),
-			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0)
+			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0),
+			COALESCE(a.claim_token, ''), a.claim_expires_at
 		FROM network_agents a
 		WHERE a.status != 'removed'
 		ORDER BY a.created_at ASC`)
@@ -1764,12 +1767,13 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 	var agents []*AgentEntry
 	for rows.Next() {
 		a := &AgentEntry{}
-		var firstSeen, lastSeen, createdAt, removedAt *string
+		var firstSeen, lastSeen, createdAt, removedAt, claimExpiry *string
 		if scanErr := rows.Scan(&a.AgentID, &a.Name, &a.Role, &a.Avatar, &a.BootBio,
 			&a.ValidatorPubkey, &a.NodeID, &a.P2PAddress, &a.Status, &a.Clearance,
 			&a.OrgID, &a.DeptID, &a.DomainAccess, &a.BundlePath,
 			&firstSeen, &lastSeen, &createdAt, &removedAt,
-			&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount); scanErr != nil {
+			&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount,
+			&a.ClaimToken, &claimExpiry); scanErr != nil {
 			return nil, fmt.Errorf("scan agent: %w", scanErr)
 		}
 		a.FirstSeen = parseTimePtr(firstSeen)
@@ -1778,6 +1782,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 			a.CreatedAt = parseTime(*createdAt)
 		}
 		a.RemovedAt = parseTimePtr(removedAt)
+		a.ClaimExpiresAt = parseTimePtr(claimExpiry)
 		agents = append(agents, a)
 	}
 	return agents, nil
@@ -1785,7 +1790,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 
 func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentEntry, error) {
 	a := &AgentEntry{}
-	var firstSeen, lastSeen, createdAt, removedAt *string
+	var firstSeen, lastSeen, createdAt, removedAt, claimExpiry *string
 	err := s.conn.QueryRowContext(ctx, `
 		SELECT a.agent_id, a.name, a.role, COALESCE(a.avatar,''), COALESCE(a.boot_bio,''),
 			COALESCE(a.validator_pubkey,''), COALESCE(a.node_id,''), COALESCE(a.p2p_address,''),
@@ -1793,13 +1798,15 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentEntry
 			COALESCE(a.domain_access,''), COALESCE(a.bundle_path,''),
 			a.first_seen, a.last_seen, a.created_at, a.removed_at,
 			COALESCE(a.on_chain_height, 0), COALESCE(a.visible_agents, ''), COALESCE(a.provider, ''),
-			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0)
+			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0),
+			COALESCE(a.claim_token, ''), a.claim_expires_at
 		FROM network_agents a WHERE a.agent_id = ?`, agentID).Scan(
 		&a.AgentID, &a.Name, &a.Role, &a.Avatar, &a.BootBio,
 		&a.ValidatorPubkey, &a.NodeID, &a.P2PAddress, &a.Status, &a.Clearance,
 		&a.OrgID, &a.DeptID, &a.DomainAccess, &a.BundlePath,
 		&firstSeen, &lastSeen, &createdAt, &removedAt,
-		&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount)
+		&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount,
+		&a.ClaimToken, &claimExpiry)
 	if err != nil {
 		return nil, fmt.Errorf("get agent: %w", err)
 	}
@@ -1809,18 +1816,25 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentEntry
 		a.CreatedAt = parseTime(*createdAt)
 	}
 	a.RemovedAt = parseTimePtr(removedAt)
+	a.ClaimExpiresAt = parseTimePtr(claimExpiry)
 	return a, nil
 }
 
 func (s *SQLiteStore) CreateAgent(ctx context.Context, agent *AgentEntry) error {
+	var claimExpiry *string
+	if agent.ClaimExpiresAt != nil {
+		t := agent.ClaimExpiresAt.Format(time.RFC3339)
+		claimExpiry = &t
+	}
 	_, err := s.conn.ExecContext(ctx, `
 		INSERT INTO network_agents (agent_id, name, role, avatar, boot_bio, validator_pubkey,
 			node_id, p2p_address, status, clearance, org_id, dept_id, domain_access, bundle_path,
-			on_chain_height, visible_agents, provider)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			on_chain_height, visible_agents, provider, claim_token, claim_expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		agent.AgentID, agent.Name, agent.Role, agent.Avatar, agent.BootBio, agent.ValidatorPubkey,
 		agent.NodeID, agent.P2PAddress, agent.Status, agent.Clearance, agent.OrgID, agent.DeptID,
-		agent.DomainAccess, agent.BundlePath, agent.OnChainHeight, agent.VisibleAgents, agent.Provider)
+		agent.DomainAccess, agent.BundlePath, agent.OnChainHeight, agent.VisibleAgents, agent.Provider,
+		agent.ClaimToken, claimExpiry)
 	if err != nil {
 		return fmt.Errorf("create agent: %w", err)
 	}
@@ -1828,14 +1842,21 @@ func (s *SQLiteStore) CreateAgent(ctx context.Context, agent *AgentEntry) error 
 }
 
 func (s *SQLiteStore) UpdateAgent(ctx context.Context, agent *AgentEntry) error {
+	var claimExpiry *string
+	if agent.ClaimExpiresAt != nil {
+		t := agent.ClaimExpiresAt.Format(time.RFC3339)
+		claimExpiry = &t
+	}
 	_, err := s.conn.ExecContext(ctx, `
 		UPDATE network_agents SET name=?, role=?, avatar=?, boot_bio=?, clearance=?,
 			org_id=?, dept_id=?, domain_access=?, p2p_address=?,
-			on_chain_height=?, visible_agents=?, provider=?
+			on_chain_height=?, visible_agents=?, provider=?,
+			claim_token=?, claim_expires_at=?
 		WHERE agent_id=?`,
 		agent.Name, agent.Role, agent.Avatar, agent.BootBio, agent.Clearance,
 		agent.OrgID, agent.DeptID, agent.DomainAccess, agent.P2PAddress,
-		agent.OnChainHeight, agent.VisibleAgents, agent.Provider, agent.AgentID)
+		agent.OnChainHeight, agent.VisibleAgents, agent.Provider,
+		agent.ClaimToken, claimExpiry, agent.AgentID)
 	if err != nil {
 		return fmt.Errorf("update agent: %w", err)
 	}
@@ -1952,6 +1973,74 @@ func (s *SQLiteStore) RotateAgentKey(ctx context.Context, oldAgentID string) (st
 	}
 
 	return newAgentID, seed, nil
+}
+
+func (s *SQLiteStore) ReassignMemories(ctx context.Context, sourceAgentID, targetAgentID string) (int64, error) {
+	var count int64
+
+	doReassign := func(q sqlQuerier) error {
+		// 1. Validate target agent exists and is not removed
+		var status string
+		if err := q.QueryRowContext(ctx, `SELECT status FROM network_agents WHERE agent_id=?`, targetAgentID).Scan(&status); err != nil {
+			return fmt.Errorf("target agent not found: %s", targetAgentID)
+		}
+		if status == "removed" {
+			return fmt.Errorf("cannot reassign to removed agent %s", targetAgentID)
+		}
+
+		// 2. Count memories from source agent
+		if err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM memories WHERE submitting_agent=?`, sourceAgentID).Scan(&count); err != nil {
+			return fmt.Errorf("count source memories: %w", err)
+		}
+		if count == 0 {
+			return nil
+		}
+
+		// 3. Reassign memories
+		_, err := q.ExecContext(ctx, `UPDATE memories SET submitting_agent=? WHERE submitting_agent=?`, targetAgentID, sourceAgentID)
+		if err != nil {
+			return fmt.Errorf("reassign memories: %w", err)
+		}
+
+		// 4. Log in redeployment_log
+		details, _ := json.Marshal(map[string]interface{}{
+			"source": sourceAgentID,
+			"target": targetAgentID,
+			"count":  count,
+		})
+		_, err = q.ExecContext(ctx, `
+			INSERT INTO redeployment_log (operation, agent_id, phase, status, details, started_at)
+			VALUES ('memory_reassign', ?, 'REASSIGNED', 'completed', ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+			targetAgentID, string(details))
+		if err != nil {
+			return fmt.Errorf("log reassignment: %w", err)
+		}
+
+		return nil
+	}
+
+	// If we have a *sql.DB (not already in a tx), wrap in transaction
+	if s.db != nil {
+		tx, txErr := s.db.BeginTx(ctx, nil)
+		if txErr != nil {
+			return 0, fmt.Errorf("begin tx: %w", txErr)
+		}
+		defer tx.Rollback() //nolint:errcheck
+
+		if err := doReassign(tx); err != nil {
+			return 0, err
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, fmt.Errorf("commit: %w", err)
+		}
+	} else {
+		// Already in a transaction
+		if err := doReassign(s.conn); err != nil {
+			return 0, err
+		}
+	}
+
+	return count, nil
 }
 
 func (s *SQLiteStore) AcquireRedeployLock(ctx context.Context, lockedBy, operation string, ttl time.Duration) error {

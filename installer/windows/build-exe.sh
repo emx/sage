@@ -23,13 +23,13 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 # Build the binaries
-echo "==> Cross-compiling sage-lite for Windows..."
+echo "==> Cross-compiling sage-gui for Windows..."
 LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
     -ldflags "$LDFLAGS" \
-    -o "${BUILD_DIR}/sage-lite.exe" \
-    "${PROJECT_ROOT}/cmd/sage-lite"
+    -o "${BUILD_DIR}/sage-gui.exe" \
+    "${PROJECT_ROOT}/cmd/sage-gui"
 
 echo "==> Cross-compiling sage-cli for Windows..."
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \

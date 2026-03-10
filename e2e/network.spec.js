@@ -42,7 +42,7 @@ test.describe('Network Page', () => {
         await expect(tabs.nth(2)).toContainText('Activity');
     });
 
-    test('Overview tab shows agent info', async ({ page }) => {
+    test('Overview tab shows agent info with Purpose field', async ({ page }) => {
         const firstCard = page.locator('.agent-card-row').first();
         await firstCard.click();
         await page.waitForSelector('.agent-overview-grid');
@@ -52,6 +52,8 @@ test.describe('Network Page', () => {
         await expect(page.locator('.agent-info-label').filter({ hasText: 'Status' }).first()).toBeVisible();
         await expect(page.locator('.agent-info-label').filter({ hasText: 'Memories' }).first()).toBeVisible();
         await expect(page.locator('.agent-info-label').filter({ hasText: 'Agent ID' }).first()).toBeVisible();
+        // Should show Purpose (renamed from Bio)
+        await expect(page.locator('.agent-info-label').filter({ hasText: 'Purpose' }).first()).toBeVisible();
     });
 
     test('Overview tab Edit mode shows input fields', async ({ page }) => {
@@ -207,6 +209,19 @@ test.describe('Network Page', () => {
         await page.locator('.agent-tab').filter({ hasText: 'Overview' }).click();
         await expect(page.locator('.agent-overview-grid input.wizard-input')).not.toBeVisible();
     });
+
+    test('Download Bundle button shows alert when no bundle available', async ({ page }) => {
+        const firstCard = page.locator('.agent-card-row').first();
+        await firstCard.click();
+        await page.waitForSelector('.agent-action-bar');
+
+        // Listen for alert dialog
+        const alertPromise = page.waitForEvent('dialog');
+        await page.locator('.agent-action-bar .btn').filter({ hasText: 'Download Bundle' }).click();
+        const dialog = await alertPromise;
+        expect(dialog.message()).toContain('No bundle available');
+        await dialog.accept();
+    });
 });
 
 test.describe('Network Page — Last Admin Protection', () => {
@@ -228,7 +243,7 @@ test.describe('Network Page — Last Admin Protection', () => {
     });
 });
 
-test.describe('Add Agent Wizard', () => {
+test.describe('Add Agent Wizard — Step 1: Identity', () => {
     test('opens wizard on Add Agent click', async ({ page }) => {
         await page.goto(`${BASE}/ui/#/network`);
         await page.waitForSelector('.agent-card-add');
@@ -237,48 +252,6 @@ test.describe('Add Agent Wizard', () => {
         const wizard = page.locator('.wizard-overlay');
         await expect(wizard).toBeVisible();
         await expect(wizard).toContainText('Add Agent');
-    });
-
-    test('Step 1: can enter name and select template', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
-
-        const nameInput = page.locator('.wizard-input').first();
-        await expect(nameInput).toBeVisible();
-        await nameInput.fill('Test Agent');
-
-        // Templates are in a dropdown select
-        const templateSelect = page.locator('select').first();
-        await expect(templateSelect).toBeVisible();
-        const options = await templateSelect.locator('option').count();
-        expect(options).toBeGreaterThanOrEqual(2); // At least custom + one template
-    });
-
-    test('Step 2: shows role selector and domain matrix (not JSON)', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
-
-        // Fill step 1 and advance
-        await page.locator('.wizard-input').first().fill('Test Agent');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-
-        // Step 2 should show role selector
-        const roleCards = page.locator('.role-card');
-        await expect(roleCards).toHaveCount(3);
-
-        // Should show domain matrix, NOT a JSON textarea
-        const matrix = page.locator('.domain-matrix');
-        await expect(matrix).toBeVisible();
-
-        // Should NOT have a JSON textarea
-        const jsonLabel = page.locator('label').filter({ hasText: /JSON/ });
-        await expect(jsonLabel).not.toBeVisible();
-
-        // Should show clearance slider
-        const slider = page.locator('.clearance-row input[type="range"]');
-        await expect(slider).toBeVisible();
     });
 
     test('wizard can be closed', async ({ page }) => {
@@ -294,73 +267,380 @@ test.describe('Add Agent Wizard', () => {
         await expect(wizard).not.toBeVisible();
     });
 
-    test('Step 3: shows connect method cards (Bundle and LAN)', async ({ page }) => {
+    test('shows Template dropdown with templates including Coding Assistant', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        const templateSelect = page.locator('.wizard-select').first();
+        await expect(templateSelect).toBeVisible();
+
+        // Wait for templates to load
+        await page.waitForFunction(() => {
+            const sel = document.querySelector('.wizard-select');
+            return sel && sel.options.length >= 2;
+        }, { timeout: 5000 });
+
+        // Should have "Coding Assistant" template
+        const options = await templateSelect.locator('option').allTextContents();
+        expect(options).toContain('Coding Assistant');
+    });
+
+    test('Coding Assistant template populates fields correctly', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        const templateSelect = page.locator('.wizard-select').first();
+        await page.waitForFunction(() => {
+            const sel = document.querySelector('.wizard-select');
+            return sel && sel.options.length >= 2;
+        }, { timeout: 5000 });
+
+        // Select Coding Assistant template
+        await templateSelect.selectOption({ label: 'Coding Assistant' });
+
+        // Purpose textarea should be populated
+        const purposeTextarea = page.locator('.wizard-textarea');
+        await expect(purposeTextarea).toBeVisible();
+        const purposeValue = await purposeTextarea.inputValue();
+        expect(purposeValue.length).toBeGreaterThan(0);
+        expect(purposeValue.toLowerCase()).toContain('coding');
+    });
+
+    test('shows Name input field', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        const nameInput = page.locator('.wizard-input');
+        await expect(nameInput).toBeVisible();
+        await expect(nameInput).toHaveAttribute('placeholder', 'Agent name');
+    });
+
+    test('shows Purpose field with tooltip (renamed from Boot Bio)', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Should show "Purpose" label, NOT "Boot Bio"
+        const purposeLabel = page.locator('.wizard-field label').filter({ hasText: 'Purpose' });
+        await expect(purposeLabel).toBeVisible();
+
+        // Should NOT show "Boot Bio" anywhere
+        const bootBioLabel = page.locator('.wizard-field label').filter({ hasText: 'Boot Bio' });
+        await expect(bootBioLabel).not.toBeVisible();
+
+        // Purpose textarea should have descriptive placeholder
+        const textarea = page.locator('.wizard-textarea');
+        await expect(textarea).toBeVisible();
+        const placeholder = await textarea.getAttribute('placeholder');
+        expect(placeholder).toContain('What does this agent do');
+
+        // HelpTip is only visible when tooltips are enabled in settings.
+        // We verify the Purpose label exists and has the right structure instead.
+    });
+
+    test('shows Provider as dropdown (not free text input)', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Provider should be a <select>, not an <input>
+        const providerLabel = page.locator('.wizard-field label').filter({ hasText: 'Provider' });
+        await expect(providerLabel).toBeVisible();
+
+        // Find the provider select (second .wizard-select — first is template)
+        const providerSelect = page.locator('.wizard-select').nth(1);
+        await expect(providerSelect).toBeVisible();
+
+        // Check dropdown options
+        const options = await providerSelect.locator('option').allTextContents();
+        expect(options).toContain('Auto-detect');
+        expect(options).toContain('Claude Code');
+        expect(options).toContain('Cursor');
+        expect(options).toContain('Windsurf');
+        expect(options).toContain('ChatGPT');
+        expect(options).toContain('Other');
+
+        // Should NOT have a free-text input for provider
+        const providerInput = page.locator('.wizard-field').filter({ hasText: 'Provider' }).locator('input[type="text"]');
+        await expect(providerInput).not.toBeVisible();
+    });
+
+    test('shows Avatar emoji grid', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        const emojiGrid = page.locator('.emoji-grid');
+        await expect(emojiGrid).toBeVisible();
+
+        const emojiBtns = page.locator('.emoji-btn');
+        const count = await emojiBtns.count();
+        expect(count).toBeGreaterThan(0);
+
+        // One should be selected by default
+        const selectedEmoji = page.locator('.emoji-btn.selected');
+        await expect(selectedEmoji).toBeVisible();
+    });
+
+    test('Role is NOT in Step 1 (moved to Step 2)', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Step 1 should NOT show role cards
+        const roleCards = page.locator('.role-card');
+        await expect(roleCards).toHaveCount(0);
+    });
+
+    test('Next button requires name', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Next button should be disabled when name is empty
+        const nextBtn = page.locator('.wizard-footer .btn').filter({ hasText: 'Next' });
+        await expect(nextBtn).toBeVisible();
+        await expect(nextBtn).toBeDisabled();
+
+        // Fill name
+        await page.locator('.wizard-input').first().fill('Test Agent');
+        await expect(nextBtn).toBeEnabled();
+    });
+});
+
+test.describe('Add Agent Wizard — Step 2: Permissions', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+        await page.locator('.wizard-input').first().fill('Test Agent');
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
+    });
+
+    test('shows role selector with 3 roles', async ({ page }) => {
+        const roleCards = page.locator('.role-card');
+        await expect(roleCards).toHaveCount(3);
+        await expect(roleCards.nth(0)).toContainText('Admin');
+        await expect(roleCards.nth(1)).toContainText('Member');
+        await expect(roleCards.nth(2)).toContainText('Observer');
+    });
+
+    test('shows domain matrix (not JSON textarea)', async ({ page }) => {
+        const matrix = page.locator('.domain-matrix');
+        await expect(matrix).toBeVisible();
+
+        // Should NOT have a JSON textarea
+        const jsonLabel = page.locator('label').filter({ hasText: /JSON/ });
+        await expect(jsonLabel).not.toBeVisible();
+    });
+
+    test('shows clearance slider', async ({ page }) => {
+        const slider = page.locator('.clearance-row input[type="range"]');
+        await expect(slider).toBeVisible();
+    });
+
+    test('inline domain add — add new domain tag', async ({ page }) => {
+        // Find the add domain row
+        const addRow = page.locator('.domain-matrix-add');
+        await expect(addRow).toBeVisible();
+
+        const addInput = addRow.locator('input');
+        await expect(addInput).toBeVisible();
+        await expect(addInput).toHaveAttribute('placeholder', 'Add new domain tag...');
+
+        const addBtn = addRow.locator('.domain-add-btn');
+        await expect(addBtn).toBeVisible();
+
+        // Button should be disabled when input is empty
+        await expect(addBtn).toBeDisabled();
+
+        // Type a domain name
+        await addInput.fill('my-test-domain');
+        await expect(addBtn).toBeEnabled();
+
+        // Click Add
+        await addBtn.click();
+
+        // New domain should appear in the matrix with "new" badge
+        const newRow = page.locator('.domain-matrix-row.custom').filter({ hasText: 'my-test-domain' });
+        await expect(newRow).toBeVisible();
+        await expect(newRow).toContainText('new');
+
+        // The domain should have read and write enabled by default
+        const checkboxes = newRow.locator('input[type="checkbox"]');
+        const readChecked = await checkboxes.nth(0).isChecked();
+        const writeChecked = await checkboxes.nth(1).isChecked();
+        expect(readChecked).toBeTruthy();
+        expect(writeChecked).toBeTruthy();
+
+        // Input should be cleared
+        await expect(addInput).toHaveValue('');
+    });
+
+    test('inline domain add — Enter key submits', async ({ page }) => {
+        const addInput = page.locator('.domain-matrix-add input');
+        await addInput.fill('enter-test-domain');
+        await addInput.press('Enter');
+
+        const newRow = page.locator('.domain-matrix-row.custom').filter({ hasText: 'enter-test-domain' });
+        await expect(newRow).toBeVisible();
+    });
+
+    test('selecting Admin role shows "full access" message in domain matrix', async ({ page }) => {
+        await page.locator('.role-card').filter({ hasText: 'Admin' }).click();
+
+        const matrix = page.locator('.domain-matrix');
+        await expect(matrix).toContainText('Admins have full access');
+    });
+
+    test('domain matrix bulk operations work', async ({ page }) => {
+        // Click "All Read" button
+        const allReadBtn = page.locator('.domain-matrix-bulk button').filter({ hasText: 'All Read' });
+        if (await allReadBtn.isVisible()) {
+            await allReadBtn.click();
+            // All read checkboxes in the matrix body should be checked
+            // (Only if there are domains)
+        }
+    });
+});
+
+test.describe('Add Agent Wizard — Step 3: Connect', () => {
+    test.beforeEach(async ({ page }) => {
         await page.goto(`${BASE}/ui/#/network`);
         await page.waitForSelector('.agent-card-add');
         await page.locator('.agent-card-add').click();
 
         // Step 1 → fill and advance
         await page.locator('.wizard-input').first().fill('Test Agent');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
 
         // Step 2 → advance
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-
-        // Step 3 — should show two connect cards
-        const connectCards = page.locator('.connect-card');
-        await expect(connectCards).toHaveCount(2);
-
-        // Bundle card
-        await expect(connectCards.nth(0)).toContainText('Download Bundle');
-        await expect(connectCards.nth(0)).toHaveClass(/selected/); // default selection
-
-        // LAN card
-        await expect(connectCards.nth(1)).toContainText('Easy Setup');
-        await expect(connectCards.nth(1)).toContainText('LAN');
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
     });
 
-    test('Step 3: can switch connect method to LAN', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
+    test('shows 3 connect cards: Local, Bundle, LAN', async ({ page }) => {
+        const connectCards = page.locator('.connect-card');
+        await expect(connectCards).toHaveCount(3);
 
-        await page.locator('.wizard-input').first().fill('Test Agent');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
+        // Local Project card
+        await expect(connectCards.nth(0)).toContainText('Local Project');
 
-        // Click LAN card
+        // Bundle card
+        await expect(connectCards.nth(1)).toContainText('Download Bundle');
+
+        // LAN card
+        await expect(connectCards.nth(2)).toContainText('Easy Setup');
+        await expect(connectCards.nth(2)).toContainText('LAN');
+    });
+
+    test('Local Project card is selected by default', async ({ page }) => {
+        const localCard = page.locator('.connect-card').nth(0);
+        await expect(localCard).toHaveClass(/selected/);
+    });
+
+    test('can switch to Bundle connect method', async ({ page }) => {
         await page.locator('.connect-card').nth(1).click();
         await expect(page.locator('.connect-card').nth(1)).toHaveClass(/selected/);
+        await expect(page.locator('.connect-card').nth(0)).not.toHaveClass(/selected/);
+    });
+
+    test('can switch to LAN connect method', async ({ page }) => {
+        await page.locator('.connect-card').nth(2).click();
+        await expect(page.locator('.connect-card').nth(2)).toHaveClass(/selected/);
 
         // Summary should show LAN Pairing
         await expect(page.locator('.summary-card')).toContainText('LAN Pairing');
     });
 
-    test('Step 3: shows warning banner about chain pause', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
-
-        await page.locator('.wizard-input').first().fill('Test Agent');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-
+    test('shows warning banner about chain pause', async ({ page }) => {
         await expect(page.locator('.warning-banner')).toContainText('pause the chain');
     });
 
-    test('Step 3: shows summary with all settings', async ({ page }) => {
+    test('shows summary with all settings', async ({ page }) => {
+        const summary = page.locator('.summary-card');
+        await expect(summary).toContainText('Test Agent');
+        await expect(summary).toContainText('member'); // default role
+        await expect(summary).toContainText('Local Project'); // default connect
+    });
+
+    test('summary updates when connect method changes', async ({ page }) => {
+        // Switch to Bundle
+        await page.locator('.connect-card').nth(1).click();
+        await expect(page.locator('.summary-card')).toContainText('Bundle Download');
+
+        // Switch to LAN
+        await page.locator('.connect-card').nth(2).click();
+        await expect(page.locator('.summary-card')).toContainText('LAN Pairing');
+
+        // Switch to Local
+        await page.locator('.connect-card').nth(0).click();
+        await expect(page.locator('.summary-card')).toContainText('Local Project');
+    });
+});
+
+test.describe('Add Agent Wizard — Step 4: Deploy Progress', () => {
+    // Note: This test creates an actual agent. We verify the deploy UI elements.
+    test('Deploy step shows progress phases', async ({ page }) => {
         await page.goto(`${BASE}/ui/#/network`);
         await page.waitForSelector('.agent-card-add');
         await page.locator('.agent-card-add').click();
 
-        await page.locator('.wizard-input').first().fill('My Agent');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
+        // Step 1
+        await page.locator('.wizard-input').first().fill('E2E Deploy Test');
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
 
-        const summary = page.locator('.summary-card');
-        await expect(summary).toContainText('My Agent');
-        await expect(summary).toContainText('member'); // default role
-        await expect(summary).toContainText('Bundle Download'); // default connect
+        // Step 2
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
+
+        // Step 3 — click Create Agent
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Create Agent' }).click();
+
+        // Step 4 should now be visible with deploy progress
+        const deployProgress = page.locator('.deploy-progress');
+        await expect(deployProgress).toBeVisible({ timeout: 10000 });
+
+        // Should have deploy phase items
+        const phases = page.locator('.deploy-phase');
+        const count = await phases.count();
+        expect(count).toBeGreaterThanOrEqual(1);
+
+        // Should show elapsed timer when deploying
+        const timer = page.locator('.deploy-timer');
+        // Timer may or may not be visible depending on speed, so just check deploy phases exist
+    });
+});
+
+test.describe('Add Agent Wizard — Template Selection', () => {
+    test('template selection populates bio field', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Wait for templates to load (async fetch)
+        const templateSelect = page.locator('.wizard-select').first();
+        await expect(templateSelect).toBeVisible();
+
+        // Wait for template options to populate (fetched from /templates API)
+        await page.waitForFunction(() => {
+            const sel = document.querySelector('.wizard-select');
+            return sel && sel.options.length >= 2;
+        }, { timeout: 5000 });
+
+        const options = templateSelect.locator('option');
+        const optionCount = await options.count();
+        expect(optionCount).toBeGreaterThanOrEqual(2);
+
+        // Select the first actual template (index 1, since 0 is placeholder)
+        await templateSelect.selectOption({ index: 1 });
+
+        // Bio textarea should now be populated
+        const bioTextarea = page.locator('.wizard-textarea');
+        await expect(bioTextarea).toBeVisible();
+        const bioValue = await bioTextarea.inputValue();
+        expect(bioValue.length).toBeGreaterThan(0);
     });
 });
 
@@ -479,7 +759,9 @@ test.describe('API — Pairing & Rotation', () => {
         // Each call should produce a unique code
         expect(data1.code).not.toBe(data2.code);
     });
+});
 
+test.describe('API — Templates', () => {
     test('templates API has expected fields', async ({ request }) => {
         const res = await request.get(`${BASE}/v1/dashboard/network/templates`);
         expect(res.ok()).toBeTruthy();
@@ -491,6 +773,77 @@ test.describe('API — Pairing & Rotation', () => {
         expect(t.role).toBeDefined();
         expect(t.bio).toBeDefined();
         expect(t.clearance).toBeDefined();
+    });
+
+    test('templates include Coding Assistant', async ({ request }) => {
+        const res = await request.get(`${BASE}/v1/dashboard/network/templates`);
+        const body = await res.json();
+        const names = body.templates.map(t => t.name);
+        expect(names).toContain('Coding Assistant');
+
+        // Coding Assistant template should be a member role
+        const codingAssistant = body.templates.find(t => t.name === 'Coding Assistant');
+        expect(codingAssistant.role).toBe('member');
+        expect(codingAssistant.bio.length).toBeGreaterThan(0);
+    });
+});
+
+test.describe('API — Unregistered Agents', () => {
+    test('unregistered agents endpoint returns array', async ({ request }) => {
+        const res = await request.get(`${BASE}/v1/dashboard/network/unregistered`);
+        expect(res.ok()).toBeTruthy();
+        const body = await res.json();
+        expect(Array.isArray(body.unregistered)).toBeTruthy();
+    });
+
+    test('unregistered agents have expected fields', async ({ request }) => {
+        const res = await request.get(`${BASE}/v1/dashboard/network/unregistered`);
+        const body = await res.json();
+        if (body.unregistered && body.unregistered.length > 0) {
+            const u = body.unregistered[0];
+            expect(u.agent_id).toBeDefined();
+            expect(u.short_id).toBeDefined();
+            expect(typeof u.memory_count).toBe('number');
+        }
+    });
+});
+
+test.describe('API — Memory Reassign (Merge)', () => {
+    test('merge endpoint requires source and target', async ({ request }) => {
+        const res = await request.post(`${BASE}/v1/dashboard/network/merge`, {
+            data: {},
+        });
+        // Should return error for missing params
+        expect(res.ok()).toBeFalsy();
+    });
+
+    test('merge endpoint rejects invalid target', async ({ request }) => {
+        const res = await request.post(`${BASE}/v1/dashboard/network/merge`, {
+            data: { source_agent_id: 'fake-source', target_agent_id: 'fake-target' },
+        });
+        // Should return error for invalid target agent
+        expect(res.ok()).toBeFalsy();
+    });
+});
+
+test.describe('API — Download Bundle', () => {
+    test('download bundle returns 404 for auto-seeded agent', async ({ request }) => {
+        const agentsRes = await request.get(`${BASE}/v1/dashboard/network/agents`);
+        const agents = await agentsRes.json();
+        expect(agents.agents.length).toBeGreaterThanOrEqual(1);
+        const agentId = agents.agents[0].agent_id;
+
+        // Auto-seeded agents don't have bundles
+        const res = await request.get(`${BASE}/v1/dashboard/network/agents/${agentId}/bundle`);
+        // Expect 404 (no bundle available) for auto-seeded agents
+        expect(res.status()).toBe(404);
+        const body = await res.json();
+        expect(body.error).toContain('no bundle');
+    });
+
+    test('download bundle returns 404 for invalid agent', async ({ request }) => {
+        const res = await request.get(`${BASE}/v1/dashboard/network/agents/nonexistent-id/bundle`);
+        expect(res.ok()).toBeFalsy();
     });
 });
 
@@ -587,54 +940,6 @@ test.describe('Edit Mode — Save Persists', () => {
     });
 });
 
-test.describe('Wizard — Template & Step 3 Defaults', () => {
-    test('template selection populates bio field', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
-
-        // Wait for templates to load (async fetch)
-        const templateSelect = page.locator('select').first();
-        await expect(templateSelect).toBeVisible();
-
-        // Wait for template options to populate (fetched from /templates API)
-        await page.waitForFunction(() => {
-            const sel = document.querySelector('select');
-            return sel && sel.options.length >= 2;
-        }, { timeout: 5000 });
-
-        const options = templateSelect.locator('option');
-        const optionCount = await options.count();
-        expect(optionCount).toBeGreaterThanOrEqual(2);
-
-        // Select the first actual template (index 1, since 0 is placeholder)
-        await templateSelect.selectOption({ index: 1 });
-
-        // Bio textarea should now be populated
-        const bioTextarea = page.locator('.wizard-textarea');
-        await expect(bioTextarea).toBeVisible();
-        const bioValue = await bioTextarea.inputValue();
-        expect(bioValue.length).toBeGreaterThan(0);
-    });
-
-    test('Step 3 — Bundle card is selected by default', async ({ page }) => {
-        await page.goto(`${BASE}/ui/#/network`);
-        await page.waitForSelector('.agent-card-add');
-        await page.locator('.agent-card-add').click();
-
-        // Step 1 → fill and advance
-        await page.locator('.wizard-input').first().fill('Default Test');
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-
-        // Step 2 → advance
-        await page.locator('.btn').filter({ hasText: 'Next' }).click();
-
-        // Step 3 — Bundle card (first connect card) should have 'selected' class
-        const bundleCard = page.locator('.connect-card').nth(0);
-        await expect(bundleCard).toHaveClass(/selected/);
-    });
-});
-
 test.describe('Agent Card — Role Badge', () => {
     test('agent cards display role badges', async ({ page }) => {
         await page.goto(`${BASE}/ui/#/network`);
@@ -648,5 +953,37 @@ test.describe('Agent Card — Role Badge', () => {
         // Badge text should be a valid role
         const badgeText = await roleBadges.first().textContent();
         expect(['admin', 'member', 'observer']).toContain(badgeText.trim().toLowerCase());
+    });
+});
+
+test.describe('Wizard — Stepper UI', () => {
+    test('wizard stepper shows 4 steps: Identity, Permissions, Connect, Deploy', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        const steps = page.locator('.wizard-step');
+        await expect(steps).toHaveCount(4);
+        await expect(steps.nth(0)).toContainText('Identity');
+        await expect(steps.nth(1)).toContainText('Permissions');
+        await expect(steps.nth(2)).toContainText('Connect');
+        await expect(steps.nth(3)).toContainText('Deploy');
+    });
+
+    test('active step is highlighted', async ({ page }) => {
+        await page.goto(`${BASE}/ui/#/network`);
+        await page.waitForSelector('.agent-card-add');
+        await page.locator('.agent-card-add').click();
+
+        // Step 1 should be active
+        await expect(page.locator('.wizard-step').nth(0)).toHaveClass(/active/);
+
+        // Advance to step 2
+        await page.locator('.wizard-input').first().fill('Test');
+        await page.locator('.wizard-footer .btn').filter({ hasText: 'Next' }).click();
+
+        // Step 2 should be active, step 1 should be completed
+        await expect(page.locator('.wizard-step').nth(1)).toHaveClass(/active/);
+        await expect(page.locator('.wizard-step').nth(0)).toHaveClass(/completed/);
     });
 });

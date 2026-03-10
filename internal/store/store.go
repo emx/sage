@@ -301,6 +301,8 @@ type AgentEntry struct {
 	VisibleAgents   string     `json:"visible_agents,omitempty"`   // JSON array of agent IDs ("*" = all)
 	Provider        string     `json:"provider,omitempty"`         // "claude-code", "chatgpt", etc.
 	MemoryCount     int        `json:"memory_count,omitempty"`
+	ClaimToken      string     `json:"claim_token,omitempty"`      // One-time token for CLI agent install
+	ClaimExpiresAt  *time.Time `json:"claim_expires_at,omitempty"` // When the claim token expires
 }
 
 // RedeploymentLogEntry represents a redeployment operation log entry.
@@ -340,6 +342,9 @@ type AgentStore interface {
 	// Both operations run in a single transaction. Returns the new agent_id
 	// (hex-encoded public key) and the Ed25519 seed for bundle generation.
 	RotateAgentKey(ctx context.Context, oldAgentID string) (newAgentID string, seed []byte, err error)
+	// ReassignMemories atomically moves all memories from sourceAgentID to targetAgentID.
+	// Returns the count of memories reassigned.
+	ReassignMemories(ctx context.Context, sourceAgentID, targetAgentID string) (int64, error)
 	// Redeployment
 	AcquireRedeployLock(ctx context.Context, lockedBy, operation string, ttl time.Duration) error
 	ReleaseRedeployLock(ctx context.Context) error

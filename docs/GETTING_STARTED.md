@@ -19,15 +19,15 @@ And because SAGE uses real consensus infrastructure (not just a JSON file), your
 ```bash
 git clone https://github.com/l33tdawg/sage.git
 cd sage
-go build -o sage-lite ./cmd/sage-lite/
-sudo mv sage-lite /usr/local/bin/  # or add to your PATH
+go build -o sage-gui ./cmd/sage-gui/
+sudo mv sage-gui /usr/local/bin/  # or add to your PATH
 ```
 
 ### Verify Installation
 
 ```bash
-sage-lite version
-# sage-lite v1.0.0
+sage-gui version
+# sage-gui v1.0.0
 ```
 
 ---
@@ -37,7 +37,7 @@ sage-lite version
 ### Option A: GUI Setup Wizard
 
 ```bash
-sage-lite setup
+sage-gui setup
 ```
 
 This opens a browser-based wizard that walks you through:
@@ -74,7 +74,7 @@ rest_addr: ":8080"
 ## Start the Node
 
 ```bash
-sage-lite serve
+sage-gui serve
 ```
 
 You'll see:
@@ -85,7 +85,7 @@ Dashboard: http://localhost:8080/ui/
 REST API:  http://localhost:8080/v1/
 ```
 
-Open the dashboard in your browser to see the Brain Visualization — a living neural network of your AI's memory.
+Open the dashboard in your browser to see the Brain Visualization — a living neural network of your AI's memory. Click any memory bubble to focus its domain group (arranged in a timeline), click time buckets at the bottom to filter by hour, and expand the Chain Activity bar to see real-time consensus events.
 
 ---
 
@@ -96,7 +96,7 @@ This is the killer feature. Claude Desktop can read and write memories directly 
 ### 1. Get your MCP config
 
 ```bash
-sage-lite setup
+sage-gui setup
 # Or manually create it:
 ```
 
@@ -104,7 +104,7 @@ sage-lite setup
 {
   "mcpServers": {
     "sage": {
-      "command": "/usr/local/bin/sage-lite",
+      "command": "/usr/local/bin/sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_HOME": "~/.sage"
@@ -176,7 +176,7 @@ Both make the AI better. The `sage_reflect` tool captures this at the end of eac
 
 ## Connect to ChatGPT
 
-ChatGPT supports MCP through its desktop app. The configuration is similar — add the sage-lite MCP server in ChatGPT's settings.
+ChatGPT supports MCP through its desktop app. The configuration is similar — add the sage-gui MCP server in ChatGPT's settings.
 
 ---
 
@@ -219,7 +219,7 @@ The fastest way to connect a new machine:
 
 1. On your main SAGE node, click **Add Agent** and select **LAN Pairing**
 2. You get a 6-character code (valid for 5 minutes)
-3. On the new machine, run `sage-lite pair ABC123` (replacing with your code)
+3. On the new machine, run `sage-gui pair ABC123` (replacing with your code)
 4. The new machine automatically receives its config, keys, and connects to your network
 
 No port forwarding, no config files to copy, no keys to email around. Everything happens over your local network.
@@ -317,7 +317,7 @@ tar czf ~/sage-backup-$(date +%Y%m%d).tar.gz ~/.sage/
 ```bash
 # Remove all data and start fresh
 rm -rf ~/.sage/data/
-sage-lite serve  # Reinitializes automatically
+sage-gui serve  # Reinitializes automatically
 ```
 
 ---
@@ -348,14 +348,14 @@ See the main [README](../README.md) for the full multi-node deployment guide.
 
 ## Troubleshooting
 
-**sage-lite serve fails with "address already in use"**
+**sage-gui serve fails with "address already in use"**
 Another process is using port 8080. Either stop it or change the port in `~/.sage/config.yaml`:
 ```yaml
 rest_addr: ":8081"
 ```
 
 **Claude Desktop doesn't show SAGE tools**
-1. Make sure `sage-lite serve` is running
+1. Make sure `sage-gui serve` is running
 2. Check the MCP config path is correct
 3. Restart Claude Desktop completely
 

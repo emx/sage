@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/l33tdawg/sage/internal/memory"
+	"github.com/l33tdawg/sage/internal/tx"
 )
 
 const (
@@ -93,27 +94,106 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Generate embeddings and insert memories
+	// Resolve the admin agent to attribute imported memories to.
+	// Falls back to hardcoded "import-agent" if no admin agent is found.
+	targetAgent := importAgent
+	if agentStore, ok := h.store.(AgentStoreProvider); ok {
+		if agents, listErr := agentStore.ListAgents(r.Context()); listErr == nil {
+			for _, a := range agents {
+				if a.Role == "admin" && a.Status != "removed" {
+					targetAgent = a.AgentID
+					break
+				}
+			}
+		}
+	}
+
+	// Generate embeddings, broadcast on-chain, and insert memories
+	total := len(records)
 	imported := 0
 	skipped := 0
-	for _, rec := range records {
+
+	// Broadcast initial progress
+	if h.SSE != nil {
+		h.SSE.Broadcast(SSEEvent{
+			Type: EventImport,
+			Data: map[string]any{"phase": "processing", "total": total, "imported": 0, "skipped": 0},
+		})
+	}
+
+	for i, rec := range records {
+		rec.SubmittingAgent = targetAgent
 		if rec.Content == "" {
 			skipped++
 			continue
 		}
 		// Generate embedding if provider is available
+		var embeddingHash []byte
 		if h.embedder != nil {
 			if emb, embErr := h.embedder.Embed(r.Context(), rec.Content); embErr == nil {
 				rec.Embedding = emb
+				eh := sha256.New()
+				for _, v := range emb {
+					fmt.Fprintf(eh, "%f", v)
+				}
+				embeddingHash = eh.Sum(nil)
 			}
 			// Non-fatal: if embedding fails, still insert with empty embedding
 		}
+
+		// Broadcast on-chain MemorySubmit through CometBFT consensus
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			submitTx := &tx.ParsedTx{
+				Type:      tx.TxTypeMemorySubmit,
+				Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
+				Timestamp: rec.CreatedAt,
+				MemorySubmit: &tx.MemorySubmit{
+					MemoryID:        rec.MemoryID,
+					ContentHash:     rec.ContentHash,
+					EmbeddingHash:   embeddingHash,
+					MemoryType:      tx.MemoryTypeObservation,
+					DomainTag:       rec.DomainTag,
+					ConfidenceScore: rec.ConfidenceScore,
+					Content:         rec.Content,
+					Classification:  tx.ClearanceLevel(1), // INTERNAL
+				},
+			}
+			embedDashboardAgentProof(submitTx, h.SigningKey)
+			if signErr := tx.SignTx(submitTx, h.SigningKey); signErr == nil {
+				if encoded, encErr := tx.EncodeTx(submitTx); encErr == nil {
+					broadcastTxSync(h.CometBFTRPC, encoded)
+				}
+			}
+		}
+
 		if insertErr := h.store.InsertMemory(r.Context(), rec); insertErr != nil {
 			parseErrors = append(parseErrors, fmt.Sprintf("insert %s: %s", rec.MemoryID, insertErr.Error()))
 			skipped++
 			continue
 		}
 		imported++
+
+		// Broadcast progress every 5 records or on the last one
+		if h.SSE != nil && (i == total-1 || (i+1)%5 == 0) {
+			h.SSE.Broadcast(SSEEvent{
+				Type: EventImport,
+				Data: map[string]any{
+					"phase":    "processing",
+					"total":    total,
+					"current":  i + 1,
+					"imported": imported,
+					"skipped":  skipped,
+				},
+			})
+		}
+	}
+
+	// Broadcast completion
+	if h.SSE != nil {
+		h.SSE.Broadcast(SSEEvent{
+			Type: EventImport,
+			Data: map[string]any{"phase": "complete", "total": total, "imported": imported, "skipped": skipped},
+		})
 	}
 
 	writeJSONResp(w, http.StatusOK, importResult{
@@ -161,8 +241,13 @@ func parseChatGPTZip(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		return nil, nil, fmt.Errorf("invalid zip: %w", err)
 	}
 
+	// Look for conversations.json (case-insensitive)
 	for _, f := range zr.File {
-		if strings.HasSuffix(f.Name, "conversations.json") {
+		base := f.Name
+		if idx := strings.LastIndex(base, "/"); idx >= 0 {
+			base = base[idx+1:]
+		}
+		if strings.EqualFold(base, "conversations.json") {
 			rc, err := f.Open()
 			if err != nil {
 				return nil, nil, fmt.Errorf("open conversations.json: %w", err)
@@ -175,7 +260,26 @@ func parseChatGPTZip(data []byte) ([]*memory.MemoryRecord, []string, error) {
 			return parseChatGPTJSON(jsonData)
 		}
 	}
-	return nil, nil, fmt.Errorf("conversations.json not found in zip")
+
+	// Fallback: try any .json file in the zip
+	for _, f := range zr.File {
+		if strings.HasSuffix(strings.ToLower(f.Name), ".json") {
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+			jsonData, readErr := io.ReadAll(rc)
+			rc.Close()
+			if readErr != nil {
+				continue
+			}
+			recs, errs, parseErr := parseChatGPTJSON(jsonData)
+			if parseErr == nil && len(recs) > 0 {
+				return recs, errs, nil
+			}
+		}
+	}
+	return nil, nil, fmt.Errorf("no conversations.json found in zip")
 }
 
 func parseChatGPTJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
@@ -442,14 +546,8 @@ func parseClaudeJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 
 // ---- Generic parser ----
 
-type genericEntry struct {
-	Content string `json:"content"`
-	Title   string `json:"title"`
-	Time    string `json:"time"`
-}
-
 func parseGenericJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
-	var entries []genericEntry
+	var entries []map[string]any
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return nil, nil, fmt.Errorf("invalid JSON array: %w", err)
 	}
@@ -458,9 +556,13 @@ func parseGenericJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 	var errors []string
 
 	for _, e := range entries {
-		text := e.Content
-		if text == "" {
-			text = e.Title
+		// Try multiple common field names for content
+		text := ""
+		for _, key := range []string{"content", "text", "memory", "title", "message", "body", "description", "summary", "note"} {
+			if v, ok := e[key].(string); ok && v != "" {
+				text = v
+				break
+			}
 		}
 		if text == "" {
 			continue
@@ -470,9 +572,12 @@ func parseGenericJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 		}
 
 		createdAt := time.Now()
-		if e.Time != "" {
-			if t, err := time.Parse(time.RFC3339, e.Time); err == nil {
-				createdAt = t
+		for _, key := range []string{"time", "created_at", "timestamp", "date", "updated_at"} {
+			if v, ok := e[key].(string); ok && v != "" {
+				if t, err := time.Parse(time.RFC3339, v); err == nil {
+					createdAt = t
+					break
+				}
 			}
 		}
 
@@ -492,7 +597,18 @@ func detectAndParseJSON(data []byte) ([]*memory.MemoryRecord, string, []string, 
 	// Try to parse as JSON array
 	var raw []json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, "", nil, fmt.Errorf("file is not a JSON array: %w", err)
+		// Try as JSON object with array values (e.g., Claude export with conversations key)
+		var obj map[string]json.RawMessage
+		if objErr := json.Unmarshal(data, &obj); objErr == nil {
+			for _, v := range obj {
+				if json.Unmarshal(v, &raw) == nil && len(raw) > 0 {
+					break
+				}
+			}
+		}
+		if len(raw) == 0 {
+			return nil, "", nil, fmt.Errorf("file is not a recognized JSON format: %w", err)
+		}
 	}
 
 	if len(raw) == 0 {
@@ -526,7 +642,7 @@ func detectAndParseJSON(data []byte) ([]*memory.MemoryRecord, string, []string, 
 		return recs, "claude", errs, err
 	}
 
-	// Fallback: generic
+	// Fallback: generic (handles memory.json and other formats)
 	recs, errs, err := parseGenericJSON(data)
 	return recs, "generic", errs, err
 }

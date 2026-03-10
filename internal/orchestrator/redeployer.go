@@ -64,7 +64,7 @@ type RedeployStatus struct {
 }
 
 // NodeController provides methods to stop and restart the CometBFT node.
-// The cmd/sage-lite package implements this interface.
+// The cmd/sage-gui package implements this interface.
 type NodeController interface {
 	StopChain() error
 	StartChain() error

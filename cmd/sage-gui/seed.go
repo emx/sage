@@ -23,7 +23,7 @@ import (
 //   - JSON: array of objects with "content", "domain", "type", "confidence" fields
 func runSeed() error {
 	if len(os.Args) < 3 {
-		fmt.Println(`Usage: sage-lite seed <file> [--domain <tag>]
+		fmt.Println(`Usage: sage-gui seed <file> [--domain <tag>]
 
 Seed memories from a file into your SAGE brain.
 
@@ -36,9 +36,9 @@ Options:
   --domain <tag>   Default domain tag (default: "general")
 
 Examples:
-  sage-lite seed notes.txt --domain project
-  sage-lite seed memories.json
-  sage-lite seed chat-export.md --domain conversations`)
+  sage-gui seed notes.txt --domain project
+  sage-gui seed memories.json
+  sage-gui seed chat-export.md --domain conversations`)
 		return nil
 	}
 
@@ -65,7 +65,7 @@ Examples:
 	// Load agent key
 	keyData, err := os.ReadFile(cfg.AgentKey)
 	if err != nil {
-		return fmt.Errorf("read agent key (run 'sage-lite mcp' once to generate): %w", err)
+		return fmt.Errorf("read agent key (run 'sage-gui mcp' once to generate): %w", err)
 	}
 	priv := ed25519.NewKeyFromSeed(keyData)
 	pub, _ := priv.Public().(ed25519.PublicKey) //nolint:errcheck

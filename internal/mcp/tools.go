@@ -286,7 +286,7 @@ func (s *Server) toolRecall(ctx context.Context, params map[string]any) (any, er
 	}
 
 	domain := stringParam(params, "domain", "")
-	topK := intParam(params, "top_k", 5)
+	topK := intParam(params, "top_k", 10)
 	minConf := floatParam(params, "min_confidence", 0)
 
 	// Get embedding for the query.
@@ -503,7 +503,7 @@ func (s *Server) toolTurn(ctx context.Context, params map[string]any) (any, erro
 			"domain_tag":    "", // Search ALL domains — the topic determines relevance, not a filter
 			"provider":      s.provider,
 			"status_filter": "committed", // ONLY consensus-validated memories
-			"top_k":         5,
+			"top_k":         10,
 		})
 		var queryResp struct {
 			Results []struct {

@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds the sage-lite configuration.
+// Config holds the sage-gui configuration.
 type Config struct {
 	Embedding  EmbeddingConfig  `yaml:"embedding"`
 	Encryption EncryptionConfig `yaml:"encryption"`

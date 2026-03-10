@@ -1240,6 +1240,10 @@ func (s *PostgresStore) RotateAgentKey(_ context.Context, _ string) (string, []b
 	return "", nil, fmt.Errorf("RotateAgentKey not implemented for PostgresStore")
 }
 
+func (s *PostgresStore) ReassignMemories(_ context.Context, _, _ string) (int64, error) {
+	return 0, fmt.Errorf("ReassignMemories not implemented for PostgresStore")
+}
+
 func (s *PostgresStore) AcquireRedeployLock(_ context.Context, _, _ string, _ time.Duration) error {
 	return fmt.Errorf("AcquireRedeployLock not implemented for PostgresStore")
 }

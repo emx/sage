@@ -11,10 +11,13 @@ import (
 type EventType string
 
 const (
-	EventRemember EventType = "remember"
-	EventRecall   EventType = "recall"
-	EventForget   EventType = "forget"
-	EventVote     EventType = "vote"
+	EventRemember  EventType = "remember"
+	EventRecall    EventType = "recall"
+	EventForget    EventType = "forget"
+	EventVote      EventType = "vote"
+	EventConsensus EventType = "consensus"
+	EventAgent     EventType = "agent"
+	EventImport    EventType = "import"
 )
 
 // SSEEvent is an event sent to connected dashboard clients.

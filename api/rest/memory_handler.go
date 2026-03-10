@@ -347,6 +347,15 @@ func (s *Server) handleSubmitMemory(w http.ResponseWriter, r *http.Request) {
 
 	metrics.MemoriesTotal.WithLabelValues(req.MemoryType, req.DomainTag, string(memory.StatusProposed)).Inc()
 
+	// Emit event for SSE chain activity log
+	if s.OnEvent != nil {
+		s.OnEvent("remember", memoryID, req.DomainTag, truncateContent(req.Content, 80), map[string]any{
+			"full_content": req.Content,
+			"memory_type":  req.MemoryType,
+			"confidence":   req.ConfidenceScore,
+		})
+	}
+
 	writeJSON(w, http.StatusCreated, SubmitMemoryResponse{
 		MemoryID: memoryID,
 		TxHash:   txHash,
@@ -474,6 +483,28 @@ func (s *Server) handleQueryMemory(w http.ResponseWriter, r *http.Request) {
 				results = filtered
 			}
 		}
+	}
+
+	// Emit recall event for SSE chain activity log with full retrieved memory details
+	if s.OnEvent != nil && len(results) > 0 {
+		domain := req.DomainTag
+		if domain == "" && len(results) > 0 {
+			domain = results[0].DomainTag
+		}
+		// Build rich detail for expandable chain activity rows
+		retrieved := make([]map[string]any, 0, len(results))
+		for _, r := range results {
+			retrieved = append(retrieved, map[string]any{
+				"memory_id":  r.MemoryID,
+				"content":    r.Content,
+				"domain":     r.DomainTag,
+				"confidence": r.ConfidenceScore,
+				"type":       r.MemoryType,
+			})
+		}
+		s.OnEvent("recall", "", domain, fmt.Sprintf("%d memories retrieved", len(results)), map[string]any{
+			"retrieved": retrieved,
+		})
 	}
 
 	writeJSON(w, http.StatusOK, QueryMemoryResponse{
@@ -701,4 +732,11 @@ func generateUUID() string {
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
 		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
+func truncateContent(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

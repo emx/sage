@@ -294,6 +294,11 @@ func encodePayload(tx *ParsedTx) ([]byte, error) {
 			return nil, fmt.Errorf("AgentSetPermission is nil for agent set permission tx")
 		}
 		return encodeAgentSetPermission(tx.AgentSetPermission), nil
+	case TxTypeMemoryReassign:
+		if tx.MemoryReassign == nil {
+			return nil, fmt.Errorf("MemoryReassign is nil for memory reassign tx")
+		}
+		return encodeMemoryReassign(tx.MemoryReassign), nil
 	default:
 		return nil, ErrUnknownTxType
 	}
@@ -454,6 +459,13 @@ func decodePayload(tx *ParsedTx, data []byte) error {
 			return err
 		}
 		tx.AgentSetPermission = a
+		return nil
+	case TxTypeMemoryReassign:
+		m, err := decodeMemoryReassign(data)
+		if err != nil {
+			return err
+		}
+		tx.MemoryReassign = m
 		return nil
 	default:
 		return ErrUnknownTxType
@@ -1605,4 +1617,34 @@ func decodeAgentSetPermission(data []byte) (*AgentSetPermission, error) {
 	a.DeptID = string(b)
 
 	return a, nil
+}
+
+// --- MemoryReassign ---
+
+func encodeMemoryReassign(m *MemoryReassign) []byte {
+	var buf []byte
+	buf = appendBytes(buf, []byte(m.SourceAgentID))
+	buf = appendBytes(buf, []byte(m.TargetAgentID))
+	return buf
+}
+
+func decodeMemoryReassign(data []byte) (*MemoryReassign, error) {
+	m := &MemoryReassign{}
+	var err error
+	var b []byte
+	off := 0
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	m.SourceAgentID = string(b)
+
+	b, _, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	m.TargetAgentID = string(b)
+
+	return m, nil
 }

@@ -353,7 +353,7 @@ func TestImport_ParseChatGPTZip_MissingConversationsJSON(t *testing.T) {
 
 	_, _, err := parseChatGPTZip(zipData)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "conversations.json not found")
+	assert.Contains(t, err.Error(), "no conversations.json found")
 }
 
 func TestImport_ParseChatGPTZip_InvalidZipData(t *testing.T) {
@@ -538,9 +538,9 @@ func TestImport_ParseClaudeJSON_InvalidJSON(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestImport_ParseGenericJSON_Valid(t *testing.T) {
-	entries := []genericEntry{
-		{Content: "Some memory content", Title: "My Note", Time: "2024-03-01T12:00:00Z"},
-		{Content: "", Title: "Title as fallback", Time: "2024-03-02T12:00:00Z"},
+	entries := []map[string]any{
+		{"content": "Some memory content", "title": "My Note", "time": "2024-03-01T12:00:00Z"},
+		{"content": "", "title": "Title as fallback", "time": "2024-03-02T12:00:00Z"},
 	}
 
 	data, _ := json.Marshal(entries)
@@ -556,9 +556,9 @@ func TestImport_ParseGenericJSON_Valid(t *testing.T) {
 }
 
 func TestImport_ParseGenericJSON_SkipsEmptyEntries(t *testing.T) {
-	entries := []genericEntry{
-		{Content: "", Title: ""},
-		{Content: "Real content"},
+	entries := []map[string]any{
+		{"content": "", "title": ""},
+		{"content": "Real content"},
 	}
 
 	data, _ := json.Marshal(entries)
@@ -569,8 +569,8 @@ func TestImport_ParseGenericJSON_SkipsEmptyEntries(t *testing.T) {
 }
 
 func TestImport_ParseGenericJSON_TruncatesLongContent(t *testing.T) {
-	entries := []genericEntry{
-		{Content: strings.Repeat("C", 3000)},
+	entries := []map[string]any{
+		{"content": strings.Repeat("C", 3000)},
 	}
 
 	data, _ := json.Marshal(entries)
@@ -581,7 +581,7 @@ func TestImport_ParseGenericJSON_TruncatesLongContent(t *testing.T) {
 }
 
 func TestImport_ParseGenericJSON_NoValidEntries(t *testing.T) {
-	entries := []genericEntry{{Content: "", Title: ""}}
+	entries := []map[string]any{{"content": "", "title": ""}}
 	data, _ := json.Marshal(entries)
 
 	records, errs, err := parseGenericJSON(data)
@@ -653,8 +653,8 @@ func TestImport_DetectAndParseJSON_ClaudeFormat(t *testing.T) {
 }
 
 func TestImport_DetectAndParseJSON_GenericFallback(t *testing.T) {
-	entries := []genericEntry{
-		{Content: "Some content", Time: "2024-01-01T00:00:00Z"},
+	entries := []map[string]any{
+		{"content": "Some content", "time": "2024-01-01T00:00:00Z"},
 	}
 	data, _ := json.Marshal(entries)
 
@@ -664,10 +664,9 @@ func TestImport_DetectAndParseJSON_GenericFallback(t *testing.T) {
 	require.NotEmpty(t, records)
 }
 
-func TestImport_DetectAndParseJSON_NotJSONArray(t *testing.T) {
-	_, _, _, err := detectAndParseJSON([]byte(`{"key": "value"}`))
+func TestImport_DetectAndParseJSON_NotRecognized(t *testing.T) {
+	_, _, _, err := detectAndParseJSON([]byte(`"just a string"`))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a JSON array")
 }
 
 func TestImport_DetectAndParseJSON_EmptyArray(t *testing.T) {

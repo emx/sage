@@ -6,7 +6,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -36,6 +38,7 @@ type roleTemplate struct {
 }
 
 var defaultTemplates = []roleTemplate{
+	{Name: "Coding Assistant", Role: "member", Bio: "AI coding assistant (Claude Code, Cursor, etc.) that builds institutional memory from development sessions", Clearance: 1, Avatar: "\U0001F4BB"},
 	{Name: "Voice Assistant", Role: "member", Bio: "Voice-activated agent for hands-free memory capture and recall", Clearance: 1, Avatar: "\U0001F399\uFE0F"},
 	{Name: "Research Agent", Role: "member", Bio: "Autonomous research agent that gathers and synthesizes knowledge", Clearance: 2, Avatar: "\U0001F52C"},
 	{Name: "Family Member", Role: "member", Bio: "Personal agent for a family member sharing the knowledge network", Clearance: 1, Avatar: "\U0001F464"},
@@ -58,8 +61,12 @@ func (h *DashboardHandler) RegisterNetworkRoutes(r chi.Router) {
 	r.Get("/v1/dashboard/network/agents/{id}/bundle", handleDownloadBundle(agentStore))
 	r.Post("/v1/dashboard/network/agents/{id}/rotate-key", handleRotateAgentKey(agentStore))
 	r.Get("/v1/dashboard/network/templates", handleTemplates())
+	r.Post("/v1/dashboard/network/claim", handleClaimAgent(agentStore))
 	r.Get("/v1/dashboard/network/redeploy/status", h.handleRedeployStatusLive)
 	r.Post("/v1/dashboard/network/redeploy", h.handleTriggerRedeploy)
+
+	r.Get("/v1/dashboard/network/unregistered", h.handleUnregisteredAgents(agentStore))
+	r.Post("/v1/dashboard/network/merge", h.handleMergeAgent(agentStore))
 
 	// Pairing code generation (authenticated — admin creates code for an agent)
 	if h.Pairing != nil {
@@ -171,6 +178,7 @@ func (h *DashboardHandler) handleCreateAgent(agentStore store.AgentStore) http.H
 						P2PAddress: req.P2PAddress,
 					},
 				}
+				embedDashboardAgentProof(registerTx, h.SigningKey)
 				if signErr := tx.SignTx(registerTx, h.SigningKey); signErr != nil {
 					return
 				}
@@ -206,9 +214,25 @@ func (h *DashboardHandler) handleCreateAgent(agentStore store.AgentStore) http.H
 		agent.BundlePath = bundlePath
 		_ = agentStore.UpdateAgent(r.Context(), agent)
 
+		// Generate one-time claim token for CLI install
+		claimToken, tokenErr := generateClaimToken()
+		if tokenErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to generate claim token")
+			return
+		}
+		claimExpiry := time.Now().Add(24 * time.Hour)
+		agent.ClaimToken = claimToken
+		agent.ClaimExpiresAt = &claimExpiry
+		if err := agentStore.UpdateAgent(r.Context(), agent); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save claim token")
+			return
+		}
+
 		writeJSONResp(w, http.StatusCreated, map[string]any{
-			"agent":    agent,
-			"agent_id": agentID,
+			"agent":           agent,
+			"agent_id":        agentID,
+			"claim_token":     claimToken,
+			"install_command": fmt.Sprintf("sage-gui mcp install --token %s", claimToken),
 		})
 	}
 }
@@ -288,6 +312,7 @@ func (h *DashboardHandler) handleUpdateAgent(agentStore store.AgentStore) http.H
 							BootBio: existing.BootBio,
 						},
 					}
+					embedDashboardAgentProof(updateTx, h.SigningKey)
 					if signErr := tx.SignTx(updateTx, h.SigningKey); signErr != nil {
 						return
 					}
@@ -313,6 +338,7 @@ func (h *DashboardHandler) handleUpdateAgent(agentStore store.AgentStore) http.H
 							DeptID:       existing.DeptID,
 						},
 					}
+					embedDashboardAgentProof(permTx, h.SigningKey)
 					if signErr := tx.SignTx(permTx, h.SigningKey); signErr != nil {
 						return
 					}
@@ -474,6 +500,87 @@ func handleTemplates() http.HandlerFunc {
 	}
 }
 
+// claimCharset is the set of unambiguous uppercase alphanumeric characters for claim tokens.
+const claimCharset = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+// generateClaimToken generates a 6-character uppercase alphanumeric claim token using crypto/rand.
+func generateClaimToken() (string, error) {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = claimCharset[int(b[i])%len(claimCharset)]
+	}
+	return string(b), nil
+}
+
+// handleClaimAgent exchanges a one-time claim token for the agent's key seed and info.
+func handleClaimAgent(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Token string `json:"token"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Token == "" {
+			writeError(w, http.StatusBadRequest, "token is required")
+			return
+		}
+
+		// Find the agent with this claim token
+		agents, err := agentStore.ListAgents(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list agents")
+			return
+		}
+
+		var matched *store.AgentEntry
+		for _, a := range agents {
+			if a.ClaimToken == req.Token {
+				matched = a
+				break
+			}
+		}
+		if matched == nil {
+			writeError(w, http.StatusNotFound, "invalid or expired claim token")
+			return
+		}
+
+		// Check expiry
+		if matched.ClaimExpiresAt != nil && time.Now().After(*matched.ClaimExpiresAt) {
+			// Clear expired token
+			matched.ClaimToken = ""
+			matched.ClaimExpiresAt = nil
+			_ = agentStore.UpdateAgent(r.Context(), matched)
+			writeError(w, http.StatusGone, "claim token has expired")
+			return
+		}
+
+		// Read the agent key seed from the bundle directory
+		keyPath := filepath.Join(sageHome(), "bundles", matched.AgentID, "agent.key")
+		seed, err := os.ReadFile(keyPath)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "agent key not found on server")
+			return
+		}
+
+		// Clear the claim token (one-time use)
+		matched.ClaimToken = ""
+		matched.ClaimExpiresAt = nil
+		_ = agentStore.UpdateAgent(r.Context(), matched)
+
+		writeJSONResp(w, http.StatusOK, map[string]any{
+			"agent":    matched,
+			"agent_id": matched.AgentID,
+			"key_seed": hex.EncodeToString(seed),
+		})
+	}
+}
+
 // handleRedeployStatusLive returns the current redeployment status using the orchestrator.
 func (h *DashboardHandler) handleRedeployStatusLive(w http.ResponseWriter, r *http.Request) {
 	if h.Redeployer == nil {
@@ -563,6 +670,146 @@ func (h *DashboardHandler) handleTriggerRedeploy(w http.ResponseWriter, r *http.
 	})
 }
 
+// handleUnregisteredAgents discovers agents that have memories but are not registered
+// in the network dashboard. These are orphaned agent identities (e.g., from per-project
+// keys that were never formally registered).
+func (h *DashboardHandler) handleUnregisteredAgents(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		memStore, ok := h.store.(store.MemoryStore)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "memory store not available")
+			return
+		}
+
+		// Get all agent IDs from memory data
+		stats, err := memStore.GetStats(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to get stats: "+err.Error())
+			return
+		}
+
+		// Get registered agents
+		registered, err := agentStore.ListAgents(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list agents: "+err.Error())
+			return
+		}
+		knownIDs := make(map[string]bool, len(registered))
+		for _, a := range registered {
+			knownIDs[a.AgentID] = true
+		}
+
+		// Find agents in memory data that are not registered
+		type unregisteredAgent struct {
+			AgentID     string `json:"agent_id"`
+			MemoryCount int    `json:"memory_count"`
+			ShortID     string `json:"short_id"`
+		}
+		var unregistered []unregisteredAgent
+		for agentID, count := range stats.ByAgent {
+			if agentID == "" {
+				continue
+			}
+			if !knownIDs[agentID] {
+				shortID := agentID
+				if len(shortID) > 16 {
+					shortID = shortID[:8] + "…" + shortID[len(shortID)-8:]
+				}
+				unregistered = append(unregistered, unregisteredAgent{
+					AgentID:     agentID,
+					MemoryCount: count,
+					ShortID:     shortID,
+				})
+			}
+		}
+
+		writeJSONResp(w, http.StatusOK, map[string]any{"unregistered": unregistered})
+	}
+}
+
+// handleMergeAgent merges all memories from an unregistered (source) agent into
+// a registered (target) agent. This goes through CometBFT consensus via
+// TxTypeMemoryReassign — no raw SQL backdoor.
+func (h *DashboardHandler) handleMergeAgent(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			SourceAgentID string `json:"source_agent_id"`
+			TargetAgentID string `json:"target_agent_id"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.SourceAgentID == "" || req.TargetAgentID == "" {
+			writeError(w, http.StatusBadRequest, "source_agent_id and target_agent_id are required")
+			return
+		}
+
+		// Verify target agent is registered
+		if _, err := agentStore.GetAgent(r.Context(), req.TargetAgentID); err != nil {
+			writeError(w, http.StatusBadRequest, "target agent not found in registry")
+			return
+		}
+
+		// Perform the actual memory reassignment in the offchain store (SQLite)
+		count, reassignErr := agentStore.ReassignMemories(r.Context(), req.SourceAgentID, req.TargetAgentID)
+		if reassignErr != nil {
+			writeError(w, http.StatusInternalServerError, "memory reassignment failed: "+reassignErr.Error())
+			return
+		}
+
+		// Also broadcast through CometBFT consensus for on-chain audit record
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			go func() {
+				reassignTx := &tx.ParsedTx{
+					Type:      tx.TxTypeMemoryReassign,
+					Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
+					Timestamp: time.Now(),
+					MemoryReassign: &tx.MemoryReassign{
+						SourceAgentID: req.SourceAgentID,
+						TargetAgentID: req.TargetAgentID,
+					},
+				}
+				embedDashboardAgentProof(reassignTx, h.SigningKey)
+				if signErr := tx.SignTx(reassignTx, h.SigningKey); signErr != nil {
+					return
+				}
+				encoded, encErr := tx.EncodeTx(reassignTx)
+				if encErr != nil {
+					return
+				}
+				broadcastTxSync(h.CometBFTRPC, encoded)
+			}()
+		}
+
+		writeJSONResp(w, http.StatusOK, map[string]any{
+			"status":         "completed",
+			"message":        fmt.Sprintf("%d memories reassigned from source to target.", count),
+			"memories_moved": count,
+			"source":         req.SourceAgentID,
+			"target":         req.TargetAgentID,
+		})
+	}
+}
+
+// embedDashboardAgentProof constructs and embeds an Ed25519 agent identity proof
+// into a ParsedTx using the dashboard's signing key. This is required for ABCI
+// to verify the sender's identity on-chain via verifyAgentIdentity().
+func embedDashboardAgentProof(ptx *tx.ParsedTx, signingKey ed25519.PrivateKey) {
+	body := []byte(fmt.Sprintf("%d:%s", ptx.Type, ptx.Timestamp.Format(time.RFC3339Nano)))
+	h := sha256.Sum256(body)
+	ts := time.Now().Unix()
+	tsBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(tsBytes, uint64(ts)) // #nosec G115 -- timestamp conversion safe
+	message := append(h[:], tsBytes...)
+
+	ptx.AgentPubKey = signingKey.Public().(ed25519.PublicKey)
+	ptx.AgentSig = ed25519.Sign(signingKey, message)
+	ptx.AgentBodyHash = h[:]
+	ptx.AgentTimestamp = ts
+}
+
 // sageHome returns the SAGE home directory.
 func sageHome() string {
 	home := os.Getenv("SAGE_HOME")
@@ -614,7 +861,7 @@ quorum:
 	mcpJSON := `{
   "mcpServers": {
     "sage": {
-      "command": "sage-lite",
+      "command": "sage-gui",
       "args": ["mcp"],
       "env": {
         "SAGE_API_URL": "http://localhost:8080"
@@ -635,11 +882,11 @@ quorum:
 ================================
 
 1. Copy this entire folder to the target machine
-2. Install sage-lite: download from github.com/l33tdawg/sage/releases
+2. Install sage-gui: download from github.com/l33tdawg/sage/releases
 3. Move agent.key to ~/.sage/agent.key
 4. Move config.yaml to ~/.sage/config.yaml
 5. Move .mcp.json to your project root
-6. Start the agent: sage-lite serve
+6. Start the agent: sage-gui serve
 
 Agent ID: %s
 Role: %s

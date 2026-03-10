@@ -47,8 +47,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          cp "dist/sage-lite_${VERSION}_linux_amd64.tar.gz" "dist/sage-lite-linux-amd64.tar.gz"
-          gh release upload "${GITHUB_REF_NAME}" "dist/sage-lite-linux-amd64.tar.gz" --clobber
+          cp "dist/sage-gui_${VERSION}_linux_amd64.tar.gz" "dist/sage-gui-linux-amd64.tar.gz"
+          gh release upload "${GITHUB_REF_NAME}" "dist/sage-gui-linux-amd64.tar.gz" --clobber
         shell: bash
 
   macos-dmg:

@@ -55,7 +55,7 @@ type QuorumPeer struct {
 // runQuorumInit initializes a quorum network.
 // It exports this node's validator info into a manifest file that peers import.
 //
-// Usage: sage-lite quorum-init [--name NAME] [--address HOST:PORT]
+// Usage: sage-gui quorum-init [--name NAME] [--address HOST:PORT]
 func runQuorumInit() error {
 	home := SageHome()
 	cometHome := filepath.Join(home, "data", "cometbft")
@@ -139,7 +139,7 @@ func runQuorumInit() error {
 	fmt.Printf("  Address: %s\n", address)
 	fmt.Println()
 	fmt.Println("Send this file to peer nodes, then run:")
-	fmt.Println("  sage-lite quorum-join --manifest <peer-manifest.json> --name <this-node> --address <this-host:port>")
+	fmt.Println("  sage-gui quorum-join --manifest <peer-manifest.json> --name <this-node> --address <this-host:port>")
 
 	return nil
 }
@@ -147,7 +147,7 @@ func runQuorumInit() error {
 // runQuorumJoin joins a quorum by merging a peer's manifest with this node's validator.
 // It generates a shared genesis and updates config.yaml with quorum settings.
 //
-// Usage: sage-lite quorum-join --manifest <path> --name NAME --address HOST:PORT
+// Usage: sage-gui quorum-join --manifest <path> --name NAME --address HOST:PORT
 func runQuorumJoin() error {
 	home := SageHome()
 	cometHome := filepath.Join(home, "data", "cometbft")
@@ -340,9 +340,9 @@ func runQuorumJoin() error {
 	fmt.Printf("  Peers:      %s\n", peers)
 	fmt.Println()
 	fmt.Println("The peer node must also run quorum-join with YOUR manifest:")
-	fmt.Printf("  sage-lite quorum-join --manifest %s --name <peer-name> --address <peer-host:port>\n", ourManifestPath)
+	fmt.Printf("  sage-gui quorum-join --manifest %s --name <peer-name> --address <peer-host:port>\n", ourManifestPath)
 	fmt.Println()
-	fmt.Println("Then start both nodes: sage-lite serve")
+	fmt.Println("Then start both nodes: sage-gui serve")
 
 	return nil
 }

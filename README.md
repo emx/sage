@@ -16,7 +16,7 @@ The architecture is described in [Paper 1: Agent Memory Infrastructure](papers/P
 Agent (Claude, ChatGPT, DeepSeek, Gemini, etc.)
   │ MCP / REST
   ▼
-sage-lite
+sage-gui
   ├── ABCI App (validation, confidence, decay, Ed25519 sigs)
   ├── CometBFT consensus (single-validator or multi-agent network)
   ├── SQLite + optional AES-256-GCM encryption
@@ -51,7 +51,16 @@ Add agents, configure domain-level read/write permissions, manage clearance leve
 
 ---
 
-## What's New in v3.5
+## What's New in v3.6
+
+- **Brain Graph Click-to-Focus** — Click any memory bubble to focus its domain group. Others fade out while focused memories arrange in a timeline row sorted by creation date. Click again to view detail, click empty space to exit.
+- **Interactive Timeline** — Click time buckets at the bottom of the brain graph to filter memories by time range. Multi-select hours to narrow down. Clear button to reset.
+- **Draggable Stats Panel** — Grab the "Memory Stats" header to reposition the panel anywhere. Position persists between sessions. Resize horizontally with the drag handle.
+- **Chain Activity Log** — Collapsible real-time event stream at the bottom of every page. See memory stored/recalled/forgotten events and consensus votes as they happen. Drag the top edge to resize.
+- **Agent Tab Ordering** — Admin agents appear first in brain view tabs for faster access.
+- **Renamed to SAGE GUI** — Binary renamed from sage-lite to sage-gui. Upgrade migration handles old launchd plists automatically.
+
+### v3.5
 
 - **On-Chain Agent Identity** — Agent registration, metadata updates, and permission changes go through CometBFT consensus. Every identity operation is auditable, tamper-resistant, and federation-ready.
 - **Auto-Registration** — Agents self-register on-chain during their first MCP connection. No manual setup needed.
@@ -88,9 +97,9 @@ Add agents, configure domain-level read/write permissions, manage clearance leve
 
 ```bash
 git clone https://github.com/l33tdawg/sage.git && cd sage
-go build -o sage-lite ./cmd/sage-lite/
-./sage-lite setup    # Pick your AI, get MCP config
-./sage-lite serve    # SAGE + Dashboard on :8080
+go build -o sage-gui ./cmd/sage-gui/
+./sage-gui setup    # Pick your AI, get MCP config
+./sage-gui serve    # SAGE + Dashboard on :8080
 ```
 
 Or grab a binary: [macOS DMG](https://github.com/l33tdawg/sage/releases/latest) (signed & notarized) | [Windows EXE](https://github.com/l33tdawg/sage/releases/latest) | [Linux tar.gz](https://github.com/l33tdawg/sage/releases/latest)

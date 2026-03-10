@@ -293,6 +293,124 @@ func TestProcessAgentSetPermission(t *testing.T) {
 	assert.Equal(t, 3, perm.Clearance)
 }
 
+// ---------------------------------------------------------------------------
+// Memory reassign tests
+// ---------------------------------------------------------------------------
+
+// makeMemoryReassignTx builds a signed ParsedTx for TxTypeMemoryReassign.
+func makeMemoryReassignTx(t *testing.T, sender agentKey, sourceID, targetID string) *tx.ParsedTx {
+	t.Helper()
+	body := []byte(sourceID + targetID)
+	pubKey, sig, bodyHash, ts := signAgentProof(t, sender, body)
+	return &tx.ParsedTx{
+		Type: tx.TxTypeMemoryReassign,
+		MemoryReassign: &tx.MemoryReassign{
+			SourceAgentID: sourceID,
+			TargetAgentID: targetID,
+		},
+		AgentPubKey:    pubKey,
+		AgentSig:       sig,
+		AgentBodyHash:  bodyHash,
+		AgentTimestamp: ts,
+	}
+}
+
+func TestProcessMemoryReassign(t *testing.T) {
+	app := setupTestApp(t)
+	admin := newAgentKey(t)
+	target := newAgentKey(t)
+	orphanID := "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+
+	// Register admin agent
+	registerAgent(t, app, admin, "admin-agent", "admin")
+	// Register target agent
+	registerAgent(t, app, target, "target-agent", "member")
+
+	// Admin reassigns memories from orphan to target
+	ptx := makeMemoryReassignTx(t, admin, orphanID, target.id)
+	result := app.processMemoryReassign(ptx, 3, time.Now())
+
+	assert.Equal(t, uint32(0), result.Code, "reassign should succeed: %s", result.Log)
+	assert.Equal(t, target.id, string(result.Data))
+	assert.Contains(t, result.Log, "reassigned")
+
+	// Verify pending write was buffered (2 registers + 1 reassign)
+	require.Len(t, app.pendingWrites, 3)
+	assert.Equal(t, "memory_reassign", app.pendingWrites[2].writeType)
+	d, ok := app.pendingWrites[2].data.(*memoryReassignData)
+	require.True(t, ok)
+	assert.Equal(t, orphanID, d.SourceAgentID)
+	assert.Equal(t, target.id, d.TargetAgentID)
+}
+
+func TestProcessMemoryReassignAdminOnly(t *testing.T) {
+	app := setupTestApp(t)
+	admin := newAgentKey(t)
+	member := newAgentKey(t)
+	target := newAgentKey(t)
+	orphanID := "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+
+	// Register all agents
+	registerAgent(t, app, admin, "admin-agent", "admin")
+	registerAgent(t, app, member, "member-agent", "member")
+	registerAgent(t, app, target, "target-agent", "member")
+
+	// Non-admin tries to reassign — should fail
+	ptx := makeMemoryReassignTx(t, member, orphanID, target.id)
+	result := app.processMemoryReassign(ptx, 4, time.Now())
+	assert.Equal(t, uint32(67), result.Code, "non-admin should fail with code 67")
+	assert.Contains(t, result.Log, "not an admin")
+
+	// Only 3 pending writes (3 registers, no reassign)
+	assert.Len(t, app.pendingWrites, 3, "failed reassign should not buffer a write")
+}
+
+func TestProcessMemoryReassignTargetMustExist(t *testing.T) {
+	app := setupTestApp(t)
+	admin := newAgentKey(t)
+	orphanID := "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+	fakeTargetID := "aaaaaaa1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+
+	// Register admin
+	registerAgent(t, app, admin, "admin-agent", "admin")
+
+	// Try to reassign to a non-existent target
+	ptx := makeMemoryReassignTx(t, admin, orphanID, fakeTargetID)
+	result := app.processMemoryReassign(ptx, 2, time.Now())
+	assert.Equal(t, uint32(68), result.Code, "unregistered target should fail with code 68")
+	assert.Contains(t, result.Log, "not registered")
+}
+
+func TestProcessMemoryReassignSourceCanBeUnregistered(t *testing.T) {
+	app := setupTestApp(t)
+	admin := newAgentKey(t)
+	target := newAgentKey(t)
+	// Source is a totally made-up ID that's never been registered — this should still work
+	unregisteredSourceID := "bbbbbbbb1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+
+	registerAgent(t, app, admin, "admin-agent", "admin")
+	registerAgent(t, app, target, "target-agent", "member")
+
+	ptx := makeMemoryReassignTx(t, admin, unregisteredSourceID, target.id)
+	result := app.processMemoryReassign(ptx, 3, time.Now())
+	assert.Equal(t, uint32(0), result.Code, "unregistered source should be fine: %s", result.Log)
+}
+
+func TestProcessMemoryReassignMissingPayload(t *testing.T) {
+	app := setupTestApp(t)
+	admin := newAgentKey(t)
+	registerAgent(t, app, admin, "admin-agent", "admin")
+
+	// Nil payload
+	ptx := &tx.ParsedTx{
+		Type:           tx.TxTypeMemoryReassign,
+		MemoryReassign: nil,
+	}
+	result := app.processMemoryReassign(ptx, 2, time.Now())
+	assert.Equal(t, uint32(66), result.Code, "nil payload should fail with code 66")
+	assert.Contains(t, result.Log, "missing")
+}
+
 func TestProcessAgentSetPermissionAdminOnly(t *testing.T) {
 	app := setupTestApp(t)
 	member := newAgentKey(t)
