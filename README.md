@@ -51,7 +51,16 @@ Add agents, configure domain-level read/write permissions, manage clearance leve
 
 ---
 
-## What's New in v3.0
+## What's New in v3.5
+
+- **On-Chain Agent Identity** — Agent registration, metadata updates, and permission changes go through CometBFT consensus. Every identity operation is auditable, tamper-resistant, and federation-ready.
+- **Auto-Registration** — Agents self-register on-chain during their first MCP connection. No manual setup needed.
+- **Visible Agents** — Control which agents' memories each agent can see. Set per-agent visibility from the dashboard.
+- **`sage_register` MCP Tool** — Agents can register themselves programmatically via MCP.
+- **Permission Enforcement** — On-chain clearance levels and domain access are enforced on every memory operation, with BadgerDB as the source of truth.
+- **Legacy Migration** — Existing agents auto-migrate to on-chain identity on first boot after upgrade.
+
+### v3.0
 
 - **Multi-Agent Networks** — Add and manage agents from the CEREBRUM dashboard. Each agent gets signing keys, role, clearance level, and per-domain read/write permissions.
 - **LAN Pairing** — Generate a 6-character pairing code. New agents fetch their config over your local network in seconds.

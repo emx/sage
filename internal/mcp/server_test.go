@@ -37,7 +37,7 @@ func TestHandleInitialize(t *testing.T) {
 
 	serverInfo := result["serverInfo"].(map[string]any)
 	assert.Equal(t, "sage-mcp", serverInfo["name"])
-	assert.Equal(t, "1.0.0", serverInfo["version"])
+	assert.Equal(t, "dev", serverInfo["version"])
 
 	caps := result["capabilities"].(map[string]any)
 	assert.Contains(t, caps, "tools")
@@ -56,7 +56,7 @@ func TestHandleToolsList(t *testing.T) {
 
 	result := resp.Result.(map[string]any)
 	tools := result["tools"].([]map[string]any)
-	assert.Len(t, tools, 12)
+	assert.Len(t, tools, 13)
 
 	// Collect tool names
 	names := make(map[string]bool)

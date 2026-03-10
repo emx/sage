@@ -173,6 +173,21 @@ func (s *Server) registerTools() map[string]Tool {
 			},
 			Handler: s.toolBacklog,
 		},
+		"sage_register": {
+			Name:        "sage_register",
+			Description: "Register this agent on the SAGE chain. Creates an on-chain identity with name and optional bio. " +
+				"This is called automatically on first connection — you rarely need to call it manually. " +
+				"Idempotent: returns existing record if already registered.",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name":     map[string]any{"type": "string", "description": "Agent display name"},
+					"boot_bio": map[string]any{"type": "string", "description": "Short agent bio/description"},
+				},
+				"required": []string{"name"},
+			},
+			Handler: s.toolRegister,
+		},
 		"sage_reflect": {
 			Name: "sage_reflect",
 			Description: "End-of-task reflection. Call this after completing a significant task to store what went right (dos) and what went wrong (don'ts). " +
@@ -853,6 +868,36 @@ func (s *Server) toolBacklog(ctx context.Context, params map[string]any) (any, e
 		"tasks_by_domain": byDomain,
 		"total_open":      tasksResp.Total,
 		"message":         fmt.Sprintf("You have %d open tasks across %d domains.", tasksResp.Total, len(byDomain)),
+	}, nil
+}
+
+func (s *Server) toolRegister(ctx context.Context, params map[string]any) (any, error) {
+	name := stringParam(params, "name", "")
+	if name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+	bootBio := stringParam(params, "boot_bio", "")
+
+	body, _ := json.Marshal(map[string]any{
+		"name":     name,
+		"boot_bio": bootBio,
+		"provider": s.provider,
+	})
+	var resp struct {
+		AgentID      string `json:"agent_id"`
+		Name         string `json:"name"`
+		Status       string `json:"status"`
+		RegisteredAt int64  `json:"registered_at"`
+	}
+	if err := s.doSignedJSON(ctx, "POST", "/v1/agent/register", body, &resp); err != nil {
+		return nil, fmt.Errorf("register agent: %w", err)
+	}
+
+	return map[string]any{
+		"agent_id":      resp.AgentID,
+		"name":          resp.Name,
+		"status":        resp.Status,
+		"registered_at": resp.RegisteredAt,
 	}, nil
 }
 

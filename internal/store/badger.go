@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -42,6 +43,27 @@ func nonceKey(agentID string) []byte {
 // stateKey returns the BadgerDB key for app state.
 func stateKey(key string) []byte {
 	return []byte("state:" + key)
+}
+
+// agentOnChainKey returns the BadgerDB key for an agent's on-chain state.
+func agentOnChainKey(agentID string) []byte {
+	return []byte("agent:" + agentID)
+}
+
+// OnChainAgent represents an agent's on-chain state in BadgerDB.
+type OnChainAgent struct {
+	AgentID       string `json:"agent_id"`
+	Name          string `json:"name"`
+	Role          string `json:"role"`
+	BootBio       string `json:"boot_bio,omitempty"`
+	Provider      string `json:"provider,omitempty"`
+	P2PAddress    string `json:"p2p_address,omitempty"`
+	Clearance     uint8  `json:"clearance"`
+	DomainAccess  string `json:"domain_access,omitempty"`
+	VisibleAgents string `json:"visible_agents,omitempty"`
+	OrgID         string `json:"org_id,omitempty"`
+	DeptID        string `json:"dept_id,omitempty"`
+	RegisteredAt  int64  `json:"registered_at"` // Block height
 }
 
 // MemoryHashEntry represents the on-chain state for a memory.
@@ -1493,4 +1515,129 @@ func (s *BadgerStore) AppendAccessLog(height int64, agentID, domain, action stri
 
 		return txn.Set(accessLogKey(height, seq), val)
 	})
+}
+
+// RegisterAgent stores a new agent's on-chain identity.
+func (s *BadgerStore) RegisterAgent(agentID, name, role, bio, provider, p2pAddress string, height int64) error {
+	agent := &OnChainAgent{
+		AgentID:      agentID,
+		Name:         name,
+		Role:         role,
+		BootBio:      bio,
+		Provider:     provider,
+		P2PAddress:   p2pAddress,
+		Clearance:    1, // Default: INTERNAL
+		RegisteredAt: height,
+	}
+	data, err := json.Marshal(agent)
+	if err != nil {
+		return fmt.Errorf("marshal agent: %w", err)
+	}
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(agentOnChainKey(agentID), data)
+	})
+}
+
+// GetRegisteredAgent retrieves an agent's on-chain state.
+func (s *BadgerStore) GetRegisteredAgent(agentID string) (*OnChainAgent, error) {
+	var agent OnChainAgent
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(agentOnChainKey(agentID))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &agent)
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &agent, nil
+}
+
+// IsAgentRegistered checks if an agent exists on-chain.
+func (s *BadgerStore) IsAgentRegistered(agentID string) bool {
+	err := s.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(agentOnChainKey(agentID))
+		return err
+	})
+	return err == nil
+}
+
+// UpdateAgentMeta updates an agent's name and bio on-chain.
+func (s *BadgerStore) UpdateAgentMeta(agentID, name, bio string) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get(agentOnChainKey(agentID))
+		if err != nil {
+			return fmt.Errorf("agent not found: %w", err)
+		}
+		var agent OnChainAgent
+		if err := item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &agent)
+		}); err != nil {
+			return err
+		}
+		agent.Name = name
+		agent.BootBio = bio
+		data, err := json.Marshal(&agent)
+		if err != nil {
+			return err
+		}
+		return txn.Set(agentOnChainKey(agentID), data)
+	})
+}
+
+// SetAgentPermission updates an agent's permissions on-chain.
+func (s *BadgerStore) SetAgentPermission(agentID string, clearance uint8, domainAccess, visibleAgents, orgID, deptID string) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get(agentOnChainKey(agentID))
+		if err != nil {
+			return fmt.Errorf("agent not found: %w", err)
+		}
+		var agent OnChainAgent
+		if err := item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &agent)
+		}); err != nil {
+			return err
+		}
+		agent.Clearance = clearance
+		agent.DomainAccess = domainAccess
+		agent.VisibleAgents = visibleAgents
+		if orgID != "" {
+			agent.OrgID = orgID
+		}
+		if deptID != "" {
+			agent.DeptID = deptID
+		}
+		data, err := json.Marshal(&agent)
+		if err != nil {
+			return err
+		}
+		return txn.Set(agentOnChainKey(agentID), data)
+	})
+}
+
+// ListRegisteredAgents returns all on-chain registered agents.
+func (s *BadgerStore) ListRegisteredAgents() ([]OnChainAgent, error) {
+	var agents []OnChainAgent
+	prefix := []byte("agent:")
+	err := s.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			var agent OnChainAgent
+			if err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, &agent)
+			}); err != nil {
+				continue
+			}
+			agents = append(agents, agent)
+		}
+		return nil
+	})
+	return agents, err
 }

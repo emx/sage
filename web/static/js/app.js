@@ -572,7 +572,10 @@ function BrainView({ sse, onSelectMemory }) {
                         <span class="stat-label">Total</span>
                         <span class="stat-value">${stats.total_memories || 0}</span>
                     </div>
-                    ${stats.by_domain && Object.entries(stats.by_domain).map(([d, c]) => html`
+                    ${stats.by_domain && Object.entries(stats.by_domain)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 25)
+                        .map(([d, c]) => html`
                         <div class="stat-bar-container">
                             <span style="color: ${getDomainColor(d)}; font-size: 11px; min-width: 80px; text-transform: uppercase; letter-spacing: 0.5px;">${d}</span>
                             <div class="stat-bar">
@@ -581,6 +584,9 @@ function BrainView({ sse, onSelectMemory }) {
                             <span class="stat-bar-label">${c}</span>
                         </div>
                     `)}
+                    ${stats.by_domain && Object.keys(stats.by_domain).length > 25 ? html`
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;">Showing top 25 of ${Object.keys(stats.by_domain).length} domains</div>
+                    ` : ''}
                     ${stats.last_activity && html`
                         <div class="stat-row" style="margin-top: 6px; border-top: 1px solid var(--border); padding-top: 8px;">
                             <span class="stat-label">Last activity</span>
@@ -1954,7 +1960,25 @@ function SettingsPage() {
     const encrypted = health?.encrypted || false;
     const chain = health?.chain || null;
     const ollama = health?.ollama || 'unknown';
-    const uptime = health?.uptime || '--';
+    const uptimeRaw = health?.uptime || '';
+    const uptimeBaseSec = useRef(0);
+    const [uptimeOffset, setUptimeOffset] = useState(0);
+
+    // Sync base uptime when health refreshes
+    useEffect(() => {
+        if (uptimeRaw) {
+            uptimeBaseSec.current = parseUptimeSec(uptimeRaw);
+            setUptimeOffset(0);
+        }
+    }, [uptimeRaw]);
+
+    // Tick uptime every second
+    useEffect(() => {
+        const iv = setInterval(() => setUptimeOffset(o => o + 1), 1000);
+        return () => clearInterval(iv);
+    }, []);
+
+    const uptime = uptimeRaw ? formatUptime(uptimeBaseSec.current + uptimeOffset) : '--';
 
     // Format countdown — compute from block_time relative to now
     const getCountdown = () => {
@@ -2476,8 +2500,29 @@ function TimelineBar() {
 // Health Status Bar
 // ============================================================================
 
+function parseUptimeSec(uptimeStr) {
+    if (!uptimeStr) return 0;
+    let sec = 0;
+    const h = uptimeStr.match(/(\d+)h/); if (h) sec += parseInt(h[1]) * 3600;
+    const m = uptimeStr.match(/(\d+)m/); if (m) sec += parseInt(m[1]) * 60;
+    const s = uptimeStr.match(/([\d.]+)s/); if (s) sec += Math.floor(parseFloat(s[1]));
+    return sec;
+}
+
+function formatUptime(totalSec) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm' + String(s).padStart(2, '0') + 's';
+    if (m > 0) return m + 'm' + String(s).padStart(2, '0') + 's';
+    return s + 's';
+}
+
 function HealthBar() {
     const [health, setHealth] = useState(null);
+    const [uptimeSec, setUptimeSec] = useState(0);
+    const uptimeBaseRef = useRef(0);
+    const uptimeTickRef = useRef(null);
 
     useEffect(() => {
         loadHealth();
@@ -2485,10 +2530,21 @@ function HealthBar() {
         return () => clearInterval(interval);
     }, []);
 
+    // Tick uptime every second for real-time display
+    useEffect(() => {
+        uptimeTickRef.current = setInterval(() => {
+            setUptimeSec(s => s + 1);
+        }, 1000);
+        return () => clearInterval(uptimeTickRef.current);
+    }, []);
+
     async function loadHealth() {
         try {
             const data = await fetchHealth();
             setHealth(data);
+            const parsed = parseUptimeSec(data.uptime);
+            uptimeBaseRef.current = parsed;
+            setUptimeSec(parsed);
         } catch (e) {
             setHealth(null);
         }
@@ -2516,7 +2572,7 @@ function HealthBar() {
             </div>
             <div class="health-sep"></div>
             <div class="health-item">
-                <span style="color: var(--text-muted)">uptime</span> ${health.uptime ? health.uptime.split('.')[0] : '—'}
+                <span style="color: var(--text-muted)">uptime</span> ${formatUptime(uptimeSec)}
             </div>
         </div>
     `;
@@ -2700,6 +2756,37 @@ function HelpOverlay({ onClose }) {
                     <div class="guide-detail-item">
                         <div class="guide-detail-label">Enforcement</div>
                         <div class="guide-detail-desc">Domain access is enforced server-side on every memory submission. If an agent tries to write to a domain it doesn't have write access to, the request is rejected with a 403 error. This is cryptographically verified — agents sign every request with their Ed25519 key.</div>
+                    </div>
+                </div>
+            `,
+        },
+        {
+            key: 'on-chain-identity',
+            title: 'On-Chain Agent Identity',
+            icon: html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+            summary: 'Agent registration, updates, and permissions validated by BFT consensus.',
+            content: html`
+                <p>Starting in v3.5, agent identity is a first-class on-chain concept. Every registration, metadata update, and permission change goes through CometBFT consensus — giving you auditability, tamper resistance, and federation readiness.</p>
+                <div class="guide-detail-grid">
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Auto-registration</div>
+                        <div class="guide-detail-desc">Agents connecting via MCP automatically register on-chain during their first <code>sage_inception</code> call. No manual setup required. The registration is idempotent — connecting again returns the existing record.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">On-chain badge</div>
+                        <div class="guide-detail-desc">Agents registered on-chain show a green "On-Chain" badge on their card, along with the block height where they were registered. Legacy agents (pre-v3.5) are auto-migrated on first boot.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Visible agents</div>
+                        <div class="guide-detail-desc">In the Access Control tab, you can restrict which agents' memories are visible to a given agent. By default, all agents can see everything (open model). Set a JSON array of agent IDs to restrict visibility.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Permission enforcement</div>
+                        <div class="guide-detail-desc">Memory operations check on-chain state (BadgerDB) first for clearance and domain access. If an agent isn't registered on-chain yet, the system falls back to the SQLite record. On-chain state is the source of truth.</div>
+                    </div>
+                    <div class="guide-detail-item">
+                        <div class="guide-detail-label">Transaction types</div>
+                        <div class="guide-detail-desc">Three new on-chain transactions: <strong>AgentRegister</strong> (self-registration), <strong>AgentUpdate</strong> (self-update of name/bio), and <strong>AgentSetPermission</strong> (admin sets clearance, domains, visibility). All are cryptographically signed.</div>
                     </div>
                 </div>
             `,
@@ -3032,6 +3119,7 @@ function NetworkPage() {
     const [editDomainAccess, setEditDomainAccess] = useState({});
     const [accessDirty, setAccessDirty] = useState(false);
     const [accessSaved, setAccessSaved] = useState(false);
+    const [editVisibleAgents, setEditVisibleAgents] = useState('');
     // Edit mode state
     const [editing, setEditing] = useState(false);
     const [editName, setEditName] = useState('');
@@ -3091,6 +3179,7 @@ function NetworkPage() {
             setEditClearance(agent.clearance);
             setAccessDirty(false);
             setAccessSaved(false);
+            setEditVisibleAgents(agent.visible_agents || '');
             // Parse domain_access
             let parsed = {};
             try {
@@ -3105,7 +3194,7 @@ function NetworkPage() {
         const arr = Object.entries(editDomainAccess)
             .filter(([_, v]) => v.read || v.write)
             .map(([domain, p]) => ({ domain, read: p.read, write: p.write }));
-        await updateAgent(agentId, { role: editRole, clearance: editClearance, domain_access: JSON.stringify(arr) });
+        await updateAgent(agentId, { role: editRole, clearance: editClearance, domain_access: JSON.stringify(arr), visible_agents: editVisibleAgents });
         loadAgents();
         setAccessDirty(false);
         setAccessSaved(true);
@@ -3176,6 +3265,7 @@ function NetworkPage() {
                                         ${agent.status}
                                         <${HelpTip} text="Green = active, Yellow = pending setup, Red = offline, Gray = removed." />
                                     </span>
+                                    ${agent.on_chain_height > 0 ? html`<span class="on-chain-badge" title="Registered on-chain at block ${agent.on_chain_height}">On-Chain</span>` : ''}
                                     <span>${agent.memory_count || 0} memories</span>
                                     <span>Clearance: ${CLEARANCE_LABELS[agent.clearance] || 'Internal'}</span>
                                     ${agent.last_seen ? html`<span>${timeAgo(agent.last_seen)}</span>` : ''}
@@ -3218,6 +3308,14 @@ function NetworkPage() {
                                             <div class="agent-info-block">
                                                 <span class="agent-info-label">Last Seen</span>
                                                 <span class="agent-info-value">${agent.last_seen ? timeAgo(agent.last_seen) : 'Never'}</span>
+                                            </div>
+                                            ${agent.provider ? html`<div class="agent-info-block">
+                                                <span class="agent-info-label">Provider</span>
+                                                <span class="agent-info-value">${agent.provider}</span>
+                                            </div>` : ''}
+                                            <div class="agent-info-block">
+                                                <span class="agent-info-label">On-Chain</span>
+                                                <span class="agent-info-value">${agent.on_chain_height > 0 ? html`<span class="on-chain-badge">Block ${agent.on_chain_height}</span>` : 'Not registered'}</span>
                                             </div>
                                             <div class="agent-info-block" style="grid-column:1/-1;">
                                                 <span class="agent-info-label">Agent ID</span>
@@ -3265,6 +3363,16 @@ function NetworkPage() {
                                                 <input type="range" min="0" max="4" value=${editClearance}
                                                     onInput=${e => { setEditClearance(parseInt(e.target.value)); setAccessDirty(true); }} />
                                                 <span class="clearance-label">${CLEARANCE_LABELS[editClearance]}</span>
+                                            </div>
+
+                                            <div class="access-section-title">Visible Agents <${HelpTip} text="Control which agents' memories this agent can see. Leave empty or set to '*' for full visibility (default). Enter a JSON array of agent IDs to restrict." /></div>
+                                            <div onClick=${e => e.stopPropagation()}>
+                                                <input class="wizard-input" style="font-family:var(--mono,monospace);font-size:13px;"
+                                                    placeholder='* (all agents visible)' value=${editVisibleAgents}
+                                                    onInput=${e => { setEditVisibleAgents(e.target.value); setAccessDirty(true); }} />
+                                                <div style="color:var(--text-muted);font-size:12px;margin-top:4px;">
+                                                    Use <code>*</code> or leave empty for full visibility. Use a JSON array like <code>["agentId1","agentId2"]</code> to restrict.
+                                                </div>
                                             </div>
 
                                             <div class="access-save-bar" onClick=${e => e.stopPropagation()}>
@@ -3342,6 +3450,7 @@ function AddAgentWizard({ onClose, onCreated }) {
     const [role, setRole] = useState('member');
     const [avatar, setAvatar] = useState('🤖');
     const [bio, setBio] = useState('');
+    const [provider, setProvider] = useState('');
     const [template, setTemplate] = useState('');
 
     // Step 2 state
@@ -3415,6 +3524,7 @@ function AddAgentWizard({ onClose, onCreated }) {
             const res = await createAgent({
                 name, role, avatar, boot_bio: bio,
                 clearance, domain_access: JSON.stringify(daArr),
+                provider: provider || undefined,
             });
             if (res.error) {
                 setError(res.error);
@@ -3496,6 +3606,10 @@ function AddAgentWizard({ onClose, onCreated }) {
                         <div class="wizard-field">
                             <label>Boot Bio</label>
                             <textarea class="wizard-textarea" placeholder="System prompt / job scope for this agent" value=${bio} onInput=${e => setBio(e.target.value)} />
+                        </div>
+                        <div class="wizard-field">
+                            <label>Provider <${HelpTip} text="The AI platform this agent connects from (e.g. claude-code, cursor, chatgpt). Optional — auto-detected on first MCP connection." /></label>
+                            <input class="wizard-input" placeholder="e.g. claude-code, cursor, chatgpt" value=${provider} onInput=${e => setProvider(e.target.value)} />
                         </div>
                     `}
 

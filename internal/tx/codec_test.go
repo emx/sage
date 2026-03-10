@@ -219,3 +219,155 @@ func TestVerifyTxBadSignatureLength(t *testing.T) {
 	_, err := VerifyTx(tx)
 	assert.ErrorIs(t, err, ErrSignatureLength)
 }
+
+func TestAgentRegisterRoundTrip(t *testing.T) {
+	original := &ParsedTx{
+		Type:      TxTypeAgentRegister,
+		Nonce:     42,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		AgentRegister: &AgentRegister{
+			AgentID:    "abc123def456",
+			Name:       "Research Agent",
+			Role:       "member",
+			BootBio:    "Autonomous research agent for knowledge synthesis",
+			Provider:   "claude-code",
+			P2PAddress: "192.168.1.100:26656",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+	require.NotEmpty(t, encoded)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.AgentRegister)
+
+	assert.Equal(t, TxTypeAgentRegister, decoded.Type)
+	assert.Equal(t, original.AgentRegister.AgentID, decoded.AgentRegister.AgentID)
+	assert.Equal(t, original.AgentRegister.Name, decoded.AgentRegister.Name)
+	assert.Equal(t, original.AgentRegister.Role, decoded.AgentRegister.Role)
+	assert.Equal(t, original.AgentRegister.BootBio, decoded.AgentRegister.BootBio)
+	assert.Equal(t, original.AgentRegister.Provider, decoded.AgentRegister.Provider)
+	assert.Equal(t, original.AgentRegister.P2PAddress, decoded.AgentRegister.P2PAddress)
+}
+
+func TestAgentUpdateRoundTrip(t *testing.T) {
+	original := &ParsedTx{
+		Type:      TxTypeAgentUpdate,
+		Nonce:     43,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		AgentUpdateTx: &AgentUpdate{
+			AgentID: "abc123def456",
+			Name:    "Updated Agent Name",
+			BootBio: "Updated bio description",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+	require.NotEmpty(t, encoded)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.AgentUpdateTx)
+
+	assert.Equal(t, TxTypeAgentUpdate, decoded.Type)
+	assert.Equal(t, original.AgentUpdateTx.AgentID, decoded.AgentUpdateTx.AgentID)
+	assert.Equal(t, original.AgentUpdateTx.Name, decoded.AgentUpdateTx.Name)
+	assert.Equal(t, original.AgentUpdateTx.BootBio, decoded.AgentUpdateTx.BootBio)
+}
+
+func TestAgentSetPermissionRoundTrip(t *testing.T) {
+	original := &ParsedTx{
+		Type:      TxTypeAgentSetPermission,
+		Nonce:     44,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		AgentSetPermission: &AgentSetPermission{
+			AgentID:       "abc123def456",
+			Clearance:     3,
+			DomainAccess:  `[{"domain":"security","read":true,"write":false}]`,
+			VisibleAgents: `["agent1","agent2"]`,
+			OrgID:         "org-001",
+			DeptID:        "dept-eng",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+	require.NotEmpty(t, encoded)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.AgentSetPermission)
+
+	assert.Equal(t, TxTypeAgentSetPermission, decoded.Type)
+	assert.Equal(t, original.AgentSetPermission.AgentID, decoded.AgentSetPermission.AgentID)
+	assert.Equal(t, uint8(3), decoded.AgentSetPermission.Clearance)
+	assert.Equal(t, original.AgentSetPermission.DomainAccess, decoded.AgentSetPermission.DomainAccess)
+	assert.Equal(t, original.AgentSetPermission.VisibleAgents, decoded.AgentSetPermission.VisibleAgents)
+	assert.Equal(t, original.AgentSetPermission.OrgID, decoded.AgentSetPermission.OrgID)
+	assert.Equal(t, original.AgentSetPermission.DeptID, decoded.AgentSetPermission.DeptID)
+}
+
+func TestAgentRegisterEmptyFields(t *testing.T) {
+	// Test with minimal fields (only AgentID and Name required in practice)
+	original := &ParsedTx{
+		Type:      TxTypeAgentRegister,
+		Nonce:     45,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		AgentRegister: &AgentRegister{
+			AgentID: "minimal-agent",
+			Name:    "Minimal",
+		},
+	}
+
+	encoded, err := EncodeTx(original)
+	require.NoError(t, err)
+
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.AgentRegister)
+
+	assert.Equal(t, "minimal-agent", decoded.AgentRegister.AgentID)
+	assert.Equal(t, "Minimal", decoded.AgentRegister.Name)
+	assert.Empty(t, decoded.AgentRegister.Role)
+	assert.Empty(t, decoded.AgentRegister.BootBio)
+	assert.Empty(t, decoded.AgentRegister.Provider)
+	assert.Empty(t, decoded.AgentRegister.P2PAddress)
+}
+
+func TestAgentRegisterSignAndVerify(t *testing.T) {
+	_, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	ptx := &ParsedTx{
+		Type:      TxTypeAgentRegister,
+		Nonce:     100,
+		Timestamp: time.Now().Truncate(time.Nanosecond),
+		AgentRegister: &AgentRegister{
+			AgentID:  "signed-agent",
+			Name:     "Signed Agent",
+			Role:     "admin",
+			Provider: "claude-code",
+		},
+	}
+
+	require.NoError(t, SignTx(ptx, privKey))
+	require.NotEmpty(t, ptx.Signature)
+	require.NotEmpty(t, ptx.PublicKey)
+
+	valid, err := VerifyTx(ptx)
+	require.NoError(t, err)
+	assert.True(t, valid)
+
+	// Tamper with the payload and verify signature fails
+	ptx.AgentRegister.Name = "Tampered"
+	encoded, err := EncodeTx(ptx)
+	require.NoError(t, err)
+	decoded, err := DecodeTx(encoded)
+	require.NoError(t, err)
+	valid, err = VerifyTx(decoded)
+	require.NoError(t, err)
+	assert.False(t, valid)
+}

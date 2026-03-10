@@ -53,6 +53,8 @@ type Server struct {
 
 	// Auto-inception: automatically initialize brain on first tool call if empty.
 	inceptionChecked bool
+
+	version string
 }
 
 // NewServer creates a new MCP server instance.
@@ -67,10 +69,14 @@ func NewServer(baseURL string, agentKey ed25519.PrivateKey) *Server {
 		agentID:    hex.EncodeToString(pub),
 		provider:   os.Getenv("SAGE_PROVIDER"),
 		httpClient: &http.Client{Timeout: 30 * time.Second},
+		version:    "dev",
 	}
 	s.tools = s.registerTools()
 	return s
 }
+
+// SetVersion sets the version string reported in the MCP initialize response.
+func (s *Server) SetVersion(v string) { s.version = v }
 
 // Run starts the stdio MCP server loop.
 func (s *Server) Run(ctx context.Context) error {
@@ -127,7 +133,7 @@ func (s *Server) handleInitialize(req *jsonRPCRequest) *jsonRPCResponse {
 			},
 			"serverInfo": map[string]any{
 				"name":    "sage-mcp",
-				"version": "1.0.0",
+				"version": s.version,
 			},
 			"instructions": "You have persistent institutional memory via SAGE — a governed, consensus-validated knowledge layer. " +
 				"Your memories are not a flat file. They go through BFT consensus, have confidence scores, and decay over time. Only committed memories are returned to you.\n\n" +
@@ -236,7 +242,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req *jsonRPCRequest) *json
 	if params.Name == "sage_turn" {
 		s.callsSinceTurn = 0
 		s.lastTurnTime = time.Now()
-	} else if params.Name != "sage_inception" && params.Name != "sage_red_pill" {
+	} else if params.Name != "sage_inception" && params.Name != "sage_red_pill" && params.Name != "sage_register" {
 		s.callsSinceTurn++
 	}
 
@@ -285,7 +291,8 @@ func (s *Server) shouldBlockForTurn(toolName string) bool {
 	// Never block SAGE tools themselves.
 	switch toolName {
 	case "sage_turn", "sage_inception", "sage_red_pill", "sage_reflect", "sage_recall",
-		"sage_remember", "sage_forget", "sage_list", "sage_status", "sage_timeline":
+		"sage_remember", "sage_forget", "sage_list", "sage_status", "sage_timeline",
+		"sage_task", "sage_backlog", "sage_register":
 		return false
 	}
 
@@ -308,7 +315,7 @@ func (s *Server) shouldBlockForTurn(toolName string) bool {
 func (s *Server) turnNudge(currentTool string) string {
 	// Don't nudge on sage_turn itself, inception, or reflect (they're memory operations).
 	switch currentTool {
-	case "sage_turn", "sage_inception", "sage_red_pill", "sage_reflect":
+	case "sage_turn", "sage_inception", "sage_red_pill", "sage_reflect", "sage_register":
 		return ""
 	}
 
@@ -359,16 +366,36 @@ func (s *Server) maybeAutoInception(ctx context.Context) string {
 	status, _ := resultMap["status"].(string)
 	switch status {
 	case "awakened":
+		s.autoRegister(ctx)
 		// Brain already has memories — return instructions silently
 		instructions, _ := resultMap["instructions"].(string)
 		return "[SAGE Auto-Connect] Your persistent memory is online.\n\n" + instructions
 	case "inception_complete":
+		s.autoRegister(ctx)
 		// Fresh brain — return full inception message
 		msg, _ := resultMap["message"].(string)
 		return "[SAGE Auto-Inception] First connection detected — initializing your brain.\n\n" + msg
 	}
 
 	return ""
+}
+
+// autoRegister attempts to register this agent on-chain. Called automatically
+// after inception to ensure every agent has an on-chain identity without
+// manual intervention. Failures are silent — registration can be retried later.
+func (s *Server) autoRegister(ctx context.Context) {
+	// Derive a name from the provider or use a default
+	name := s.provider
+	if name == "" {
+		name = "sage-agent"
+	}
+
+	body, _ := json.Marshal(map[string]any{
+		"name":     name,
+		"provider": s.provider,
+	})
+	// Fire and forget — don't block inception on registration failure
+	_ = s.doSignedJSON(ctx, "POST", "/v1/agent/register", body, nil)
 }
 
 // signedRequest makes an authenticated HTTP request to the SAGE REST API.

@@ -171,6 +171,13 @@ func (s *Server) setupRouter() chi.Router {
 		// Agent endpoints
 		r.Get("/v1/agent/me", s.handleGetAgent)
 
+		// On-chain agent identity endpoints
+		r.Post("/v1/agent/register", s.handleAgentRegister)
+		r.Put("/v1/agent/update", s.handleAgentUpdate)
+		r.Put("/v1/agent/{id}/permission", s.handleAgentSetPermission)
+		r.Get("/v1/agent/{id}", s.handleGetRegisteredAgent)
+		r.Get("/v1/agents", s.handleListRegisteredAgents)
+
 		// Validator endpoints
 		r.Get("/v1/validator/pending", s.handleGetPending)
 		r.Get("/v1/validator/epoch", s.handleGetEpoch)

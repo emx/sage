@@ -410,6 +410,16 @@ func (s *SQLiteStore) initSchema(ctx context.Context) error {
 	// Migration: add task support (task_status column + update CHECK constraint).
 	s.migrateTaskSupport(ctx)
 
+	// Schema migrations — add columns to network_agents that didn't exist in earlier versions.
+	agentMigrations := []string{
+		"ALTER TABLE network_agents ADD COLUMN on_chain_height INTEGER DEFAULT 0",
+		"ALTER TABLE network_agents ADD COLUMN visible_agents TEXT DEFAULT ''",
+		"ALTER TABLE network_agents ADD COLUMN provider TEXT DEFAULT ''",
+	}
+	for _, m := range agentMigrations {
+		_, _ = s.conn.ExecContext(ctx, m) // Ignore "duplicate column" errors for idempotency
+	}
+
 	// Seed default domains
 	seeds := []struct {
 		tag  string
@@ -1741,6 +1751,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 			a.status, a.clearance, COALESCE(a.org_id,''), COALESCE(a.dept_id,''),
 			COALESCE(a.domain_access,''), COALESCE(a.bundle_path,''),
 			a.first_seen, a.last_seen, a.created_at, a.removed_at,
+			COALESCE(a.on_chain_height, 0), COALESCE(a.visible_agents, ''), COALESCE(a.provider, ''),
 			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0)
 		FROM network_agents a
 		WHERE a.status != 'removed'
@@ -1757,7 +1768,8 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 		if scanErr := rows.Scan(&a.AgentID, &a.Name, &a.Role, &a.Avatar, &a.BootBio,
 			&a.ValidatorPubkey, &a.NodeID, &a.P2PAddress, &a.Status, &a.Clearance,
 			&a.OrgID, &a.DeptID, &a.DomainAccess, &a.BundlePath,
-			&firstSeen, &lastSeen, &createdAt, &removedAt, &a.MemoryCount); scanErr != nil {
+			&firstSeen, &lastSeen, &createdAt, &removedAt,
+			&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount); scanErr != nil {
 			return nil, fmt.Errorf("scan agent: %w", scanErr)
 		}
 		a.FirstSeen = parseTimePtr(firstSeen)
@@ -1780,12 +1792,14 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentEntry
 			a.status, a.clearance, COALESCE(a.org_id,''), COALESCE(a.dept_id,''),
 			COALESCE(a.domain_access,''), COALESCE(a.bundle_path,''),
 			a.first_seen, a.last_seen, a.created_at, a.removed_at,
+			COALESCE(a.on_chain_height, 0), COALESCE(a.visible_agents, ''), COALESCE(a.provider, ''),
 			COALESCE((SELECT COUNT(*) FROM memories WHERE submitting_agent = a.agent_id), 0)
 		FROM network_agents a WHERE a.agent_id = ?`, agentID).Scan(
 		&a.AgentID, &a.Name, &a.Role, &a.Avatar, &a.BootBio,
 		&a.ValidatorPubkey, &a.NodeID, &a.P2PAddress, &a.Status, &a.Clearance,
 		&a.OrgID, &a.DeptID, &a.DomainAccess, &a.BundlePath,
-		&firstSeen, &lastSeen, &createdAt, &removedAt, &a.MemoryCount)
+		&firstSeen, &lastSeen, &createdAt, &removedAt,
+		&a.OnChainHeight, &a.VisibleAgents, &a.Provider, &a.MemoryCount)
 	if err != nil {
 		return nil, fmt.Errorf("get agent: %w", err)
 	}
@@ -1801,11 +1815,12 @@ func (s *SQLiteStore) GetAgent(ctx context.Context, agentID string) (*AgentEntry
 func (s *SQLiteStore) CreateAgent(ctx context.Context, agent *AgentEntry) error {
 	_, err := s.conn.ExecContext(ctx, `
 		INSERT INTO network_agents (agent_id, name, role, avatar, boot_bio, validator_pubkey,
-			node_id, p2p_address, status, clearance, org_id, dept_id, domain_access, bundle_path)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			node_id, p2p_address, status, clearance, org_id, dept_id, domain_access, bundle_path,
+			on_chain_height, visible_agents, provider)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		agent.AgentID, agent.Name, agent.Role, agent.Avatar, agent.BootBio, agent.ValidatorPubkey,
 		agent.NodeID, agent.P2PAddress, agent.Status, agent.Clearance, agent.OrgID, agent.DeptID,
-		agent.DomainAccess, agent.BundlePath)
+		agent.DomainAccess, agent.BundlePath, agent.OnChainHeight, agent.VisibleAgents, agent.Provider)
 	if err != nil {
 		return fmt.Errorf("create agent: %w", err)
 	}
@@ -1815,10 +1830,12 @@ func (s *SQLiteStore) CreateAgent(ctx context.Context, agent *AgentEntry) error 
 func (s *SQLiteStore) UpdateAgent(ctx context.Context, agent *AgentEntry) error {
 	_, err := s.conn.ExecContext(ctx, `
 		UPDATE network_agents SET name=?, role=?, avatar=?, boot_bio=?, clearance=?,
-			org_id=?, dept_id=?, domain_access=?, p2p_address=?
+			org_id=?, dept_id=?, domain_access=?, p2p_address=?,
+			on_chain_height=?, visible_agents=?, provider=?
 		WHERE agent_id=?`,
 		agent.Name, agent.Role, agent.Avatar, agent.BootBio, agent.Clearance,
-		agent.OrgID, agent.DeptID, agent.DomainAccess, agent.P2PAddress, agent.AgentID)
+		agent.OrgID, agent.DeptID, agent.DomainAccess, agent.P2PAddress,
+		agent.OnChainHeight, agent.VisibleAgents, agent.Provider, agent.AgentID)
 	if err != nil {
 		return fmt.Errorf("update agent: %w", err)
 	}

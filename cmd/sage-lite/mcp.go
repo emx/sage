@@ -36,6 +36,7 @@ func runMCP() error {
 	}
 
 	server := mcp.NewServer(baseURL, agentKey)
+	server.SetVersion(version)
 	return server.Run(context.Background())
 }
 

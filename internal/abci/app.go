@@ -22,7 +22,7 @@ import (
 
 // pendingWrite represents a PostgreSQL write buffered until Commit.
 type pendingWrite struct {
-	writeType string // "memory", "challenge", "vote", "corroborate", "epoch_score", "validator_score", "status_update", "access_grant", "access_request", "access_revoke", "access_log", "domain_register", "access_request_status", "org_register", "org_member", "org_member_remove", "org_member_clearance", "federation", "federation_approve", "federation_revoke", "mem_classification", "dept_register", "dept_member", "dept_member_remove"
+	writeType string // "memory", "challenge", "vote", "corroborate", "epoch_score", "validator_score", "status_update", "access_grant", "access_request", "access_revoke", "access_log", "domain_register", "access_request_status", "org_register", "org_member", "org_member_remove", "org_member_clearance", "federation", "federation_approve", "federation_revoke", "mem_classification", "dept_register", "dept_member", "dept_member_remove", "agent_register", "agent_update", "agent_permission"
 	data      interface{}
 }
 
@@ -81,6 +81,23 @@ type deptMemberRemoveData struct {
 	Height  int64
 }
 
+// agentUpdateData carries the fields needed to update an agent in offchain store.
+type agentUpdateData struct {
+	AgentID string
+	Name    string
+	BootBio string
+}
+
+// agentPermissionData carries the fields needed to update agent permissions in offchain store.
+type agentPermissionData struct {
+	AgentID       string
+	Clearance     int
+	DomainAccess  string
+	VisibleAgents string
+	OrgID         string
+	DeptID        string
+}
+
 // memClassificationData carries the fields needed to update a memory's classification in PostgreSQL.
 type memClassificationData struct {
 	MemoryID       string
@@ -96,6 +113,7 @@ type SageApp struct {
 	phiTracker    *poe.PhiTracker
 	state         *AppState
 	logger        zerolog.Logger
+	Version       string
 
 	// Buffered writes — only flushed to PostgreSQL in Commit
 	pendingWrites []pendingWrite
@@ -190,9 +208,13 @@ func NewSageAppWithStores(bs *store.BadgerStore, offchain store.OffchainStore, l
 
 // Info returns application info for CometBFT handshake.
 func (app *SageApp) Info(_ context.Context, req *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error) {
+	ver := app.Version
+	if ver == "" {
+		ver = "dev"
+	}
 	return &abcitypes.ResponseInfo{
 		Data:             "sage",
-		Version:          "1.0.0",
+		Version:          ver,
 		AppVersion:       1,
 		LastBlockHeight:  app.state.Height,
 		LastBlockAppHash: app.state.AppHash,
@@ -357,6 +379,12 @@ func (app *SageApp) processTx(parsedTx *tx.ParsedTx, height int64, blockTime tim
 		return app.processDeptAddMember(parsedTx, height, blockTime)
 	case tx.TxTypeDeptRemoveMember:
 		return app.processDeptRemoveMember(parsedTx, height, blockTime)
+	case tx.TxTypeAgentRegister:
+		return app.processAgentRegister(parsedTx, height, blockTime)
+	case tx.TxTypeAgentUpdate:
+		return app.processAgentUpdate(parsedTx, height, blockTime)
+	case tx.TxTypeAgentSetPermission:
+		return app.processAgentSetPermission(parsedTx, height, blockTime)
 	default:
 		return &abcitypes.ExecTxResult{Code: 10, Log: "unknown tx type"}
 	}
@@ -1400,6 +1428,159 @@ func (app *SageApp) processDeptRemoveMember(parsedTx *tx.ParsedTx, height int64,
 	return &abcitypes.ExecTxResult{Code: 0, Log: fmt.Sprintf("member %s removed from dept %s", rem.AgentID[:16], rem.DeptID)}
 }
 
+func (app *SageApp) processAgentRegister(parsedTx *tx.ParsedTx, height int64, blockTime time.Time) *abcitypes.ExecTxResult {
+	reg := parsedTx.AgentRegister
+	if reg == nil {
+		return &abcitypes.ExecTxResult{Code: 60, Log: "missing agent register payload"}
+	}
+
+	// Verify agent identity on-chain via embedded Ed25519 proof.
+	agentID, err := verifyAgentIdentity(parsedTx)
+	if err != nil {
+		return &abcitypes.ExecTxResult{Code: 60, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
+	// Use authenticated agent ID if payload didn't specify one
+	regAgentID := reg.AgentID
+	if regAgentID == "" {
+		regAgentID = agentID
+	}
+
+	// Idempotent: if already registered, return success with existing data
+	if app.badgerStore.IsAgentRegistered(regAgentID) {
+		existing, _ := app.badgerStore.GetRegisteredAgent(regAgentID)
+		if existing != nil {
+			return &abcitypes.ExecTxResult{Code: 0, Data: []byte(regAgentID), Log: fmt.Sprintf("agent %s already registered", regAgentID[:16])}
+		}
+	}
+
+	// Register agent on-chain (BadgerDB)
+	role := reg.Role
+	if role == "" {
+		role = "member"
+	}
+	if regErr := app.badgerStore.RegisterAgent(regAgentID, reg.Name, role, reg.BootBio, reg.Provider, reg.P2PAddress, height); regErr != nil {
+		return &abcitypes.ExecTxResult{Code: 61, Log: fmt.Sprintf("badger write error: %v", regErr)}
+	}
+
+	// Buffer offchain write — create agent in SQLite/Postgres
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "agent_register",
+		data: &store.AgentEntry{
+			AgentID:       regAgentID,
+			Name:          reg.Name,
+			Role:          role,
+			BootBio:       reg.BootBio,
+			Provider:      reg.Provider,
+			P2PAddress:    reg.P2PAddress,
+			Status:        "active",
+			Clearance:     1, // Default: INTERNAL
+			OnChainHeight: height,
+			CreatedAt:     blockTime,
+		},
+	})
+
+	app.logger.Info().Str("agent_id", regAgentID[:16]).Str("name", reg.Name).Str("provider", reg.Provider).Msg("agent registered on-chain")
+
+	return &abcitypes.ExecTxResult{Code: 0, Data: []byte(regAgentID), Log: fmt.Sprintf("agent %s registered", regAgentID[:16])}
+}
+
+func (app *SageApp) processAgentUpdate(parsedTx *tx.ParsedTx, height int64, blockTime time.Time) *abcitypes.ExecTxResult {
+	upd := parsedTx.AgentUpdateTx
+	if upd == nil {
+		return &abcitypes.ExecTxResult{Code: 62, Log: "missing agent update payload"}
+	}
+
+	// Verify agent identity — only the agent itself can update its own metadata.
+	senderID, err := verifyAgentIdentity(parsedTx)
+	if err != nil {
+		return &abcitypes.ExecTxResult{Code: 62, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
+	targetID := upd.AgentID
+	if targetID == "" {
+		targetID = senderID
+	}
+
+	// Self-update only
+	if senderID != targetID {
+		return &abcitypes.ExecTxResult{Code: 63, Log: fmt.Sprintf("access denied: %s cannot update agent %s", senderID[:16], targetID[:16])}
+	}
+
+	// Agent must be registered
+	if !app.badgerStore.IsAgentRegistered(targetID) {
+		return &abcitypes.ExecTxResult{Code: 64, Log: fmt.Sprintf("agent %s not registered", targetID[:16])}
+	}
+
+	// Update on-chain state
+	if updErr := app.badgerStore.UpdateAgentMeta(targetID, upd.Name, upd.BootBio); updErr != nil {
+		return &abcitypes.ExecTxResult{Code: 65, Log: fmt.Sprintf("badger write error: %v", updErr)}
+	}
+
+	// Buffer offchain write
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "agent_update",
+		data: &agentUpdateData{
+			AgentID: targetID,
+			Name:    upd.Name,
+			BootBio: upd.BootBio,
+		},
+	})
+
+	app.logger.Info().Str("agent_id", targetID[:16]).Str("name", upd.Name).Msg("agent metadata updated")
+
+	return &abcitypes.ExecTxResult{Code: 0, Data: []byte(targetID), Log: fmt.Sprintf("agent %s updated", targetID[:16])}
+}
+
+func (app *SageApp) processAgentSetPermission(parsedTx *tx.ParsedTx, height int64, blockTime time.Time) *abcitypes.ExecTxResult {
+	perm := parsedTx.AgentSetPermission
+	if perm == nil {
+		return &abcitypes.ExecTxResult{Code: 66, Log: "missing agent set permission payload"}
+	}
+
+	// Verify sender is admin — only admins can set permissions on other agents.
+	senderID, err := verifyAgentIdentity(parsedTx)
+	if err != nil {
+		return &abcitypes.ExecTxResult{Code: 66, Log: fmt.Sprintf("agent identity verification failed: %v", err)}
+	}
+
+	// Check sender is registered and is an admin
+	senderAgent, senderErr := app.badgerStore.GetRegisteredAgent(senderID)
+	if senderErr != nil {
+		return &abcitypes.ExecTxResult{Code: 67, Log: fmt.Sprintf("sender agent %s not registered", senderID[:16])}
+	}
+	if senderAgent.Role != "admin" {
+		return &abcitypes.ExecTxResult{Code: 67, Log: fmt.Sprintf("access denied: %s is not an admin", senderID[:16])}
+	}
+
+	// Target agent must be registered
+	if !app.badgerStore.IsAgentRegistered(perm.AgentID) {
+		return &abcitypes.ExecTxResult{Code: 68, Log: fmt.Sprintf("target agent %s not registered", perm.AgentID[:16])}
+	}
+
+	// Update permissions on-chain
+	if permErr := app.badgerStore.SetAgentPermission(perm.AgentID, perm.Clearance, perm.DomainAccess, perm.VisibleAgents, perm.OrgID, perm.DeptID); permErr != nil {
+		return &abcitypes.ExecTxResult{Code: 69, Log: fmt.Sprintf("badger write error: %v", permErr)}
+	}
+
+	// Buffer offchain write
+	app.pendingWrites = append(app.pendingWrites, pendingWrite{
+		writeType: "agent_permission",
+		data: &agentPermissionData{
+			AgentID:       perm.AgentID,
+			Clearance:     int(perm.Clearance),
+			DomainAccess:  perm.DomainAccess,
+			VisibleAgents: perm.VisibleAgents,
+			OrgID:         perm.OrgID,
+			DeptID:        perm.DeptID,
+		},
+	})
+
+	app.logger.Info().Str("agent_id", perm.AgentID[:16]).Uint8("clearance", perm.Clearance).Str("set_by", senderID[:16]).Msg("agent permissions updated")
+
+	return &abcitypes.ExecTxResult{Code: 0, Data: []byte(perm.AgentID), Log: fmt.Sprintf("agent %s permissions updated", perm.AgentID[:16])}
+}
+
 func (app *SageApp) processEpoch(height int64, blockTime time.Time) {
 	epochNum := poe.EpochNumber(height)
 	app.state.EpochNum = epochNum
@@ -1664,6 +1845,40 @@ func (app *SageApp) flushPendingWrites(ctx context.Context, s store.OffchainStor
 		case "dept_member_remove":
 			if d, ok := pw.data.(*deptMemberRemoveData); ok {
 				err = s.RemoveDeptMember(ctx, d.OrgID, d.DeptID, d.AgentID, d.Height)
+			}
+		case "agent_register":
+			if agent, ok := pw.data.(*store.AgentEntry); ok {
+				// Try to create; if it already exists (idempotent), update instead
+				createErr := s.CreateAgent(ctx, agent)
+				if createErr != nil {
+					// Agent may already exist from direct SQLite write — update it
+					err = s.UpdateAgent(ctx, agent)
+				}
+			}
+		case "agent_update":
+			if d, ok := pw.data.(*agentUpdateData); ok {
+				existing, getErr := s.GetAgent(ctx, d.AgentID)
+				if getErr == nil {
+					existing.Name = d.Name
+					existing.BootBio = d.BootBio
+					err = s.UpdateAgent(ctx, existing)
+				}
+			}
+		case "agent_permission":
+			if d, ok := pw.data.(*agentPermissionData); ok {
+				existing, getErr := s.GetAgent(ctx, d.AgentID)
+				if getErr == nil {
+					existing.Clearance = d.Clearance
+					existing.DomainAccess = d.DomainAccess
+					existing.VisibleAgents = d.VisibleAgents
+					if d.OrgID != "" {
+						existing.OrgID = d.OrgID
+					}
+					if d.DeptID != "" {
+						existing.DeptID = d.DeptID
+					}
+					err = s.UpdateAgent(ctx, existing)
+				}
 			}
 		}
 		if err != nil {

@@ -482,7 +482,7 @@ All RBAC state is on-chain -- organizations, departments, clearance levels, acce
 
 ## Agent Management & Network Topology
 
-SAGE v3.0 introduces a built-in agent management system for multi-agent networks. This replaces manual key distribution and config editing with a dashboard-driven workflow.
+SAGE v3.0 introduced a built-in agent management system for multi-agent networks. **v3.5 makes agent identity a first-class on-chain concept** — registration, updates, and permission changes go through CometBFT consensus for auditability and tamper resistance.
 
 ### Agent Registry
 
@@ -502,6 +502,22 @@ All agents are tracked in the `network_agents` SQLite table:
 
 On upgrade to v3, existing genesis validators are auto-seeded into this table so they appear in the dashboard immediately.
 
+**On-Chain Fields (v3.5+):**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `on_chain_height` | INTEGER | Block height where agent was registered on-chain (0 = legacy/pre-v3.5) |
+| `visible_agents` | TEXT | JSON array of agent IDs this agent can read from ("*" or empty = all) |
+| `provider` | TEXT | MCP provider identifier (e.g., "claude-code", "cursor") |
+
+On-chain state is also stored in BadgerDB under the `agent:{agentID}` key prefix, containing clearance, domain access, and visibility rules. The ABCI app processes three new transaction types:
+
+| Tx Type | ID | Who Sends | Purpose |
+|---------|---:|-----------|---------|
+| `AgentRegister` | 20 | Agent (self) | Register on chain with name, bio, provider |
+| `AgentUpdate` | 21 | Agent (self) | Update own name/bio |
+| `AgentSetPermission` | 22 | Admin | Set clearance, domain access, visible agents |
+
 ### Agent Lifecycle
 
 ```
@@ -517,6 +533,10 @@ Creation → Active → Key Rotation → Removal
 3. **Key Rotation** — Admin triggers key rotation. A new Ed25519 keypair is generated, all memories attributed to the old key are re-attributed to the new key in a single atomic transaction, and the old key is marked as retired.
 4. **Suspension** — Admin suspends agent. All requests from the agent's key are rejected with 403.
 5. **Removal** — Admin removes agent. The record is soft-deleted (status set to `retired`). Memories remain attributed for audit purposes.
+
+**Auto-Registration (v3.5+):** Agents connecting via MCP for the first time automatically register on-chain during the boot sequence (`sage_inception` -> `autoRegister`). The registration is idempotent — calling it again returns the existing record.
+
+**Permission Enforcement (v3.5+):** Memory operations check on-chain state (BadgerDB) first for clearance and domain access. If the agent isn't registered on-chain (legacy), it falls back to the SQLite record. The `visible_agents` field filters query results — agents only see memories from agents in their visibility list (or all, if the list is empty/"*").
 
 ### Redeployment Orchestrator
 

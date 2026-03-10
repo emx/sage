@@ -320,7 +320,11 @@ body {
     border-radius: var(--radius-lg);
     padding: 14px 18px;
     z-index: 30;
-    min-width: 200px;
+    min-width: 260px;
+    width: 300px;
+    max-height: 60vh;
+    overflow-y: auto;
+    resize: horizontal;
     box-shadow: var(--shadow);
 }
 
@@ -1884,6 +1888,11 @@ input[type="range"]::-moz-range-thumb {
 .agent-role-badge.admin { background: var(--secondary-dim); color: var(--secondary); }
 .agent-role-badge.member { background: var(--primary-dim); color: var(--primary); }
 .agent-role-badge.observer { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.on-chain-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    background: rgba(16, 185, 129, 0.15); color: #10b981;
+}
 .agent-detail-link {
     cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
     padding: 2px 8px; border-radius: 6px; transition: background 0.2s;

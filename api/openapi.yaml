@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: (S)AGE API
-  version: 1.0.0
+  version: 3.5.0
   description: >-
     (Sovereign) Agent Governed Experience — REST API for memory submission,
     validation, and query.
@@ -397,6 +397,83 @@ components:
           maximum: 1
           description: EWMA accuracy score.
         registered_at:
+          type: string
+          format: date-time
+
+    AgentRegisterRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Human-readable agent name.
+        boot_bio:
+          type: string
+          description: Agent bio / system prompt description.
+        provider:
+          type: string
+          description: MCP provider identifier (e.g., "claude-code", "cursor").
+
+    AgentUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated agent name.
+        boot_bio:
+          type: string
+          description: Updated agent bio.
+
+    AgentSetPermissionRequest:
+      type: object
+      properties:
+        clearance:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: Clearance tier (0=Guest, 1=Internal, 2=Confidential, 3=Secret, 4=TopSecret).
+        domain_access:
+          type: string
+          description: JSON-encoded domain access map.
+        visible_agents:
+          type: string
+          description: JSON array of agent IDs this agent can see, or "*" for all.
+        org_id:
+          type: string
+          description: Organization ID.
+        dept_id:
+          type: string
+          description: Department ID.
+
+    RegisteredAgent:
+      type: object
+      properties:
+        agent_id:
+          type: string
+          description: Hex-encoded Ed25519 public key.
+        name:
+          type: string
+        role:
+          type: string
+        boot_bio:
+          type: string
+        provider:
+          type: string
+        status:
+          type: string
+        clearance:
+          type: integer
+        on_chain_height:
+          type: integer
+          format: int64
+          description: Block height where registered on-chain.
+        visible_agents:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
 
@@ -848,3 +925,153 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
+
+  # -- Agent Identity (v3.5) ------------------------------------------------
+  /v1/agent/register:
+    post:
+      operationId: registerAgent
+      summary: Register an agent on-chain via CometBFT consensus.
+      description: >-
+        Idempotent — returns existing record if agent is already registered.
+        Agents auto-call this on first MCP connection.
+      tags:
+        - Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegisterRequest"
+      responses:
+        "200":
+          description: Agent registered (or already exists).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisteredAgent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/update:
+    put:
+      operationId: updateAgent
+      summary: Update the authenticated agent's name and bio.
+      description: Self-update only — agents can only modify their own metadata.
+      tags:
+        - Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentUpdateRequest"
+      responses:
+        "200":
+          description: Agent updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/{id}/permission:
+    put:
+      operationId: setAgentPermission
+      summary: Set an agent's clearance, domain access, and visibility (admin only).
+      tags:
+        - Agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Target agent's hex-encoded Ed25519 public key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentSetPermissionRequest"
+      responses:
+        "200":
+          description: Permissions updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: permission_set
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not an admin.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agent/{id}:
+    get:
+      operationId: getRegisteredAgent
+      summary: Get a registered agent by ID.
+      tags:
+        - Agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent's hex-encoded Ed25519 public key.
+      responses:
+        "200":
+          description: Agent record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisteredAgent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/agents:
+    get:
+      operationId: listRegisteredAgents
+      summary: List all registered agents.
+      tags:
+        - Agent
+      responses:
+        "200":
+          description: List of agents.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RegisteredAgent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"

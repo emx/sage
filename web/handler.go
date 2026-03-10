@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -54,6 +55,11 @@ type DashboardHandler struct {
 
 	// Pairing — ephemeral pairing code store for LAN agent setup.
 	Pairing *PairingStore
+
+	// CometBFT consensus — when set, agent create/update operations are also
+	// broadcast as on-chain transactions through CometBFT consensus.
+	CometBFTRPC string
+	SigningKey   ed25519.PrivateKey
 }
 
 // RedeployOrchestrator extends RedeployChecker with deploy/status methods

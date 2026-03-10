@@ -14,7 +14,7 @@ And because SAGE uses real consensus infrastructure (not just a JSON file), your
 
 ## Quick Install
 
-### From Source (Go 1.22+)
+### From Source (Go 1.24+)
 
 ```bash
 git clone https://github.com/l33tdawg/sage.git
@@ -123,7 +123,7 @@ sage-lite setup
 
 ### 3. Start using it
 
-Just chat normally. Claude now has 8 memory tools:
+Just chat normally. Claude now has 13 memory tools:
 
 | Tool | What it does |
 |------|-------------|
@@ -135,6 +135,11 @@ Just chat normally. Claude now has 8 memory tools:
 | `sage_list` | Browse memories with filters |
 | `sage_timeline` | View memories in a time range |
 | `sage_status` | Check memory store health and stats |
+| `sage_turn` | Per-turn memory cycle — recalls context and stores observations atomically |
+| `sage_register` | Register an agent on-chain (auto-called on first connection) |
+| `sage_task` | Create and manage persistent task items |
+| `sage_backlog` | View and prioritize your task backlog |
+| `sage_red_pill` | Alias for sage_inception — wake up from the context window matrix |
 
 ### First Time: Inception
 
@@ -232,6 +237,19 @@ A few practical examples:
 - Your personal laptop: full read+write on everything
 - A shared family machine: read+write on "household", read-only on "work"
 - A guest device: read-only on "public", no access to anything else
+
+### On-Chain Agent Identity (v3.5)
+
+Starting in v3.5, agent identity is a first-class on-chain concept. When you add an agent — whether via the dashboard, REST API, or MCP — the registration goes through CometBFT consensus.
+
+**What this means for you:**
+- Every agent registration is cryptographically signed and committed to the chain
+- Identity changes (name, bio, permissions) are auditable on-chain
+- Agents auto-register on their first MCP connection — no manual setup required
+- The REST API provides full agent management: `POST /v1/agent/register`, `PUT /v1/agent/update`, `PUT /v1/agent/{id}/permission`
+- Existing agents from pre-v3.5 are automatically migrated to on-chain identity on first boot
+
+**Visible Agents:** You can restrict which agents' memories are visible to a given agent. Set this in the agent's Access Control tab on the Network page. By default, all agents can see all memories (open model). Set specific agent IDs to restrict visibility.
 
 ---
 

@@ -279,6 +279,21 @@ func encodePayload(tx *ParsedTx) ([]byte, error) {
 			return nil, fmt.Errorf("DeptRemoveMember is nil for dept remove member tx")
 		}
 		return encodeDeptRemoveMember(tx.DeptRemoveMember), nil
+	case TxTypeAgentRegister:
+		if tx.AgentRegister == nil {
+			return nil, fmt.Errorf("AgentRegister is nil for agent register tx")
+		}
+		return encodeAgentRegister(tx.AgentRegister), nil
+	case TxTypeAgentUpdate:
+		if tx.AgentUpdateTx == nil {
+			return nil, fmt.Errorf("AgentUpdate is nil for agent update tx")
+		}
+		return encodeAgentUpdate(tx.AgentUpdateTx), nil
+	case TxTypeAgentSetPermission:
+		if tx.AgentSetPermission == nil {
+			return nil, fmt.Errorf("AgentSetPermission is nil for agent set permission tx")
+		}
+		return encodeAgentSetPermission(tx.AgentSetPermission), nil
 	default:
 		return nil, ErrUnknownTxType
 	}
@@ -418,6 +433,27 @@ func decodePayload(tx *ParsedTx, data []byte) error {
 			return err
 		}
 		tx.DeptRemoveMember = d
+		return nil
+	case TxTypeAgentRegister:
+		a, err := decodeAgentRegister(data)
+		if err != nil {
+			return err
+		}
+		tx.AgentRegister = a
+		return nil
+	case TxTypeAgentUpdate:
+		a, err := decodeAgentUpdate(data)
+		if err != nil {
+			return err
+		}
+		tx.AgentUpdateTx = a
+		return nil
+	case TxTypeAgentSetPermission:
+		a, err := decodeAgentSetPermission(data)
+		if err != nil {
+			return err
+		}
+		tx.AgentSetPermission = a
 		return nil
 	default:
 		return ErrUnknownTxType
@@ -1416,4 +1452,157 @@ func decodeDeptRemoveMember(data []byte) (*DeptRemoveMember, error) {
 	d.Reason = string(b)
 
 	return d, nil
+}
+
+// --- AgentRegister ---
+
+func encodeAgentRegister(a *AgentRegister) []byte {
+	var buf []byte
+	buf = appendBytes(buf, []byte(a.AgentID))
+	buf = appendBytes(buf, []byte(a.Name))
+	buf = appendBytes(buf, []byte(a.Role))
+	buf = appendBytes(buf, []byte(a.BootBio))
+	buf = appendBytes(buf, []byte(a.Provider))
+	buf = appendBytes(buf, []byte(a.P2PAddress))
+	return buf
+}
+
+func decodeAgentRegister(data []byte) (*AgentRegister, error) {
+	a := &AgentRegister{}
+	var err error
+	var b []byte
+	off := 0
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.AgentID = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.Name = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.Role = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.BootBio = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.Provider = string(b)
+
+	b, _, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.P2PAddress = string(b)
+
+	return a, nil
+}
+
+// --- AgentUpdate ---
+
+func encodeAgentUpdate(a *AgentUpdate) []byte {
+	var buf []byte
+	buf = appendBytes(buf, []byte(a.AgentID))
+	buf = appendBytes(buf, []byte(a.Name))
+	buf = appendBytes(buf, []byte(a.BootBio))
+	return buf
+}
+
+func decodeAgentUpdate(data []byte) (*AgentUpdate, error) {
+	a := &AgentUpdate{}
+	var err error
+	var b []byte
+	off := 0
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.AgentID = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.Name = string(b)
+
+	b, _, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.BootBio = string(b)
+
+	return a, nil
+}
+
+// --- AgentSetPermission ---
+
+func encodeAgentSetPermission(a *AgentSetPermission) []byte {
+	var buf []byte
+	buf = appendBytes(buf, []byte(a.AgentID))
+	buf = append(buf, a.Clearance)
+	buf = appendBytes(buf, []byte(a.DomainAccess))
+	buf = appendBytes(buf, []byte(a.VisibleAgents))
+	buf = appendBytes(buf, []byte(a.OrgID))
+	buf = appendBytes(buf, []byte(a.DeptID))
+	return buf
+}
+
+func decodeAgentSetPermission(data []byte) (*AgentSetPermission, error) {
+	a := &AgentSetPermission{}
+	var err error
+	var b []byte
+	off := 0
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.AgentID = string(b)
+
+	if off >= len(data) {
+		return nil, ErrInvalidTxData
+	}
+	a.Clearance = data[off]
+	off++
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.DomainAccess = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.VisibleAgents = string(b)
+
+	b, off, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.OrgID = string(b)
+
+	b, _, err = readBytes(data, off)
+	if err != nil {
+		return nil, err
+	}
+	a.DeptID = string(b)
+
+	return a, nil
 }

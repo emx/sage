@@ -13,10 +13,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/l33tdawg/sage/internal/store"
+	"github.com/l33tdawg/sage/internal/tx"
 )
 
 // AgentStoreProvider is implemented by stores that support agent management.
@@ -50,8 +52,8 @@ func (h *DashboardHandler) RegisterNetworkRoutes(r chi.Router) {
 
 	r.Get("/v1/dashboard/network/agents", handleListAgents(agentStore))
 	r.Get("/v1/dashboard/network/agents/{id}", handleGetAgent(agentStore))
-	r.Post("/v1/dashboard/network/agents", handleCreateAgent(agentStore))
-	r.Patch("/v1/dashboard/network/agents/{id}", handleUpdateAgent(agentStore))
+	r.Post("/v1/dashboard/network/agents", h.handleCreateAgent(agentStore))
+	r.Patch("/v1/dashboard/network/agents/{id}", h.handleUpdateAgent(agentStore))
 	r.Delete("/v1/dashboard/network/agents/{id}", handleRemoveAgent(agentStore, h.store))
 	r.Get("/v1/dashboard/network/agents/{id}/bundle", handleDownloadBundle(agentStore))
 	r.Post("/v1/dashboard/network/agents/{id}/rotate-key", handleRotateAgentKey(agentStore))
@@ -91,7 +93,7 @@ func handleGetAgent(agentStore store.AgentStore) http.HandlerFunc {
 	}
 }
 
-func handleCreateAgent(agentStore store.AgentStore) http.HandlerFunc {
+func (h *DashboardHandler) handleCreateAgent(agentStore store.AgentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Name         string `json:"name"`
@@ -152,6 +154,34 @@ func handleCreateAgent(agentStore store.AgentStore) http.HandlerFunc {
 			return
 		}
 
+		// Broadcast on-chain registration through CometBFT (non-blocking).
+		// The ABCI processor will set on_chain_height in BadgerDB.
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			go func() {
+				registerTx := &tx.ParsedTx{
+					Type:      tx.TxTypeAgentRegister,
+					Nonce:     uint64(time.Now().UnixNano()),
+					Timestamp: time.Now(),
+					AgentRegister: &tx.AgentRegister{
+						AgentID:    agentID,
+						Name:       req.Name,
+						Role:       req.Role,
+						BootBio:    req.BootBio,
+						Provider:   "",
+						P2PAddress: req.P2PAddress,
+					},
+				}
+				if err := tx.SignTx(registerTx, h.SigningKey); err != nil {
+					return
+				}
+				encoded, err := tx.EncodeTx(registerTx)
+				if err != nil {
+					return
+				}
+				broadcastTxSync(h.CometBFTRPC, encoded)
+			}()
+		}
+
 		// Generate and save agent bundle
 		bundleDir := filepath.Join(sageHome(), "bundles", agentID)
 		if mkErr := os.MkdirAll(bundleDir, 0700); mkErr != nil {
@@ -183,7 +213,7 @@ func handleCreateAgent(agentStore store.AgentStore) http.HandlerFunc {
 	}
 }
 
-func handleUpdateAgent(agentStore store.AgentStore) http.HandlerFunc {
+func (h *DashboardHandler) handleUpdateAgent(agentStore store.AgentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 
@@ -241,6 +271,58 @@ func handleUpdateAgent(agentStore store.AgentStore) http.HandlerFunc {
 		if err := agentStore.UpdateAgent(r.Context(), existing); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
+		}
+
+		// Broadcast metadata update through CometBFT (non-blocking).
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			go func() {
+				// Metadata changes (name, boot_bio) go through AgentUpdate
+				if req.Name != nil || req.BootBio != nil {
+					updateTx := &tx.ParsedTx{
+						Type:      tx.TxTypeAgentUpdate,
+						Nonce:     uint64(time.Now().UnixNano()),
+						Timestamp: time.Now(),
+						AgentUpdateTx: &tx.AgentUpdate{
+							AgentID: id,
+							Name:    existing.Name,
+							BootBio: existing.BootBio,
+						},
+					}
+					if err := tx.SignTx(updateTx, h.SigningKey); err != nil {
+						return
+					}
+					encoded, err := tx.EncodeTx(updateTx)
+					if err != nil {
+						return
+					}
+					broadcastTxSync(h.CometBFTRPC, encoded)
+				}
+				// Permission changes go through AgentSetPermission
+				if req.Clearance != nil || req.DomainAccess != nil {
+					clearance := uint8(existing.Clearance)
+					domainAccess := existing.DomainAccess
+					permTx := &tx.ParsedTx{
+						Type:      tx.TxTypeAgentSetPermission,
+						Nonce:     uint64(time.Now().UnixNano()),
+						Timestamp: time.Now(),
+						AgentSetPermission: &tx.AgentSetPermission{
+							AgentID:      id,
+							Clearance:    clearance,
+							DomainAccess: domainAccess,
+							OrgID:        existing.OrgID,
+							DeptID:       existing.DeptID,
+						},
+					}
+					if err := tx.SignTx(permTx, h.SigningKey); err != nil {
+						return
+					}
+					encoded, err := tx.EncodeTx(permTx)
+					if err != nil {
+						return
+					}
+					broadcastTxSync(h.CometBFTRPC, encoded)
+				}
+			}()
 		}
 
 		writeJSONResp(w, http.StatusOK, existing)
@@ -581,4 +663,16 @@ This agent will connect to the primary node's network.
 		return "", err
 	}
 	return zipPath, nil
+}
+
+// broadcastTxSync sends a transaction to CometBFT via broadcast_tx_sync RPC.
+// Used by dashboard handlers to put agent operations on-chain.
+func broadcastTxSync(cometRPC string, txBytes []byte) {
+	txHex := hex.EncodeToString(txBytes)
+	url := fmt.Sprintf("%s/broadcast_tx_sync?tx=0x%s", cometRPC, txHex)
+	resp, err := http.Get(url) // #nosec G107 -- internal CometBFT RPC
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
 }

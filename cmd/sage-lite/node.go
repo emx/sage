@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -121,6 +122,7 @@ func runServe() error {
 	if err != nil {
 		return fmt.Errorf("create SAGE app: %w", err)
 	}
+	app.Version = version
 	defer app.Close()
 
 	// Create embedding provider
@@ -128,6 +130,7 @@ func runServe() error {
 
 	// Health checker
 	health := metrics.NewHealthChecker()
+	health.Version = version
 	health.SetPostgresHealth(true) // SQLite is always "healthy"
 
 	// Start CometBFT in-process
@@ -205,6 +208,13 @@ func runServe() error {
 	dashboard.Encrypted = cfg.Encryption.Enabled
 	if cfg.Encryption.Enabled {
 		dashboard.VaultKeyPath = filepath.Join(SageHome(), "vault.key")
+	}
+
+	// Wire CometBFT consensus for dashboard agent operations (Step 7).
+	// Agent create/update will be broadcast on-chain in addition to direct SQLite writes.
+	dashboard.CometBFTRPC = cometRPC
+	if sk := loadNodeSigningKey(cometCfg.PrivValidatorKeyFile(), logger); sk != nil {
+		dashboard.SigningKey = sk
 	}
 
 	// Create redeployment orchestrator and wire it to the dashboard
@@ -685,4 +695,33 @@ func seedNetworkAgents(ctx context.Context, s *store.SQLiteStore, cometHome stri
 	if seeded > 0 {
 		logger.Info().Int("count", seeded).Msg("auto-seeded network agents from existing chain state")
 	}
+}
+
+// loadNodeSigningKey extracts the Ed25519 private key from CometBFT's priv_validator_key.json.
+// Returns nil if the key cannot be loaded (dashboard will skip on-chain broadcasts).
+func loadNodeSigningKey(keyFilePath string, logger zerolog.Logger) ed25519.PrivateKey {
+	data, err := os.ReadFile(keyFilePath)
+	if err != nil {
+		logger.Warn().Err(err).Msg("cannot load validator key for dashboard consensus — on-chain agent broadcasts disabled")
+		return nil
+	}
+
+	var keyDoc struct {
+		PrivKey struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+		} `json:"priv_key"`
+	}
+	if err = json.Unmarshal(data, &keyDoc); err != nil {
+		logger.Warn().Err(err).Msg("cannot parse validator key JSON for dashboard consensus")
+		return nil
+	}
+
+	keyBytes, err := base64.StdEncoding.DecodeString(keyDoc.PrivKey.Value)
+	if err != nil || len(keyBytes) != ed25519.PrivateKeySize {
+		logger.Warn().Err(err).Int("key_len", len(keyBytes)).Msg("invalid validator key for dashboard consensus")
+		return nil
+	}
+
+	return ed25519.PrivateKey(keyBytes)
 }

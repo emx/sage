@@ -297,6 +297,9 @@ type AgentEntry struct {
 	LastSeen        *time.Time `json:"last_seen,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	RemovedAt       *time.Time `json:"removed_at,omitempty"`
+	OnChainHeight   int64      `json:"on_chain_height,omitempty"`  // Block height where registered (0 = legacy)
+	VisibleAgents   string     `json:"visible_agents,omitempty"`   // JSON array of agent IDs ("*" = all)
+	Provider        string     `json:"provider,omitempty"`         // "claude-code", "chatgpt", etc.
 	MemoryCount     int        `json:"memory_count,omitempty"`
 }
 

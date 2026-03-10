@@ -117,9 +117,51 @@ type cometBroadcastResponse struct {
 // Returns nil if allowed, descriptive error if denied.
 // Unregistered agents (not in network_agents) are always allowed for backwards compatibility.
 // Admins bypass all checks. Observers cannot write.
-func checkDomainAccess(ctx context.Context, agentStore store.AgentStore, agentID, domain, action string) error {
-	if agentStore == nil || agentID == "" {
-		return nil // No agent store or no agent identity — allow
+func checkDomainAccess(ctx context.Context, agentStore store.AgentStore, badgerStore *store.BadgerStore, agentID, domain, action string) error {
+	if agentID == "" {
+		return nil // No agent identity — allow
+	}
+
+	// Check on-chain state first (if BadgerDB available)
+	if badgerStore != nil {
+		onChainAgent, err := badgerStore.GetRegisteredAgent(agentID)
+		if err == nil && onChainAgent != nil {
+			// Use on-chain clearance and domain access
+			if onChainAgent.Role == "admin" {
+				return nil
+			}
+			if action == "write" && onChainAgent.Role == "observer" {
+				return fmt.Errorf("observer agents cannot submit memories")
+			}
+			if onChainAgent.DomainAccess != "" {
+				var access []struct {
+					Domain string `json:"domain"`
+					Read   bool   `json:"read"`
+					Write  bool   `json:"write"`
+				}
+				if err := json.Unmarshal([]byte(onChainAgent.DomainAccess), &access); err == nil && len(access) > 0 {
+					for _, a := range access {
+						if a.Domain == domain {
+							if action == "read" && a.Read {
+								return nil
+							}
+							if action == "write" && a.Write {
+								return nil
+							}
+							return fmt.Errorf("agent does not have %s access to domain '%s'", action, domain)
+						}
+					}
+					return fmt.Errorf("agent does not have %s access to domain '%s'", action, domain)
+				}
+			}
+			// On-chain agent with no domain access restrictions — allow
+			return nil
+		}
+	}
+
+	// Fallback to SQLite agent store
+	if agentStore == nil {
+		return nil // No agent store — allow
 	}
 
 	agent, err := agentStore.GetAgent(ctx, agentID)
@@ -203,7 +245,7 @@ func (s *Server) handleSubmitMemory(w http.ResponseWriter, r *http.Request) {
 	agentID := middleware.ContextAgentID(r.Context())
 
 	// Enforce domain access policy from network_agents registry
-	if accessErr := checkDomainAccess(r.Context(), s.agentStore, agentID, req.DomainTag, "write"); accessErr != nil {
+	if accessErr := checkDomainAccess(r.Context(), s.agentStore, s.badgerStore, agentID, req.DomainTag, "write"); accessErr != nil {
 		writeProblem(w, http.StatusForbidden, "Access denied", accessErr.Error())
 		return
 	}
@@ -329,7 +371,7 @@ func (s *Server) handleQueryMemory(w http.ResponseWriter, r *http.Request) {
 	// Network agent domain access enforcement (read side)
 	if req.DomainTag != "" {
 		agentID := middleware.ContextAgentID(r.Context())
-		if accessErr := checkDomainAccess(r.Context(), s.agentStore, agentID, req.DomainTag, "read"); accessErr != nil {
+		if accessErr := checkDomainAccess(r.Context(), s.agentStore, s.badgerStore, agentID, req.DomainTag, "read"); accessErr != nil {
 			writeProblem(w, http.StatusForbidden, "Access denied", accessErr.Error())
 			return
 		}
@@ -409,6 +451,29 @@ func (s *Server) handleQueryMemory(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:       rec.CreatedAt,
 			CommittedAt:     rec.CommittedAt,
 		})
+	}
+
+	// Apply visible_agents filter: restrict results to only memories from allowed agents
+	if s.badgerStore != nil {
+		queryAgentOnChain, onChainErr := s.badgerStore.GetRegisteredAgent(queryAgentID)
+		if onChainErr == nil && queryAgentOnChain != nil && queryAgentOnChain.VisibleAgents != "" && queryAgentOnChain.VisibleAgents != "*" {
+			var visibleList []string
+			if json.Unmarshal([]byte(queryAgentOnChain.VisibleAgents), &visibleList) == nil && len(visibleList) > 0 {
+				visibleSet := make(map[string]bool, len(visibleList))
+				for _, v := range visibleList {
+					visibleSet[v] = true
+				}
+				// Always allow seeing own memories
+				visibleSet[queryAgentID] = true
+				filtered := make([]*MemoryResult, 0, len(results))
+				for _, r := range results {
+					if visibleSet[r.SubmittingAgent] {
+						filtered = append(filtered, r)
+					}
+				}
+				results = filtered
+			}
+		}
 	}
 
 	writeJSON(w, http.StatusOK, QueryMemoryResponse{

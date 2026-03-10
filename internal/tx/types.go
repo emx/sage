@@ -24,7 +24,10 @@ const (
 	TxTypeFederationRevoke  TxType = 16
 	TxTypeDeptRegister      TxType = 17
 	TxTypeDeptAddMember     TxType = 18
-	TxTypeDeptRemoveMember  TxType = 19
+	TxTypeDeptRemoveMember   TxType = 19
+	TxTypeAgentRegister      TxType = 20
+	TxTypeAgentUpdate        TxType = 21
+	TxTypeAgentSetPermission TxType = 22
 )
 
 // VoteDecision represents a validator's vote on a proposed memory.
@@ -213,6 +216,33 @@ type DeptRemoveMember struct {
 	Reason  string
 }
 
+// AgentRegister registers an agent on-chain with its identity and metadata.
+type AgentRegister struct {
+	AgentID    string
+	Name       string
+	Role       string // "admin", "member", "observer"
+	BootBio    string
+	Provider   string // "claude-code", "chatgpt", etc.
+	P2PAddress string
+}
+
+// AgentUpdate updates an agent's own metadata on-chain.
+type AgentUpdate struct {
+	AgentID string
+	Name    string
+	BootBio string
+}
+
+// AgentSetPermission sets permissions on an agent (admin only).
+type AgentSetPermission struct {
+	AgentID       string
+	Clearance     uint8
+	DomainAccess  string // JSON string of domain access rules
+	VisibleAgents string // JSON array of agent IDs or "*" for all
+	OrgID         string
+	DeptID        string
+}
+
 // ParsedTx is the top-level transaction envelope.
 type ParsedTx struct {
 	Type               TxType
@@ -235,6 +265,9 @@ type ParsedTx struct {
 	DeptRegister       *DeptRegister
 	DeptAddMember      *DeptAddMember
 	DeptRemoveMember   *DeptRemoveMember
+	AgentRegister      *AgentRegister
+	AgentUpdateTx      *AgentUpdate        // Named AgentUpdateTx to avoid collision with existing method names
+	AgentSetPermission *AgentSetPermission
 	Signature          []byte // Node validator Ed25519 signature (64 bytes)
 	PublicKey          []byte // Node validator Ed25519 public key (32 bytes)
 	Nonce              uint64

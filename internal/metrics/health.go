@@ -10,6 +10,7 @@ import (
 type HealthChecker struct {
 	postgresOK  atomic.Bool
 	cometbftOK  atomic.Bool
+	Version     string
 }
 
 // NewHealthChecker creates a new health checker.
@@ -46,7 +47,7 @@ func (h *HealthChecker) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(httpStatus)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  status,
-		"version": "1.0.0",
+		"version": h.Version,
 	})
 }
 
