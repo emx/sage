@@ -52,6 +52,11 @@ type Server struct {
 	callsSinceTurn int
 	lastTurnTime   time.Time
 
+	// Cached recall settings from dashboard preferences.
+	recallTopK     int
+	recallMinConf  float64
+	recallCacheAge time.Time
+
 	// Auto-inception: automatically initialize brain on first tool call if empty.
 	inceptionChecked bool
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -81,7 +82,8 @@ func (h *DashboardHandler) handleCheckUpdate(w http.ResponseWriter, r *http.Requ
 	}
 
 	latest := strings.TrimPrefix(release.TagName, "v")
-	updateAvailable := latest != strings.TrimPrefix(current, "v") && current != "dev"
+	currentClean := strings.TrimPrefix(current, "v")
+	updateAvailable := current != "dev" && semverGreater(latest, currentClean)
 
 	// Find the right asset for this platform
 	assetName := findAssetName(latest)
@@ -193,6 +195,9 @@ func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Requ
 	// Clean up backup
 	os.Remove(backupPath)
 
+	// Also update the .app bundle on macOS so the launcher doesn't revert on relaunch
+	updateAppBundle(execPath)
+
 	writeJSONResp(w, http.StatusOK, map[string]any{
 		"ok":               true,
 		"message":          "Update installed. Restart SAGE to apply.",
@@ -274,4 +279,66 @@ func extractBinaryFromTarGz(reader io.Reader, binaryName string) (string, error)
 	}
 
 	return "", fmt.Errorf("binary %q not found in archive", binaryName)
+}
+
+// semverGreater returns true if version a is strictly greater than version b.
+// Handles versions like "3.6.0", "3.10.0", "3.6.0-rc1" (pre-release ignored).
+func semverGreater(a, b string) bool {
+	aParts := parseSemver(a)
+	bParts := parseSemver(b)
+	for i := 0; i < 3; i++ {
+		if aParts[i] > bParts[i] {
+			return true
+		}
+		if aParts[i] < bParts[i] {
+			return false
+		}
+	}
+	return false // equal
+}
+
+// parseSemver extracts [major, minor, patch] from a version string.
+// Strips any pre-release suffix (e.g., "3.6.0-rc1" -> [3, 6, 0]).
+func parseSemver(v string) [3]int {
+	v = strings.TrimPrefix(v, "v")
+	// Strip pre-release suffix
+	if idx := strings.IndexAny(v, "-+"); idx >= 0 {
+		v = v[:idx]
+	}
+	parts := strings.SplitN(v, ".", 3)
+	var result [3]int
+	for i := 0; i < 3 && i < len(parts); i++ {
+		n, err := strconv.Atoi(parts[i])
+		if err == nil {
+			result[i] = n
+		}
+	}
+	return result
+}
+
+// updateAppBundle attempts to update the sage-gui binary inside the macOS .app bundle
+// after an in-app update. This prevents the launcher from reverting to the old version
+// on next relaunch.
+func updateAppBundle(newBinaryPath string) {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	// Check well-known .app bundle locations
+	appBundlePaths := []string{
+		"/Applications/SAGE.app/Contents/MacOS/sage-gui",
+		filepath.Join(os.Getenv("HOME"), "Applications/SAGE.app/Contents/MacOS/sage-gui"),
+	}
+	for _, appBin := range appBundlePaths {
+		if _, err := os.Stat(appBin); err != nil {
+			continue
+		}
+		// Copy the new binary into the .app bundle
+		src, err := os.ReadFile(newBinaryPath) // #nosec G304 -- trusted path from update
+		if err != nil {
+			continue
+		}
+		if err := os.WriteFile(appBin, src, 0755); err != nil { // #nosec G306 -- executable binary
+			continue
+		}
+	}
 }

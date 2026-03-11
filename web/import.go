@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -32,27 +33,44 @@ type importResult struct {
 	Source   string   `json:"source"`
 }
 
-// handleImportUpload accepts a multipart file upload, auto-detects format,
-// parses conversations, and inserts them as memories.
-func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Request) {
+// importPreviewResult is the JSON response for an import preview.
+type importPreviewResult struct {
+	Total    int              `json:"total"`
+	Source   string           `json:"source"`
+	Previews []importPreview  `json:"previews"`
+	Errors   []string         `json:"errors,omitempty"`
+}
+
+type importPreview struct {
+	Domain  string `json:"domain"`
+	Content string `json:"content"`
+}
+
+// pendingImport holds parsed records awaiting user confirmation.
+type pendingImport struct {
+	records     []*memory.MemoryRecord
+	source      string
+	parseErrors []string
+	createdAt   time.Time
+}
+
+// parseImportFile reads and parses a multipart file upload, returning records and source.
+func parseImportFile(w http.ResponseWriter, r *http.Request) ([]*memory.MemoryRecord, string, []string, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportSize)
 
 	if err := r.ParseMultipartForm(maxImportSize); err != nil {
-		writeError(w, http.StatusBadRequest, "failed to parse upload: "+err.Error())
-		return
+		return nil, "", nil, fmt.Errorf("failed to parse upload: %w", err)
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "missing file field: "+err.Error())
-		return
+		return nil, "", nil, fmt.Errorf("missing file field: %w", err)
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "failed to read file: "+err.Error())
-		return
+		return nil, "", nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	var records []*memory.MemoryRecord
@@ -62,11 +80,11 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 	filename := strings.ToLower(header.Filename)
 
 	if strings.HasSuffix(filename, ".zip") {
-		// ZIP file — assume ChatGPT export
 		records, parseErrors, err = parseChatGPTZip(data)
 		source = "chatgpt"
+	} else if strings.HasSuffix(filename, ".jsonl") {
+		records, source, parseErrors, err = parseJSONL(data)
 	} else if strings.HasSuffix(filename, ".md") || strings.HasSuffix(filename, ".txt") {
-		// Markdown or plain text — Claude Code MEMORY.md, notes, etc.
 		records, parseErrors = parseMarkdownImport(string(data))
 		if strings.HasSuffix(filename, ".md") {
 			source = "markdown"
@@ -74,17 +92,22 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 			source = "plaintext"
 		}
 	} else {
-		// Try JSON detection
 		records, source, parseErrors, err = detectAndParseJSON(data)
 	}
 
+	return records, source, parseErrors, err
+}
+
+// handleImportPreview parses the uploaded file and returns a preview of detected memories
+// without inserting anything. Returns an import_id that can be used to confirm.
+func (h *DashboardHandler) handleImportPreview(w http.ResponseWriter, r *http.Request) {
+	records, source, parseErrors, err := parseImportFile(w, r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "parse error: "+err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Check for unstructured data: if markdown/text produced very few large chunks,
-	// it's likely a raw document dump rather than structured memories.
+	// Check for unstructured data
 	if (source == "markdown" || source == "plaintext") && isUnstructuredDocument(records) {
 		writeJSONResp(w, http.StatusUnprocessableEntity, map[string]any{
 			"error":      "unstructured_document",
@@ -94,8 +117,93 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Generate import ID and cache the parsed records
+	importID := uuid.New().String()
+	h.pendingImports.Store(importID, &pendingImport{
+		records:     records,
+		source:      source,
+		parseErrors: parseErrors,
+		createdAt:   time.Now(),
+	})
+
+	// Build preview samples (first 10)
+	previews := make([]importPreview, 0, min(10, len(records)))
+	for i, rec := range records {
+		if i >= 10 {
+			break
+		}
+		content := rec.Content
+		if len(content) > 120 {
+			content = content[:120] + "..."
+		}
+		previews = append(previews, importPreview{
+			Domain:  rec.DomainTag,
+			Content: content,
+		})
+	}
+
+	writeJSONResp(w, http.StatusOK, map[string]any{
+		"import_id": importID,
+		"total":     len(records),
+		"source":    source,
+		"previews":  previews,
+		"errors":    parseErrors,
+	})
+}
+
+// handleImportConfirm processes a previously previewed import by its import_id.
+func (h *DashboardHandler) handleImportConfirm(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ImportID string `json:"import_id"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ImportID == "" {
+		writeError(w, http.StatusBadRequest, "import_id is required")
+		return
+	}
+
+	val, ok := h.pendingImports.LoadAndDelete(req.ImportID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "import not found or expired — please re-upload")
+		return
+	}
+	pending := val.(*pendingImport)
+
+	// Check expiry (10 min)
+	if time.Since(pending.createdAt) > 10*time.Minute {
+		writeError(w, http.StatusGone, "import preview expired — please re-upload")
+		return
+	}
+
+	// Process the cached records through the chain
+	h.processImportRecords(w, r, pending.records, pending.source, pending.parseErrors)
+}
+
+// handleImportUpload accepts a multipart file upload, auto-detects format,
+// parses conversations, and inserts them as memories (legacy one-shot endpoint).
+func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Request) {
+	records, source, parseErrors, err := parseImportFile(w, r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if (source == "markdown" || source == "plaintext") && isUnstructuredDocument(records) {
+		writeJSONResp(w, http.StatusUnprocessableEntity, map[string]any{
+			"error":      "unstructured_document",
+			"message":    "This looks like a raw document rather than structured memories.",
+			"suggestion": "Ask your AI agent to read this document and use sage_remember or sage_reflect to store the key takeaways as memories. Raw documents don't make good memories — your agent can extract what matters.",
+		})
+		return
+	}
+
+	h.processImportRecords(w, r, records, source, parseErrors)
+}
+
+// processImportRecords generates embeddings, broadcasts on-chain, and inserts memories.
+// Used by both the legacy one-shot import and the preview/confirm flow.
+func (h *DashboardHandler) processImportRecords(w http.ResponseWriter, r *http.Request, records []*memory.MemoryRecord, source string, parseErrors []string) {
 	// Resolve the admin agent to attribute imported memories to.
-	// Falls back to hardcoded "import-agent" if no admin agent is found.
 	targetAgent := importAgent
 	if agentStore, ok := h.store.(AgentStoreProvider); ok {
 		if agents, listErr := agentStore.ListAgents(r.Context()); listErr == nil {
@@ -108,7 +216,6 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	// Generate embeddings, broadcast on-chain, and insert memories
 	total := len(records)
 	imported := 0
 	skipped := 0
@@ -138,7 +245,6 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 				}
 				embeddingHash = eh.Sum(nil)
 			}
-			// Non-fatal: if embedding fails, still insert with empty embedding
 		}
 
 		// Broadcast on-chain MemorySubmit through CometBFT consensus
@@ -173,8 +279,8 @@ func (h *DashboardHandler) handleImportUpload(w http.ResponseWriter, r *http.Req
 		}
 		imported++
 
-		// Broadcast progress every 5 records or on the last one
-		if h.SSE != nil && (i == total-1 || (i+1)%5 == 0) {
+		// Broadcast progress every record
+		if h.SSE != nil {
 			h.SSE.Broadcast(SSEEvent{
 				Type: EventImport,
 				Data: map[string]any{
@@ -448,10 +554,32 @@ func formatConversation(title string, turns []conversationTurn) string {
 // ---- Gemini parser ----
 
 type geminiEntry struct {
-	Header   string   `json:"header"`
-	Title    string   `json:"title"`
-	Time     string   `json:"time"`
-	Products []string `json:"products"`
+	Header       string              `json:"header"`
+	Title        string              `json:"title"`
+	Time         string              `json:"time"`
+	Products     []string            `json:"products"`
+	Subtitles    []geminiSubtitle    `json:"subtitles"`
+	SafeHtmlItem []geminiSafeHTML    `json:"safeHtmlItem"`
+}
+
+type geminiSubtitle struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type geminiSafeHTML struct {
+	HTML string `json:"html"`
+}
+
+// stripHTMLTags removes HTML tags from a string, preserving text content.
+var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+
+func stripHTMLTags(s string) string {
+	clean := htmlTagRe.ReplaceAllString(s, " ")
+	// Collapse whitespace
+	spaceRe := regexp.MustCompile(`\s+`)
+	clean = spaceRe.ReplaceAllString(clean, " ")
+	return strings.TrimSpace(clean)
 }
 
 func parseGeminiJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
@@ -464,7 +592,35 @@ func parseGeminiJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 	var errors []string
 
 	for _, e := range entries {
-		if e.Title == "" {
+		// Extract user prompt from subtitles
+		var userPrompt string
+		for _, sub := range e.Subtitles {
+			if sub.Value != "" {
+				userPrompt = sub.Value
+				break
+			}
+		}
+
+		// Extract response from safeHtmlItem (strip HTML tags)
+		var response string
+		for _, item := range e.SafeHtmlItem {
+			if item.HTML != "" {
+				response = stripHTMLTags(item.HTML)
+				break
+			}
+		}
+
+		// Build content: prefer prompt+response pair, fall back to title
+		var content string
+		if userPrompt != "" && response != "" {
+			content = "user: " + userPrompt + "\nassistant: " + response
+		} else if userPrompt != "" {
+			content = "user: " + userPrompt
+		} else if response != "" {
+			content = response
+		} else if e.Title != "" && e.Title != "Used Gemini Apps" {
+			content = e.Title
+		} else {
 			continue
 		}
 
@@ -473,7 +629,6 @@ func parseGeminiJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 			createdAt = time.Now()
 		}
 
-		content := e.Title
 		if len(content) > maxMemoryContent {
 			content = content[:maxMemoryContent]
 		}
@@ -499,9 +654,36 @@ type claudeConversation struct {
 }
 
 type claudeChatMessage struct {
-	Sender    string `json:"sender"`
-	Text      string `json:"text"`
-	CreatedAt string `json:"created_at"`
+	Sender    string          `json:"sender"`
+	Text      string          `json:"text"`
+	Content   json.RawMessage `json:"content"`
+	CreatedAt string          `json:"created_at"`
+}
+
+// extractClaudeMessageText gets the text from a Claude chat message.
+// Newer exports (with extended thinking) have empty "text" and use "content" blocks instead.
+func extractClaudeMessageText(msg claudeChatMessage) string {
+	if msg.Text != "" {
+		return msg.Text
+	}
+	// Try content blocks (Claude thinking/extended format)
+	if len(msg.Content) > 0 {
+		var blocks []map[string]any
+		if json.Unmarshal(msg.Content, &blocks) == nil {
+			var parts []string
+			for _, block := range blocks {
+				blockType, _ := block["type"].(string)
+				if blockType == "text" {
+					if text, ok := block["text"].(string); ok && text != "" {
+						parts = append(parts, text)
+					}
+				}
+				// Skip thinking blocks — internal reasoning, not user-facing
+			}
+			return strings.Join(parts, "\n")
+		}
+	}
+	return ""
 }
 
 func parseClaudeJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
@@ -521,8 +703,9 @@ func parseClaudeJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 
 		var turns []conversationTurn
 		for _, msg := range conv.ChatMessages {
-			if msg.Text != "" {
-				turns = append(turns, conversationTurn{Role: msg.Sender, Content: msg.Text})
+			text := extractClaudeMessageText(msg)
+			if text != "" {
+				turns = append(turns, conversationTurn{Role: msg.Sender, Content: text})
 			}
 		}
 
@@ -542,6 +725,555 @@ func parseClaudeJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 	}
 
 	return records, errors, nil
+}
+
+// ---- OpenAI messages format parser ----
+// Handles the universal role/content message array format used by:
+// OpenAI API, Claude API, Mistral API, Grok API, DeepSeek, browser extensions, etc.
+// Accepts: [{"role":"user","content":"..."}] or {"messages":[...]} or {"conversations":[{"messages":[...]}]}
+
+func parseOpenAIMessagesJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
+	// Try multiple wrapper shapes to extract message arrays
+	conversations := extractMessageConversations(data)
+	if len(conversations) == 0 {
+		return nil, nil, fmt.Errorf("no role/content messages found")
+	}
+
+	var records []*memory.MemoryRecord
+	var errors []string
+
+	for i, msgs := range conversations {
+		var turns []conversationTurn
+		for _, msg := range msgs {
+			role, _ := msg["role"].(string)
+			content := extractMessageContent(msg)
+			if content == "" || role == "system" || role == "tool" {
+				continue
+			}
+			turns = append(turns, conversationTurn{Role: role, Content: content})
+		}
+		if len(turns) == 0 {
+			errors = append(errors, fmt.Sprintf("conversation %d: no user/assistant messages", i+1))
+			continue
+		}
+
+		title := fmt.Sprintf("Conversation %d", i+1)
+		// Try to extract a title from the first user message
+		if len(turns) > 0 {
+			first := turns[0].Content
+			if len(first) > 60 {
+				first = first[:57] + "..."
+			}
+			title = first
+		}
+
+		content := formatConversation(title, turns)
+
+		// Try to extract timestamp
+		createdAt := time.Now()
+		for _, msg := range msgs {
+			for _, key := range []string{"timestamp", "created_at", "time"} {
+				if v, ok := msg[key].(string); ok && v != "" {
+					if t, err := time.Parse(time.RFC3339, v); err == nil {
+						createdAt = t
+						break
+					}
+				}
+			}
+			if !createdAt.Equal(time.Now()) {
+				break
+			}
+		}
+
+		records = append(records, makeRecord(content, "chat-import", 0.85, createdAt))
+	}
+
+	return records, errors, nil
+}
+
+// extractMessageConversations tries multiple JSON shapes to find message arrays.
+func extractMessageConversations(data []byte) [][]map[string]any {
+	// Shape 1: top-level array of messages [{"role":"user","content":"..."}]
+	var msgs []map[string]any
+	if json.Unmarshal(data, &msgs) == nil && len(msgs) > 0 {
+		if _, hasRole := msgs[0]["role"]; hasRole {
+			return [][]map[string]any{msgs}
+		}
+	}
+
+	// Shape 2: {"messages": [...]} (single conversation wrapper)
+	var wrapper map[string]json.RawMessage
+	if json.Unmarshal(data, &wrapper) == nil {
+		if msgRaw, ok := wrapper["messages"]; ok {
+			var innerMsgs []map[string]any
+			if json.Unmarshal(msgRaw, &innerMsgs) == nil && len(innerMsgs) > 0 {
+				return [][]map[string]any{innerMsgs}
+			}
+		}
+	}
+
+	// Shape 3: array of conversation objects with "messages" key
+	// e.g. [{"title":"...","messages":[...]}, ...] or {"conversations":[{"messages":[...]}]}
+	var convArray []map[string]json.RawMessage
+	if json.Unmarshal(data, &convArray) == nil && len(convArray) > 0 {
+		var result [][]map[string]any
+		for _, conv := range convArray {
+			if msgRaw, ok := conv["messages"]; ok {
+				var innerMsgs []map[string]any
+				if json.Unmarshal(msgRaw, &innerMsgs) == nil && len(innerMsgs) > 0 {
+					result = append(result, innerMsgs)
+				}
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
+
+	// Shape 4: wrapper object with array value containing conversation objects
+	// e.g. {"conversations": [{"messages": [...]}]} or {"chats": [{"messages": [...]}]}
+	if wrapper != nil {
+		for _, key := range []string{"conversations", "chats", "data", "history"} {
+			if raw, ok := wrapper[key]; ok {
+				var innerConvs []map[string]json.RawMessage
+				if json.Unmarshal(raw, &innerConvs) == nil {
+					var result [][]map[string]any
+					for _, conv := range innerConvs {
+						if msgRaw, ok := conv["messages"]; ok {
+							var innerMsgs []map[string]any
+							if json.Unmarshal(msgRaw, &innerMsgs) == nil && len(innerMsgs) > 0 {
+								result = append(result, innerMsgs)
+							}
+						}
+					}
+					if len(result) > 0 {
+						return result
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// extractMessageContent handles both string content and array content blocks.
+// Supports: "content": "text" and "content": [{"type":"text","text":"..."}]
+func extractMessageContent(msg map[string]any) string {
+	c, ok := msg["content"]
+	if !ok {
+		return ""
+	}
+	// Simple string content
+	if s, ok := c.(string); ok {
+		return s
+	}
+	// Array of content blocks (Claude API style)
+	if arr, ok := c.([]any); ok {
+		var parts []string
+		for _, block := range arr {
+			if m, ok := block.(map[string]any); ok {
+				if t, ok := m["text"].(string); ok && t != "" {
+					parts = append(parts, t)
+				}
+			}
+		}
+		return strings.Join(parts, "\n")
+	}
+	return ""
+}
+
+// ---- Claude Code JSONL parser ----
+// Parses .jsonl files from Claude Code sessions (~/.claude/projects/<path>/<session>.jsonl).
+// Groups lines by sessionId and extracts user prompts + assistant responses.
+
+func parseJSONL(data []byte) ([]*memory.MemoryRecord, string, []string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024) // 1MB line buffer
+
+	type sessionEntry struct {
+		Role      string
+		Content   string
+		Timestamp string
+	}
+
+	sessions := make(map[string][]sessionEntry)
+	var sessionOrder []string
+	isFinetuning := false
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var obj map[string]any
+		if json.Unmarshal([]byte(line), &obj) != nil {
+			continue
+		}
+
+		// Check for JSONL fine-tuning format: {"messages": [...]}
+		if _, hasMessages := obj["messages"]; hasMessages {
+			isFinetuning = true
+			continue // will handle below
+		}
+
+		sessionID, _ := obj["sessionId"].(string)
+		if sessionID == "" {
+			sessionID = "default"
+		}
+
+		if _, seen := sessions[sessionID]; !seen {
+			sessionOrder = append(sessionOrder, sessionID)
+		}
+
+		msgType, _ := obj["type"].(string)
+		ts, _ := obj["timestamp"].(string)
+
+		// Extract message content
+		msgObj, _ := obj["message"].(map[string]any)
+		if msgObj == nil {
+			continue
+		}
+
+		role, _ := msgObj["role"].(string)
+		content := extractMessageContent(msgObj)
+
+		// Skip tool results and empty messages
+		if content == "" || msgType == "" {
+			continue
+		}
+		if role == "user" {
+			// Check if this is a tool_result (not a real user message)
+			if c, ok := msgObj["content"].([]any); ok && len(c) > 0 {
+				if m, ok := c[0].(map[string]any); ok {
+					if m["type"] == "tool_result" {
+						continue
+					}
+				}
+			}
+		}
+
+		if role == "user" || role == "assistant" {
+			sessions[sessionID] = append(sessions[sessionID], sessionEntry{
+				Role:      role,
+				Content:   content,
+				Timestamp: ts,
+			})
+		}
+	}
+
+	// If this is fine-tuning JSONL, re-parse as OpenAI messages format
+	if isFinetuning {
+		return parseFinetuningJSONL(data)
+	}
+
+	var records []*memory.MemoryRecord
+	var errors []string
+
+	for _, sid := range sessionOrder {
+		entries := sessions[sid]
+		if len(entries) == 0 {
+			continue
+		}
+
+		var turns []conversationTurn
+		for _, e := range entries {
+			turns = append(turns, conversationTurn{Role: e.Role, Content: e.Content})
+		}
+
+		title := fmt.Sprintf("Claude Code Session")
+		if len(turns) > 0 {
+			first := turns[0].Content
+			if len(first) > 60 {
+				first = first[:57] + "..."
+			}
+			title = first
+		}
+
+		content := formatConversation(title, turns)
+
+		createdAt := time.Now()
+		if entries[0].Timestamp != "" {
+			if t, err := time.Parse(time.RFC3339, entries[0].Timestamp); err == nil {
+				createdAt = t
+			}
+			// Also try millisecond timestamp format
+			if t, err := time.Parse("2006-01-02T15:04:05.000Z", entries[0].Timestamp); err == nil {
+				createdAt = t
+			}
+		}
+
+		records = append(records, makeRecord(content, "claude-code-history", 0.85, createdAt))
+	}
+
+	if len(records) == 0 {
+		errors = append(errors, "no Claude Code sessions found in JSONL")
+	}
+
+	return records, "claude-code", errors, nil
+}
+
+// parseFinetuningJSONL handles JSONL where each line is {"messages": [...]}.
+func parseFinetuningJSONL(data []byte) ([]*memory.MemoryRecord, string, []string, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024)
+
+	var records []*memory.MemoryRecord
+	var errors []string
+	idx := 0
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		var obj map[string]json.RawMessage
+		if json.Unmarshal([]byte(line), &obj) != nil {
+			continue
+		}
+		msgRaw, ok := obj["messages"]
+		if !ok {
+			continue
+		}
+
+		var msgs []map[string]any
+		if json.Unmarshal(msgRaw, &msgs) != nil {
+			continue
+		}
+
+		idx++
+		var turns []conversationTurn
+		for _, msg := range msgs {
+			role, _ := msg["role"].(string)
+			content := extractMessageContent(msg)
+			if content == "" || role == "system" || role == "tool" {
+				continue
+			}
+			turns = append(turns, conversationTurn{Role: role, Content: content})
+		}
+
+		if len(turns) == 0 {
+			continue
+		}
+
+		title := fmt.Sprintf("Conversation %d", idx)
+		if len(turns) > 0 {
+			first := turns[0].Content
+			if len(first) > 60 {
+				first = first[:57] + "..."
+			}
+			title = first
+		}
+
+		content := formatConversation(title, turns)
+		records = append(records, makeRecord(content, "chat-import", 0.85, time.Now()))
+	}
+
+	if len(records) == 0 {
+		errors = append(errors, "no conversations found in JSONL")
+	}
+
+	return records, "jsonl", errors, nil
+}
+
+// ---- Grok parser ----
+// Parses xAI Grok exports (prod-grok-backend.json).
+// Real format: {"conversations": [{"conversation": {"title":"..."}, "responses": [{"response": {"message":"...", "sender":"human"}}]}]}
+// Also handles simplified format: {"conversations": [{"title":"...", "messages": [...]}]}
+
+type grokExport struct {
+	Conversations []grokConvEntry `json:"conversations"`
+}
+
+type grokConvEntry struct {
+	// Real Grok format
+	Conversation *grokConvMeta    `json:"conversation"`
+	Responses    []grokRespEntry  `json:"responses"`
+	// Simplified format (tools/extensions)
+	Title    string           `json:"title"`
+	Messages []map[string]any `json:"messages"`
+	Time     string           `json:"time"`
+	Created  string           `json:"created_at"`
+}
+
+type grokConvMeta struct {
+	Title      string `json:"title"`
+	CreateTime string `json:"create_time"`
+}
+
+type grokRespEntry struct {
+	Response grokResponse `json:"response"`
+}
+
+type grokResponse struct {
+	Message    string `json:"message"`
+	Sender     string `json:"sender"`
+	CreateTime string `json:"create_time"`
+}
+
+func parseGrokJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
+	var export grokExport
+	if err := json.Unmarshal(data, &export); err != nil {
+		return nil, nil, fmt.Errorf("invalid Grok JSON: %w", err)
+	}
+
+	if len(export.Conversations) == 0 {
+		return nil, nil, fmt.Errorf("no conversations found in Grok export")
+	}
+
+	var records []*memory.MemoryRecord
+	var errors []string
+
+	for i, entry := range export.Conversations {
+		// Determine title and messages based on format
+		var title string
+		var turns []conversationTurn
+		var createdAt time.Time
+
+		if entry.Conversation != nil && len(entry.Responses) > 0 {
+			// Real Grok export format: conversation meta + responses array
+			title = entry.Conversation.Title
+			if title == "" {
+				title = fmt.Sprintf("Grok Conversation %d", i+1)
+			}
+
+			for _, resp := range entry.Responses {
+				if resp.Response.Message == "" {
+					continue
+				}
+				role := resp.Response.Sender
+				if role == "human" {
+					role = "user"
+				}
+				turns = append(turns, conversationTurn{Role: role, Content: resp.Response.Message})
+			}
+
+			createdAt = time.Now()
+			if entry.Conversation.CreateTime != "" {
+				if t, err := time.Parse(time.RFC3339, entry.Conversation.CreateTime); err == nil {
+					createdAt = t
+				}
+			}
+		} else if len(entry.Messages) > 0 {
+			// Simplified format (tools/extensions)
+			title = entry.Title
+			if title == "" {
+				title = fmt.Sprintf("Grok Conversation %d", i+1)
+			}
+
+			for _, msg := range entry.Messages {
+				role, _ := msg["role"].(string)
+				content := extractMessageContent(msg)
+				if content == "" || role == "system" {
+					continue
+				}
+				turns = append(turns, conversationTurn{Role: role, Content: content})
+			}
+
+			createdAt = time.Now()
+			if entry.Created != "" {
+				if t, err := time.Parse(time.RFC3339, entry.Created); err == nil {
+					createdAt = t
+				}
+			} else if entry.Time != "" {
+				if t, err := time.Parse(time.RFC3339, entry.Time); err == nil {
+					createdAt = t
+				}
+			}
+		} else {
+			continue
+		}
+
+		if len(turns) == 0 {
+			errors = append(errors, fmt.Sprintf("conversation %q: no messages", title))
+			continue
+		}
+
+		content := formatConversation(title, turns)
+		records = append(records, makeRecord(content, "grok-history", 0.85, createdAt))
+	}
+
+	if len(records) == 0 {
+		return nil, nil, fmt.Errorf("no conversations found in Grok export")
+	}
+
+	return records, errors, nil
+}
+
+// ---- Gemini extension parser ----
+// Handles JSON from Gemini browser extensions (role/content messages with optional export_info).
+// Formats: {"chats":[{"messages":[{"role":"user","content":"..."}]}]} or single chat object.
+
+func parseGeminiExtensionJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
+	// Try as wrapper with "chats" array
+	var wrapper struct {
+		Chats []struct {
+			Title    string           `json:"title"`
+			Messages []map[string]any `json:"messages"`
+		} `json:"chats"`
+	}
+	if json.Unmarshal(data, &wrapper) == nil && len(wrapper.Chats) > 0 {
+		var records []*memory.MemoryRecord
+		var errors []string
+
+		for i, chat := range wrapper.Chats {
+			title := chat.Title
+			if title == "" {
+				title = fmt.Sprintf("Gemini Chat %d", i+1)
+			}
+
+			var turns []conversationTurn
+			for _, msg := range chat.Messages {
+				role, _ := msg["role"].(string)
+				content, _ := msg["content"].(string)
+				if content == "" || role == "" {
+					continue
+				}
+				turns = append(turns, conversationTurn{Role: role, Content: content})
+			}
+
+			if len(turns) == 0 {
+				errors = append(errors, fmt.Sprintf("chat %q: no messages", title))
+				continue
+			}
+
+			content := formatConversation(title, turns)
+			records = append(records, makeRecord(content, "gemini-history", 0.85, time.Now()))
+		}
+
+		return records, errors, nil
+	}
+
+	// Try as single chat object with "messages" and optional "title"
+	var single struct {
+		Title    string           `json:"title"`
+		Messages []map[string]any `json:"messages"`
+	}
+	if json.Unmarshal(data, &single) == nil && len(single.Messages) > 0 {
+		title := single.Title
+		if title == "" {
+			title = "Gemini Chat"
+		}
+
+		var turns []conversationTurn
+		for _, msg := range single.Messages {
+			role, _ := msg["role"].(string)
+			content, _ := msg["content"].(string)
+			if content == "" || role == "" {
+				continue
+			}
+			turns = append(turns, conversationTurn{Role: role, Content: content})
+		}
+
+		if len(turns) > 0 {
+			content := formatConversation(title, turns)
+			return []*memory.MemoryRecord{makeRecord(content, "gemini-history", 0.85, time.Now())}, nil, nil
+		}
+	}
+
+	return nil, nil, fmt.Errorf("no Gemini extension messages found")
 }
 
 // ---- Generic parser ----
@@ -594,19 +1326,48 @@ func parseGenericJSON(data []byte) ([]*memory.MemoryRecord, []string, error) {
 // ---- Format detection ----
 
 func detectAndParseJSON(data []byte) ([]*memory.MemoryRecord, string, []string, error) {
+	// First: try to parse as a wrapper object (not an array).
+	// This handles Grok, Gemini extensions, OpenAI wrappers, etc.
+	isObject := false
+	var wrapperObj map[string]json.RawMessage
+	if json.Unmarshal(data, &wrapperObj) == nil && len(wrapperObj) > 0 {
+		isObject = true
+		// Grok: has "conversations" key with nested messages
+		if _, ok := wrapperObj["conversations"]; ok {
+			if recs, errs, err := parseGrokJSON(data); err == nil && len(recs) > 0 {
+				return recs, "grok", errs, nil
+			}
+		}
+		// Gemini extension: has "chats" key with messages arrays
+		if _, ok := wrapperObj["chats"]; ok {
+			if recs, errs, err := parseGeminiExtensionJSON(data); err == nil && len(recs) > 0 {
+				return recs, "gemini-extension", errs, nil
+			}
+		}
+		// Messages wrapper: {"messages":[{"role":"...","content":"..."}]}
+		if _, ok := wrapperObj["messages"]; ok {
+			if recs, errs, err := parseOpenAIMessagesJSON(data); err == nil && len(recs) > 0 {
+				return recs, "openai-messages", errs, nil
+			}
+		}
+	}
+
 	// Try to parse as JSON array
 	var raw []json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
-		// Try as JSON object with array values (e.g., Claude export with conversations key)
-		var obj map[string]json.RawMessage
-		if objErr := json.Unmarshal(data, &obj); objErr == nil {
-			for _, v := range obj {
+		// Not an array — try extracting an array from the object values
+		if isObject {
+			for _, v := range wrapperObj {
 				if json.Unmarshal(v, &raw) == nil && len(raw) > 0 {
 					break
 				}
 			}
 		}
 		if len(raw) == 0 {
+			// Last resort: try OpenAI messages parser which handles many wrapper shapes
+			if recs, errs, parseErr := parseOpenAIMessagesJSON(data); parseErr == nil && len(recs) > 0 {
+				return recs, "openai-messages", errs, nil
+			}
 			return nil, "", nil, fmt.Errorf("file is not a recognized JSON format: %w", err)
 		}
 	}
@@ -627,7 +1388,7 @@ func detectAndParseJSON(data []byte) ([]*memory.MemoryRecord, string, []string, 
 		return recs, "chatgpt", errs, err
 	}
 
-	// Check for Gemini: has "header" == "Gemini Apps"
+	// Check for Gemini Takeout: has "header" == "Gemini Apps"
 	if headerRaw, ok := peek["header"]; ok {
 		var header string
 		if json.Unmarshal(headerRaw, &header) == nil && header == "Gemini Apps" {
@@ -642,7 +1403,28 @@ func detectAndParseJSON(data []byte) ([]*memory.MemoryRecord, string, []string, 
 		return recs, "claude", errs, err
 	}
 
-	// Fallback: generic (handles memory.json and other formats)
+	// Check for OpenAI messages format: array of {"role":"...","content":"..."}
+	if _, hasRole := peek["role"]; hasRole {
+		if _, hasContent := peek["content"]; hasContent {
+			if recs, errs, err := parseOpenAIMessagesJSON(data); err == nil && len(recs) > 0 {
+				return recs, "openai-messages", errs, nil
+			}
+		}
+	}
+
+	// Check for array of conversations with "messages" key (extensions, tools)
+	if _, hasMessages := peek["messages"]; hasMessages {
+		if recs, errs, err := parseOpenAIMessagesJSON(data); err == nil && len(recs) > 0 {
+			return recs, "openai-messages", errs, nil
+		}
+	}
+
+	// Fallback: try OpenAI messages format on the full data (catches nested wrappers)
+	if recs, errs, err := parseOpenAIMessagesJSON(data); err == nil && len(recs) > 0 {
+		return recs, "openai-messages", errs, nil
+	}
+
+	// Final fallback: generic (handles memory.json and other formats)
 	recs, errs, err := parseGenericJSON(data)
 	return recs, "generic", errs, err
 }

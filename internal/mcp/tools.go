@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 // Tool defines an MCP tool with its schema and handler.
@@ -286,8 +287,11 @@ func (s *Server) toolRecall(ctx context.Context, params map[string]any) (any, er
 	}
 
 	domain := stringParam(params, "domain", "")
-	topK := intParam(params, "top_k", 10)
-	minConf := floatParam(params, "min_confidence", 0)
+
+	// Use user-configured defaults when caller doesn't specify
+	defaultTopK, defaultMinConf := s.getRecallDefaults(ctx)
+	topK := intParam(params, "top_k", defaultTopK)
+	minConf := floatParam(params, "min_confidence", defaultMinConf)
 
 	// Get embedding for the query.
 	embedReq, _ := json.Marshal(map[string]string{"text": query})
@@ -498,12 +502,14 @@ func (s *Server) toolTurn(ctx context.Context, params map[string]any) (any, erro
 		// Non-fatal — we can still store the observation even if recall fails
 		result["recall_error"] = err.Error()
 	} else {
+		recallTopK, recallMinConf := s.getRecallDefaults(ctx)
 		queryReq, _ := json.Marshal(map[string]any{
-			"embedding":     embedResp.Embedding,
-			"domain_tag":    "", // Search ALL domains — the topic determines relevance, not a filter
-			"provider":      s.provider,
-			"status_filter": "committed", // ONLY consensus-validated memories
-			"top_k":         10,
+			"embedding":      embedResp.Embedding,
+			"domain_tag":     "", // Search ALL domains — the topic determines relevance, not a filter
+			"provider":       s.provider,
+			"status_filter":  "committed", // ONLY consensus-validated memories
+			"top_k":          recallTopK,
+			"min_confidence": recallMinConf,
 		})
 		var queryResp struct {
 			Results []struct {
@@ -923,6 +929,29 @@ func (s *Server) storeMemory(ctx context.Context, content, domain, memType strin
 }
 
 // --- Param helpers ---
+
+// getRecallDefaults returns the user's configured recall settings, cached for 60s.
+func (s *Server) getRecallDefaults(ctx context.Context) (topK int, minConf float64) {
+	// Return cached if fresh
+	if time.Since(s.recallCacheAge) < 60*time.Second && s.recallTopK > 0 {
+		return s.recallTopK, s.recallMinConf
+	}
+
+	// Fetch from dashboard API
+	var resp struct {
+		TopK          int `json:"top_k"`
+		MinConfidence int `json:"min_confidence"`
+	}
+	if err := s.doSignedJSON(ctx, "GET", "/v1/dashboard/settings/recall", nil, &resp); err == nil && resp.TopK > 0 {
+		s.recallTopK = resp.TopK
+		s.recallMinConf = float64(resp.MinConfidence) / 100.0
+		s.recallCacheAge = time.Now()
+		return s.recallTopK, s.recallMinConf
+	}
+
+	// Defaults if not configured
+	return 5, 0
+}
 
 func stringParam(params map[string]any, key, defaultVal string) string {
 	if v, ok := params[key].(string); ok && v != "" {

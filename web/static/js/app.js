@@ -1,6 +1,6 @@
 // CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, fetchUnregisteredAgents, mergeAgent } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, importMemories, importPreview, importConfirm, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, fetchUnregisteredAgents, mergeAgent, fetchRecallSettings, saveRecallSettings } from './api.js';
 
 const { h, render, createContext } = preact;
 const { useState, useEffect, useRef, useCallback, useContext } = preactHooks;
@@ -2056,6 +2056,73 @@ function AutostartToggle() {
     `;
 }
 
+function RecallSettings() {
+    const [topK, setTopK] = useState(5);
+    const [minConfidence, setMinConfidence] = useState(95);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        fetchRecallSettings().then(data => {
+            if (data.top_k) setTopK(data.top_k);
+            if (data.min_confidence) setMinConfidence(data.min_confidence);
+        }).catch(() => {});
+    }, []);
+
+    async function handleSave() {
+        setSaving(true);
+        setSaved(false);
+        try {
+            await saveRecallSettings(topK, minConfidence);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (e) { /* ignore */ }
+        setSaving(false);
+    }
+
+    return html`
+        <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Memory Recall
+        </h3>
+        <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            Controls how your AI agents retrieve memories via MCP tools (sage_recall, sage_turn).
+        </p>
+        <div class="settings-row" style="align-items:flex-start">
+            <div style="flex:1">
+                <span class="label">Results per query (k)</span>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:2px">How many memories are returned per recall. Higher = more context but slower.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;min-width:180px">
+                <input type="range" min="4" max="10" value=${topK}
+                    onInput=${e => setTopK(parseInt(e.target.value))}
+                    style="flex:1;accent-color:var(--accent)" />
+                <span class="value" style="min-width:24px;text-align:center;font-weight:600">${topK}</span>
+            </div>
+        </div>
+        <div class="settings-row" style="align-items:flex-start;margin-top:8px">
+            <div style="flex:1">
+                <span class="label">Minimum confidence</span>
+                <div style="font-size:11px;color:var(--text-dim);margin-top:2px">Only return memories above this confidence threshold. Lower = broader but noisier recall.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;min-width:180px">
+                <input type="range" min="85" max="100" value=${minConfidence}
+                    onInput=${e => setMinConfidence(parseInt(e.target.value))}
+                    style="flex:1;accent-color:var(--accent)" />
+                <span class="value" style="min-width:36px;text-align:center;font-weight:600">${minConfidence}%</span>
+            </div>
+        </div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+            <button class="btn" onClick=${handleSave} disabled=${saving}>
+                ${saving ? 'Saving...' : 'Save'}
+            </button>
+            ${saved && html`<span style="color:#10b981;font-size:12px">Saved</span>`}
+        </div>
+    `;
+}
+
 function CleanupSettings() {
     const [config, setConfig] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -2309,6 +2376,7 @@ function SettingsPage() {
     const [settingsTab, setSettingsTab] = useState('overview');
     const [stats, setStats] = useState(null);
     const [health, setHealth] = useState(null);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
 
     // Fetch health with live polling every 3s
     useEffect(() => {
@@ -2321,6 +2389,13 @@ function SettingsPage() {
         poll();
         const iv = setInterval(poll, 3000);
         return () => clearInterval(iv);
+    }, []);
+
+    // Background update check on page load
+    useEffect(() => {
+        checkForUpdate().then(data => {
+            if (data && data.update_available) setUpdateAvailable(true);
+        }).catch(() => {});
     }, []);
 
     // Countdown ticker — force re-render every 100ms for smooth display
@@ -2408,6 +2483,7 @@ function SettingsPage() {
                             onClick=${() => setSettingsTab(t.id)}>
                         ${t.icon}
                         <span>${t.label}</span>
+                        ${t.id === 'update' && updateAvailable ? html`<span class="update-badge" title="Update available"></span>` : ''}
                     </button>
                 `)}
                 <${PageHelp} section="settings" label="Settings guide" />
@@ -2540,6 +2616,10 @@ function SettingsPage() {
                     ${html`<${BootInstructions} />`}
 
                     <div class="settings-section" style="margin-top:16px">
+                        ${html`<${RecallSettings} />`}
+                    </div>
+
+                    <div class="settings-section" style="margin-top:16px">
                         ${html`<${CleanupSettings} />`}
                     </div>
 
@@ -2589,6 +2669,8 @@ function ImportPage({ sse }) {
     const [selectedFile, setSelectedFile] = useState(null);
     const [dragging, setDragging] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [previewing, setPreviewing] = useState(false);
+    const [preview, setPreview] = useState(null); // { import_id, total, source, previews }
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const [suggestion, setSuggestion] = useState(null);
@@ -2625,12 +2707,13 @@ function ImportPage({ sse }) {
         e.stopPropagation();
         setDragging(false);
         const file = e.dataTransfer.files[0];
-        if (file && (file.name.endsWith('.json') || file.name.endsWith('.zip') || file.name.endsWith('.md') || file.name.endsWith('.txt'))) {
+        if (file && (file.name.endsWith('.json') || file.name.endsWith('.jsonl') || file.name.endsWith('.zip') || file.name.endsWith('.md') || file.name.endsWith('.txt'))) {
             setSelectedFile(file);
             setResult(null);
             setError(null);
+            setPreview(null);
         } else {
-            setError('Please drop a .json, .zip, .md, or .txt file.');
+            setError('Please drop a .json, .jsonl, .zip, .md, or .txt file.');
         }
     }
 
@@ -2640,29 +2723,54 @@ function ImportPage({ sse }) {
             setSelectedFile(file);
             setResult(null);
             setError(null);
+            setPreview(null);
         }
     }
 
-    async function handleImport() {
-        if (!selectedFile || importing) return;
-        setImporting(true);
+    async function handlePreview() {
+        if (!selectedFile || previewing || importing) return;
+        setPreviewing(true);
         setError(null);
         setResult(null);
         setSuggestion(null);
+        setPreview(null);
         try {
-            const res = await importMemories(selectedFile);
+            const res = await importPreview(selectedFile);
             if (res.error === 'unstructured_document') {
                 setSuggestion(res.suggestion || res.message);
             } else if (res.error) {
                 setError(res.error);
             } else {
+                setPreview(res);
+            }
+        } catch (err) {
+            setError(err.message || 'Preview failed. Please try again.');
+        } finally {
+            setPreviewing(false);
+        }
+    }
+
+    async function handleConfirmImport() {
+        if (!preview || importing) return;
+        setImporting(true);
+        setError(null);
+        try {
+            const res = await importConfirm(preview.import_id);
+            if (res.error) {
+                setError(res.error);
+            } else {
                 setResult(res);
+                setPreview(null);
             }
         } catch (err) {
             setError(err.message || 'Import failed. Please try again.');
         } finally {
             setImporting(false);
         }
+    }
+
+    function handleCancelImport() {
+        setPreview(null);
     }
 
     function formatFileSize(bytes) {
@@ -2715,13 +2823,34 @@ function ImportPage({ sse }) {
                 <div class="provider-card">
                     <div class="provider-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                    </div>
+                    <h3>Grok</h3>
+                    <p>Export from <strong>accounts.x.ai/data</strong>. Upload the <strong>prod-grok-backend.json</strong> file.</p>
+                    <span class="provider-file-type">.json</span>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
                             <path d="M4 4h16v16H4z"/>
                             <path d="M8 8h8M8 12h6M8 16h4"/>
                         </svg>
                     </div>
-                    <h3>Claude Code / Markdown</h3>
-                    <p>Upload your <strong>MEMORY.md</strong> file or any markdown/text notes. Each section becomes a memory.</p>
-                    <span class="provider-file-type">.md .txt</span>
+                    <h3>Claude Code</h3>
+                    <p>Upload session <strong>.jsonl</strong> files from <strong>~/.claude/projects/</strong> or <strong>MEMORY.md</strong> files.</p>
+                    <span class="provider-file-type">.jsonl .md .txt</span>
+                </div>
+                <div class="provider-card">
+                    <div class="provider-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3>Any AI / API</h3>
+                    <p>Works with <strong>OpenAI API</strong>, <strong>Mistral</strong>, <strong>DeepSeek</strong>, browser extensions, and any <strong>role/content</strong> JSON format.</p>
+                    <span class="provider-file-type">.json .jsonl</span>
                 </div>
             </div>
 
@@ -2730,7 +2859,7 @@ function ImportPage({ sse }) {
                  onDragLeave=${!importing ? handleDragLeave : undefined}
                  onDrop=${!importing ? handleDrop : undefined}
                  onClick=${() => !importing && fileInputRef.current && fileInputRef.current.click()}>
-                <input type="file" ref=${fileInputRef} accept=".json,.zip,.md,.txt"
+                <input type="file" ref=${fileInputRef} accept=".json,.jsonl,.zip,.md,.txt"
                        style="display:none" onChange=${handleFileSelect} />
                 ${selectedFile ? html`
                     <div class="drop-zone-file">
@@ -2750,19 +2879,56 @@ function ImportPage({ sse }) {
                         <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                     <p class="drop-zone-text">Drop your export file here or click to browse</p>
-                    <span class="drop-zone-hint">Accepts .zip, .json, .md, and .txt files</span>
+                    <span class="drop-zone-hint">Accepts .zip, .json, .jsonl, .md, and .txt files</span>
                 `}
             </div>
 
-            <div class="import-actions">
-                <button class="btn import-btn ${importing ? 'importing' : ''}"
-                        disabled=${!selectedFile || importing}
-                        onClick=${handleImport}>
-                    ${importing ? html`
-                        <span class="import-spinner"></span> Importing...
-                    ` : 'Import Memories'}
-                </button>
-            </div>
+            ${!preview && html`
+                <div class="import-actions">
+                    <button class="btn import-btn ${previewing ? 'importing' : ''}"
+                            disabled=${!selectedFile || previewing || importing}
+                            onClick=${handlePreview}>
+                        ${previewing ? html`
+                            <span class="import-spinner"></span> Scanning...
+                        ` : 'Scan File'}
+                    </button>
+                </div>
+            `}
+
+            ${preview && !importing && !result && html`
+                <div class="import-preview-card fade-in">
+                    <div class="import-preview-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="22" height="22">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <div>
+                            <h3 style="margin:0;color:var(--text)">Found <span style="color:var(--accent)">${preview.total}</span> memories</h3>
+                            <span style="font-size:12px;color:var(--text-dim)">Source: ${preview.source}</span>
+                        </div>
+                    </div>
+                    ${preview.previews && preview.previews.length > 0 && html`
+                        <div class="import-preview-samples">
+                            ${preview.previews.map((p, i) => html`
+                                <div class="import-preview-sample">
+                                    <span class="import-preview-num">${i + 1}</span>
+                                    <span class="import-preview-domain">${p.domain}</span>
+                                    <span class="import-preview-text">${p.content}</span>
+                                </div>
+                            `)}
+                            ${preview.total > 10 && html`
+                                <div class="import-preview-more">...and ${preview.total - 10} more</div>
+                            `}
+                        </div>
+                    `}
+                    <div class="import-preview-actions">
+                        <button class="btn import-btn" onClick=${handleConfirmImport}>
+                            Confirm Import (${preview.total})
+                        </button>
+                        <button class="btn btn-secondary" onClick=${handleCancelImport}>Cancel</button>
+                    </div>
+                </div>
+            `}
 
             ${(importing && progress) && html`
                 <div class="import-progress fade-in">
@@ -2777,7 +2943,7 @@ function ImportPage({ sse }) {
                         <span>${progress.imported || 0} imported</span>
                         ${progress.skipped > 0 ? html`<span> · ${progress.skipped} skipped</span>` : ''}
                     </div>
-                    <div class="import-progress-hint">You can browse other tabs — the import continues in the background. Watch Chain Activity to see memories being committed.</div>
+                    <div class="import-progress-hint">Each memory goes through BFT consensus on your chain. Watch Chain Activity to see them being committed.</div>
                 </div>
             `}
 

@@ -60,6 +60,9 @@ type DashboardHandler struct {
 	// broadcast as on-chain transactions through CometBFT consensus.
 	CometBFTRPC string
 	SigningKey   ed25519.PrivateKey
+
+	// pendingImports holds parsed records from preview, keyed by import ID.
+	pendingImports sync.Map // string -> *pendingImport
 }
 
 // RedeployOrchestrator extends RedeployChecker with deploy/status methods
@@ -121,6 +124,12 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 		r.Patch("/v1/dashboard/memory/{id}", h.handleUpdateMemory)
 		r.Get("/v1/dashboard/events", h.SSE.ServeHTTP)
 		r.Post("/v1/dashboard/import", h.handleImportUpload)
+		r.Post("/v1/dashboard/import/preview", h.handleImportPreview)
+		r.Post("/v1/dashboard/import/confirm", h.handleImportConfirm)
+
+		// Recall settings (k-value, confidence threshold)
+		r.Get("/v1/dashboard/settings/recall", h.handleGetRecallSettings)
+		r.Post("/v1/dashboard/settings/recall", h.handleSaveRecallSettings)
 		r.Get("/v1/dashboard/settings/cleanup", h.handleGetCleanupSettings)
 		r.Post("/v1/dashboard/settings/cleanup", h.handleSaveCleanupSettings)
 		r.Post("/v1/dashboard/cleanup/run", h.handleRunCleanup)
@@ -871,4 +880,84 @@ func (h *DashboardHandler) handleSaveBootInstructions(w http.ResponseWriter, r *
 		return
 	}
 	writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "instructions": body.Instructions})
+}
+
+// handleGetRecallSettings returns the current recall tuning parameters.
+func (h *DashboardHandler) handleGetRecallSettings(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+
+	prefs, err := h.prefStore.GetAllPreferences(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	topK := 5
+	if v, ok := prefs["recall_top_k"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			topK = n
+		}
+	}
+
+	confidence := 95
+	if v, ok := prefs["recall_min_confidence"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			confidence = n
+		}
+	}
+
+	writeJSONResp(w, http.StatusOK, map[string]any{
+		"top_k":          topK,
+		"min_confidence": confidence,
+	})
+}
+
+// handleSaveRecallSettings saves recall tuning parameters.
+func (h *DashboardHandler) handleSaveRecallSettings(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+
+	var body struct {
+		TopK          int `json:"top_k"`
+		MinConfidence int `json:"min_confidence"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	// Clamp to valid ranges
+	if body.TopK < 4 {
+		body.TopK = 4
+	}
+	if body.TopK > 10 {
+		body.TopK = 10
+	}
+	if body.MinConfidence < 85 {
+		body.MinConfidence = 85
+	}
+	if body.MinConfidence > 100 {
+		body.MinConfidence = 100
+	}
+
+	if err := h.prefStore.SetPreference(r.Context(), "recall_top_k", strconv.Itoa(body.TopK)); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := h.prefStore.SetPreference(r.Context(), "recall_min_confidence", strconv.Itoa(body.MinConfidence)); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSONResp(w, http.StatusOK, map[string]any{
+		"ok":             true,
+		"top_k":          body.TopK,
+		"min_confidence": body.MinConfidence,
+	})
 }

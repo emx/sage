@@ -109,9 +109,25 @@ if [ "${1:-}" = "stop" ]; then
     exit 0
 fi
 
-# Copy binary from .app bundle to ~/.sage/bin/ (always update on launch)
-cp -f "$APP_BIN" "$SAGE_BIN"
-chmod +x "$SAGE_BIN"
+# Copy binary from .app bundle to ~/.sage/bin/
+# But only if the .app binary is newer or same version — don't overwrite in-app updates.
+should_copy=true
+if [ -f "$SAGE_BIN" ]; then
+    APP_VER=$("$APP_BIN" version 2>/dev/null | awk '{print $2}' | tr -d 'v')
+    CUR_VER=$("$SAGE_BIN" version 2>/dev/null | awk '{print $2}' | tr -d 'v')
+    if [ -n "$CUR_VER" ] && [ -n "$APP_VER" ] && [ "$APP_VER" != "$CUR_VER" ]; then
+        # Compare using sort -V (available on macOS 12+)
+        HIGHEST=$(printf '%s\n%s' "$APP_VER" "$CUR_VER" | sort -rV 2>/dev/null | head -1)
+        if [ "$HIGHEST" = "$CUR_VER" ]; then
+            should_copy=false
+            echo "$(date): Keeping in-app updated binary (v$CUR_VER > v$APP_VER from .app)" >> "$LOG_FILE"
+        fi
+    fi
+fi
+if [ "$should_copy" = true ]; then
+    cp -f "$APP_BIN" "$SAGE_BIN"
+    chmod +x "$SAGE_BIN"
+fi
 
 # Migrate: remove old com.sage.lite launchd plist (renamed in v3.6.0)
 OLD_PLIST="$HOME/Library/LaunchAgents/com.sage.lite.plist"

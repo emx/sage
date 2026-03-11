@@ -813,3 +813,395 @@ func createZip(t *testing.T, filename string, content []byte) []byte {
 	require.NoError(t, w.Close())
 	return buf.Bytes()
 }
+
+// ---------------------------------------------------------------------------
+// OpenAI messages format parser tests
+// ---------------------------------------------------------------------------
+
+func TestImport_ParseOpenAIMessages_SimpleArray(t *testing.T) {
+	data := []byte(`[
+		{"role": "user", "content": "What is Go?"},
+		{"role": "assistant", "content": "Go is a programming language."}
+	]`)
+
+	records, errs, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "user: What is Go?")
+	assert.Contains(t, records[0].Content, "assistant: Go is a programming language.")
+	assert.Equal(t, "chat-import", records[0].DomainTag)
+}
+
+func TestImport_ParseOpenAIMessages_MessagesWrapper(t *testing.T) {
+	data := []byte(`{
+		"messages": [
+			{"role": "system", "content": "You are helpful."},
+			{"role": "user", "content": "Hello"},
+			{"role": "assistant", "content": "Hi!"}
+		]
+	}`)
+
+	records, errs, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "user: Hello")
+	assert.Contains(t, records[0].Content, "assistant: Hi!")
+	assert.NotContains(t, records[0].Content, "system:")
+}
+
+func TestImport_ParseOpenAIMessages_ConversationsArray(t *testing.T) {
+	data := []byte(`[
+		{
+			"title": "Chat 1",
+			"messages": [
+				{"role": "user", "content": "First chat"},
+				{"role": "assistant", "content": "Response 1"}
+			]
+		},
+		{
+			"title": "Chat 2",
+			"messages": [
+				{"role": "user", "content": "Second chat"},
+				{"role": "assistant", "content": "Response 2"}
+			]
+		}
+	]`)
+
+	records, errs, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 2)
+	assert.Contains(t, records[0].Content, "First chat")
+	assert.Contains(t, records[1].Content, "Second chat")
+}
+
+func TestImport_ParseOpenAIMessages_ConversationsWrapper(t *testing.T) {
+	data := []byte(`{
+		"conversations": [
+			{
+				"messages": [
+					{"role": "user", "content": "Wrapped chat"},
+					{"role": "assistant", "content": "Wrapped response"}
+				]
+			}
+		]
+	}`)
+
+	records, errs, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "Wrapped chat")
+}
+
+func TestImport_ParseOpenAIMessages_ClaudeAPIFormat(t *testing.T) {
+	// Claude API uses content as array of blocks
+	data := []byte(`[
+		{"role": "user", "content": "What is SAGE?"},
+		{"role": "assistant", "content": [{"type": "text", "text": "SAGE is a memory system."}]}
+	]`)
+
+	records, errs, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "assistant: SAGE is a memory system.")
+}
+
+func TestImport_ParseOpenAIMessages_SkipsSystemAndTool(t *testing.T) {
+	data := []byte(`[
+		{"role": "system", "content": "System prompt"},
+		{"role": "user", "content": "Hello"},
+		{"role": "tool", "content": "Tool output"},
+		{"role": "assistant", "content": "Hi!"}
+	]`)
+
+	records, _, err := parseOpenAIMessagesJSON(data)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.NotContains(t, records[0].Content, "system:")
+	assert.NotContains(t, records[0].Content, "tool:")
+}
+
+func TestImport_ParseOpenAIMessages_EmptyMessages(t *testing.T) {
+	data := []byte(`{"messages": []}`)
+	_, _, err := parseOpenAIMessagesJSON(data)
+	require.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// Claude Code JSONL parser tests
+// ---------------------------------------------------------------------------
+
+func TestImport_ParseJSONL_ClaudeCodeSession(t *testing.T) {
+	lines := []string{
+		`{"sessionId":"sess1","type":"user","message":{"role":"user","content":"Build a CLI tool"},"timestamp":"2026-03-10T10:00:00Z"}`,
+		`{"sessionId":"sess1","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I'll create a CLI tool for you."}]},"timestamp":"2026-03-10T10:01:00Z"}`,
+	}
+	data := []byte(strings.Join(lines, "\n"))
+
+	records, source, errs, err := parseJSONL(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Equal(t, "claude-code", source)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "user: Build a CLI tool")
+	assert.Contains(t, records[0].Content, "assistant: I'll create a CLI tool for you.")
+	assert.Equal(t, "claude-code-history", records[0].DomainTag)
+}
+
+func TestImport_ParseJSONL_SkipsToolResults(t *testing.T) {
+	lines := []string{
+		`{"sessionId":"sess1","type":"user","message":{"role":"user","content":"List files"},"timestamp":"2026-03-10T10:00:00Z"}`,
+		`{"sessionId":"sess1","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Let me check."}]},"timestamp":"2026-03-10T10:01:00Z"}`,
+		`{"sessionId":"sess1","type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"123","content":[{"type":"text","text":"file1.go"}]}]},"timestamp":"2026-03-10T10:02:00Z"}`,
+	}
+	data := []byte(strings.Join(lines, "\n"))
+
+	records, _, _, err := parseJSONL(data)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.NotContains(t, records[0].Content, "file1.go")
+}
+
+func TestImport_ParseJSONL_MultipleSessions(t *testing.T) {
+	lines := []string{
+		`{"sessionId":"s1","type":"user","message":{"role":"user","content":"Session one"},"timestamp":"2026-03-10T10:00:00Z"}`,
+		`{"sessionId":"s2","type":"user","message":{"role":"user","content":"Session two"},"timestamp":"2026-03-10T11:00:00Z"}`,
+	}
+	data := []byte(strings.Join(lines, "\n"))
+
+	records, _, _, err := parseJSONL(data)
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+}
+
+func TestImport_ParseJSONL_FinetuningFormat(t *testing.T) {
+	lines := []string{
+		`{"messages":[{"role":"user","content":"What is 2+2?"},{"role":"assistant","content":"4"}]}`,
+		`{"messages":[{"role":"user","content":"What is 3+3?"},{"role":"assistant","content":"6"}]}`,
+	}
+	data := []byte(strings.Join(lines, "\n"))
+
+	records, source, errs, err := parseJSONL(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Equal(t, "jsonl", source)
+	require.Len(t, records, 2)
+	assert.Contains(t, records[0].Content, "user: What is 2+2?")
+	assert.Contains(t, records[0].Content, "assistant: 4")
+}
+
+func TestImport_ParseJSONL_Empty(t *testing.T) {
+	_, _, errs, err := parseJSONL([]byte(""))
+	require.NoError(t, err)
+	assert.NotEmpty(t, errs)
+}
+
+// ---------------------------------------------------------------------------
+// Grok parser tests
+// ---------------------------------------------------------------------------
+
+func TestImport_ParseGrokJSON_Valid(t *testing.T) {
+	data := []byte(`{
+		"conversations": [
+			{
+				"title": "Grok Chat",
+				"created_at": "2026-01-15T10:00:00Z",
+				"messages": [
+					{"role": "user", "content": "Tell me a joke"},
+					{"role": "assistant", "content": "Why did the AI cross the road?"}
+				]
+			}
+		]
+	}`)
+
+	records, errs, err := parseGrokJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "[Grok Chat]")
+	assert.Contains(t, records[0].Content, "user: Tell me a joke")
+	assert.Equal(t, "grok-history", records[0].DomainTag)
+}
+
+func TestImport_ParseGrokJSON_NoConversations(t *testing.T) {
+	data := []byte(`{"other": "data"}`)
+	_, _, err := parseGrokJSON(data)
+	require.Error(t, err)
+}
+
+func TestImport_ParseGrokJSON_InvalidJSON(t *testing.T) {
+	_, _, err := parseGrokJSON([]byte(`not json`))
+	require.Error(t, err)
+}
+
+// ---------------------------------------------------------------------------
+// Gemini extension parser tests
+// ---------------------------------------------------------------------------
+
+func TestImport_ParseGeminiExtension_ChatsArray(t *testing.T) {
+	data := []byte(`{
+		"chats": [
+			{
+				"title": "Gemini Chat",
+				"messages": [
+					{"role": "user", "content": "Hello Gemini"},
+					{"role": "assistant", "content": "Hello! How can I help?"}
+				]
+			}
+		]
+	}`)
+
+	records, errs, err := parseGeminiExtensionJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "user: Hello Gemini")
+	assert.Equal(t, "gemini-history", records[0].DomainTag)
+}
+
+func TestImport_ParseGeminiExtension_SingleChat(t *testing.T) {
+	data := []byte(`{
+		"title": "Single Chat",
+		"messages": [
+			{"role": "user", "content": "Hi"},
+			{"role": "assistant", "content": "Hello!"}
+		]
+	}`)
+
+	records, errs, err := parseGeminiExtensionJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "[Single Chat]")
+}
+
+// ---------------------------------------------------------------------------
+// Gemini Takeout parser tests (enhanced with subtitles/safeHtmlItem)
+// ---------------------------------------------------------------------------
+
+func TestImport_ParseGeminiJSON_WithSubtitlesAndHTML(t *testing.T) {
+	data := []byte(`[
+		{
+			"header": "Gemini Apps",
+			"title": "Used Gemini Apps",
+			"time": "2025-06-15T14:30:00Z",
+			"subtitles": [{"name": "User", "value": "What is the capital of France?"}],
+			"safeHtmlItem": [{"html": "<p>The capital of France is <b>Paris</b>.</p>"}],
+			"products": ["Gemini Apps"]
+		}
+	]`)
+
+	records, errs, err := parseGeminiJSON(data)
+	require.NoError(t, err)
+	assert.Empty(t, errs)
+	require.Len(t, records, 1)
+	assert.Contains(t, records[0].Content, "user: What is the capital of France?")
+	assert.Contains(t, records[0].Content, "assistant:")
+	assert.Contains(t, records[0].Content, "Paris")
+	assert.NotContains(t, records[0].Content, "<p>")
+	assert.NotContains(t, records[0].Content, "<b>")
+}
+
+func TestImport_ParseGeminiJSON_SkipsUsedGeminiAppsTitle(t *testing.T) {
+	// When subtitles/safeHtmlItem are empty, skip entries with generic title
+	data := []byte(`[
+		{"header": "Gemini Apps", "title": "Used Gemini Apps", "time": "2025-06-15T14:30:00Z"},
+		{"header": "Gemini Apps", "title": "Real query here", "time": "2025-06-15T14:31:00Z"}
+	]`)
+
+	records, _, err := parseGeminiJSON(data)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, "Real query here", records[0].Content)
+}
+
+// ---------------------------------------------------------------------------
+// Format detection tests for new parsers
+// ---------------------------------------------------------------------------
+
+func TestImport_DetectAndParseJSON_OpenAIMessagesFormat(t *testing.T) {
+	data := []byte(`[
+		{"role": "user", "content": "Test message"},
+		{"role": "assistant", "content": "Test response"}
+	]`)
+
+	records, source, _, err := detectAndParseJSON(data)
+	require.NoError(t, err)
+	assert.Equal(t, "openai-messages", source)
+	require.NotEmpty(t, records)
+}
+
+func TestImport_DetectAndParseJSON_MessagesWrapper(t *testing.T) {
+	data := []byte(`{"messages": [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]}`)
+
+	records, source, _, err := detectAndParseJSON(data)
+	require.NoError(t, err)
+	assert.Equal(t, "openai-messages", source)
+	require.NotEmpty(t, records)
+}
+
+func TestImport_DetectAndParseJSON_GrokFormat(t *testing.T) {
+	data := []byte(`{
+		"conversations": [
+			{"title": "Chat", "messages": [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]}
+		]
+	}`)
+
+	records, source, _, err := detectAndParseJSON(data)
+	require.NoError(t, err)
+	assert.Equal(t, "grok", source)
+	require.NotEmpty(t, records)
+}
+
+func TestImport_DetectAndParseJSON_GeminiExtensionFormat(t *testing.T) {
+	data := []byte(`{
+		"chats": [
+			{"title": "Chat", "messages": [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]}
+		]
+	}`)
+
+	records, source, _, err := detectAndParseJSON(data)
+	require.NoError(t, err)
+	assert.Equal(t, "gemini-extension", source)
+	require.NotEmpty(t, records)
+}
+
+// ---------------------------------------------------------------------------
+// HTML stripping tests
+// ---------------------------------------------------------------------------
+
+func TestImport_StripHTMLTags(t *testing.T) {
+	assert.Equal(t, "Hello World", stripHTMLTags("<p>Hello <b>World</b></p>"))
+	assert.Equal(t, "Item 1 Item 2", stripHTMLTags("<ul><li>Item 1</li><li>Item 2</li></ul>"))
+	assert.Equal(t, "Plain text", stripHTMLTags("Plain text"))
+	assert.Equal(t, "", stripHTMLTags(""))
+}
+
+// ---------------------------------------------------------------------------
+// extractMessageContent tests
+// ---------------------------------------------------------------------------
+
+func TestImport_ExtractMessageContent_String(t *testing.T) {
+	msg := map[string]any{"role": "user", "content": "Hello"}
+	assert.Equal(t, "Hello", extractMessageContent(msg))
+}
+
+func TestImport_ExtractMessageContent_ContentBlocks(t *testing.T) {
+	msg := map[string]any{
+		"role": "assistant",
+		"content": []any{
+			map[string]any{"type": "text", "text": "First part."},
+			map[string]any{"type": "text", "text": "Second part."},
+		},
+	}
+	assert.Equal(t, "First part.\nSecond part.", extractMessageContent(msg))
+}
+
+func TestImport_ExtractMessageContent_NoContent(t *testing.T) {
+	msg := map[string]any{"role": "user"}
+	assert.Equal(t, "", extractMessageContent(msg))
+}

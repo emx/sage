@@ -1070,6 +1070,15 @@ body {
 }
 .settings-tab svg { opacity: 0.7; }
 .settings-tab.active svg { opacity: 1; }
+.settings-tab .update-badge {
+    width: 8px; height: 8px;
+    background: var(--accent, #f59e0b);
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 2px;
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .settings-tab-content { animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .settings-grid {
@@ -1901,6 +1910,92 @@ body {
     color: var(--text-dim);
     opacity: 0.7;
     font-style: italic;
+}
+
+/* Import preview card */
+.import-preview-card {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+}
+.import-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.import-preview-samples {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+.import-preview-sample {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.import-preview-num {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+}
+.import-preview-domain {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.import-preview-text {
+    color: var(--text-dim);
+    word-break: break-word;
+}
+.import-preview-more {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 4px;
+}
+.import-preview-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.btn-secondary {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+}
+.btn-secondary:hover {
+    border-color: var(--text-dim);
+    color: var(--text);
 }
 
 .import-error {

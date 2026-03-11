@@ -511,7 +511,7 @@ footer a:hover { text-decoration: underline; }
     <a href="#" class="nav-logo" onclick="switchTab('home');return false;">SAGE <span>Personal</span></a>
     <div class="nav-tabs">
       <button class="nav-tab active" data-tab="home">Home</button>
-      <button class="nav-tab" data-tab="features">Features <span class="tab-badge">v3.5</span></button>
+      <button class="nav-tab" data-tab="features">Features</button>
       <button class="nav-tab" data-tab="connect">Connect</button>
       <button class="nav-tab" data-tab="network">Network</button>
       <button class="nav-tab" data-tab="research">Research</button>
@@ -678,16 +678,16 @@ footer a:hover { text-decoration: underline; }
         <p class="section-desc" style="margin:0 auto;">Not just a key-value store. SAGE is governed institutional memory &mdash; validated, scored, and evolving.</p>
       </div>
 
-      <!-- What's New in v3.6 -->
+      <!-- What's New in v3.7 -->
       <div class="whats-new reveal">
-        <h3>What's new in <span>v3.6</span></h3>
+        <h3>What's new in <span id="whats-new-version">the latest release</span></h3>
         <div class="new-features">
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Brain Graph Click-to-Focus</h4><p>Click any memory bubble to focus its domain group. Others fade. Focused memories arrange in a timeline row by creation date.</p></div></div>
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Interactive Timeline</h4><p>Click time buckets to filter memories by hour. Multi-select to narrow down. See exactly what happened between 8am and 10am.</p></div></div>
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Chain Activity Log</h4><p>Real-time collapsible event stream showing memory operations, consensus votes, and agent activity as they happen.</p></div></div>
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Draggable Stats Panel</h4><p>Grab and move the Memory Stats panel anywhere. Position persists between sessions. Resize horizontally.</p></div></div>
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Admin-First Agent Tabs</h4><p>Admin agents appear first in brain view tabs for immediate access to admin controls.</p></div></div>
-          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>SAGE GUI Branding</h4><p>Renamed from sage-lite to sage-gui. Upgrade migration handles old launchd services automatically.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Import Preview &amp; Confirm</h4><p>Preview detected memories before importing. See a sample of what will be created, then confirm or cancel. No more blind imports.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>JSONL Import Support</h4><p>Import JSONL conversation exports alongside existing ChatGPT ZIP, Claude markdown, and Gemini JSON formats.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Recall Settings</h4><p>Configure how many memories agents retrieve per query and minimum confidence threshold. Tune recall from the dashboard.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>MCP Recall Defaults</h4><p>sage_recall and sage_turn now respect your dashboard recall settings. Cached for performance, no extra config needed.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>Smarter Version Checks</h4><p>Proper semver comparison for updates. App bundle sync on macOS so the launcher doesn't revert after upgrading.</p></div></div>
+          <div class="new-feature"><div class="new-feature-dot"></div><div><h4>DMG Installer Fixes</h4><p>Improved macOS DMG build script for cleaner installs and upgrades.</p></div></div>
         </div>
       </div>
 
@@ -1120,7 +1120,10 @@ function copyPrompt(box) {
         document.getElementById('minds-freed').style.display = 'block';
       }
       const latest = releases.find(r => !r.prerelease && !r.draft);
-      if (latest) { const el = document.getElementById('latest-version'); if (el) el.textContent = latest.tag_name; }
+      if (latest) {
+        const el = document.getElementById('latest-version'); if (el) el.textContent = latest.tag_name;
+        const wn = document.getElementById('whats-new-version'); if (wn) wn.textContent = latest.tag_name;
+      }
     }).catch(() => {});
 })();
 

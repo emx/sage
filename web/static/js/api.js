@@ -80,6 +80,25 @@ export async function importMemories(file) {
     return res.json();
 }
 
+export async function importPreview(file) {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_BASE}/v1/dashboard/import/preview`, {
+        method: 'POST',
+        body: form,
+    });
+    return res.json();
+}
+
+export async function importConfirm(importId) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/import/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ import_id: importId }),
+    });
+    return res.json();
+}
+
 export async function fetchCleanupSettings() {
     const res = await fetch(`${API_BASE}/v1/dashboard/settings/cleanup`);
     return res.json();
@@ -282,6 +301,22 @@ export async function setAutostart(enabled) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
+    });
+    return res.json();
+}
+
+// ─── Recall Settings API ───
+
+export async function fetchRecallSettings() {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/recall`);
+    return res.json();
+}
+
+export async function saveRecallSettings(topK, minConfidence) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/recall`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ top_k: topK, min_confidence: minConfidence }),
     });
     return res.json();
 }
