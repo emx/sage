@@ -215,7 +215,7 @@ func (s *PostgresStore) InsertTriples(ctx context.Context, memoryID string, trip
 	}
 
 	br := s.db.SendBatch(ctx, batch)
-	defer br.Close()
+	defer func() { _ = br.Close() }()
 
 	for range triples {
 		if _, err := br.Exec(); err != nil {

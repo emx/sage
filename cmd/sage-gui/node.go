@@ -84,7 +84,7 @@ func runServe() error {
 	if err != nil {
 		return fmt.Errorf("open SQLite: %w", err)
 	}
-	defer sqliteStore.Close()
+	defer func() { _ = sqliteStore.Close() }()
 
 	// Unlock encryption vault if enabled
 	if cfg.Encryption.Enabled {
@@ -123,7 +123,7 @@ func runServe() error {
 		return fmt.Errorf("create SAGE app: %w", err)
 	}
 	app.Version = version
-	defer app.Close()
+	defer func() { _ = app.Close() }()
 
 	// Create embedding provider
 	embedProvider := createEmbeddingProvider(cfg, logger)
@@ -604,7 +604,7 @@ func runStatus() error {
 	statsReq, _ := http.NewRequestWithContext(ctx, "GET", baseURL+"/v1/dashboard/stats", nil)
 	statsResp, err := http.DefaultClient.Do(statsReq)
 	if err == nil {
-		defer statsResp.Body.Close()
+		defer func() { _ = statsResp.Body.Close() }()
 		var stats map[string]any
 		if json.NewDecoder(statsResp.Body).Decode(&stats) == nil {
 			if total, ok := stats["total_memories"]; ok {

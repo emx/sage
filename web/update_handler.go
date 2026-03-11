@@ -195,9 +195,9 @@ func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Requ
 	defer os.Remove(archiveTmp.Name())
 
 	hasher := sha256.New()
-	if _, err := io.Copy(archiveTmp, io.TeeReader(io.LimitReader(resp.Body, 500<<20), hasher)); err != nil {
-		archiveTmp.Close()
-		writeError(w, http.StatusBadGateway, "download read failed: "+err.Error())
+	if _, copyErr := io.Copy(archiveTmp, io.TeeReader(io.LimitReader(resp.Body, 500<<20), hasher)); copyErr != nil {
+		_ = archiveTmp.Close()
+		writeError(w, http.StatusBadGateway, "download read failed: "+copyErr.Error())
 		return
 	}
 	actualChecksum := hex.EncodeToString(hasher.Sum(nil))
@@ -205,22 +205,22 @@ func (h *DashboardHandler) handleApplyUpdate(w http.ResponseWriter, r *http.Requ
 	// Verify SHA-256 checksum if provided
 	if body.Checksum != "" {
 		if !strings.EqualFold(actualChecksum, body.Checksum) {
-			archiveTmp.Close()
+			_ = archiveTmp.Close()
 			writeError(w, http.StatusBadRequest, "checksum mismatch: archive may be corrupted or tampered with")
 			return
 		}
 	}
 
 	// Seek back to the beginning for extraction
-	if _, err := archiveTmp.Seek(0, io.SeekStart); err != nil {
-		archiveTmp.Close()
-		writeError(w, http.StatusInternalServerError, "failed to seek archive: "+err.Error())
+	if _, seekErr := archiveTmp.Seek(0, io.SeekStart); seekErr != nil {
+		_ = archiveTmp.Close()
+		writeError(w, http.StatusInternalServerError, "failed to seek archive: "+seekErr.Error())
 		return
 	}
 
 	// Extract sage-gui binary from tar.gz
 	newBinary, err := extractBinaryFromTarGz(archiveTmp, "sage-gui")
-	archiveTmp.Close()
+	_ = archiveTmp.Close()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "extraction failed: "+err.Error())
 		return
@@ -310,7 +310,7 @@ func extractBinaryFromTarGz(reader io.Reader, binaryName string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("gzip: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	for {
@@ -330,11 +330,11 @@ func extractBinaryFromTarGz(reader io.Reader, binaryName string) (string, error)
 				return "", err
 			}
 			if _, err := io.Copy(tmpFile, io.LimitReader(tr, 500<<20)); err != nil { // 500MB max
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", err
 			}
-			tmpFile.Close()
+			_ = tmpFile.Close()
 			_ = os.Chmod(tmpFile.Name(), 0755)
 			return tmpFile.Name(), nil
 		}

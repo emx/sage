@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to create SAGE app")
 	}
-	defer app.Close()
+	defer func() { _ = app.Close() }()
 
 	health.SetPostgresHealth(true)
 	logger.Info().Msg("SAGE ABCI application created")

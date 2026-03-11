@@ -106,13 +106,13 @@ func NewSQLiteStore(ctx context.Context, dbPath string) (*SQLiteStore, error) {
 	}
 
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 
 	s := &SQLiteStore{conn: db, db: db, dbPath: dbPath}
 	if err := s.initSchema(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
 
@@ -749,7 +749,7 @@ func (s *SQLiteStore) QuerySimilar(ctx context.Context, embedding []float32, opt
 	if err != nil {
 		return nil, fmt.Errorf("query similar: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	type scoredRecord struct {
 		record     *memory.MemoryRecord
@@ -861,7 +861,7 @@ func (s *SQLiteStore) GetVotes(ctx context.Context, memoryID string) ([]*Validat
 	if err != nil {
 		return nil, fmt.Errorf("get votes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var votes []*ValidationVote
 	for rows.Next() {
@@ -906,7 +906,7 @@ func (s *SQLiteStore) GetCorroborations(ctx context.Context, memoryID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("get corroborations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var corrs []*Corroboration
 	for rows.Next() {
@@ -933,7 +933,7 @@ func (s *SQLiteStore) GetPendingByDomain(ctx context.Context, domainTag string, 
 	if err != nil {
 		return nil, fmt.Errorf("get pending: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*memory.MemoryRecord
 	for rows.Next() {
@@ -1016,7 +1016,7 @@ func (s *SQLiteStore) ListMemories(ctx context.Context, opts ListOptions) ([]*me
 	if err != nil {
 		return nil, 0, fmt.Errorf("list memories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*memory.MemoryRecord
 	for rows.Next() {
@@ -1064,12 +1064,12 @@ func (s *SQLiteStore) GetStats(ctx context.Context) (*StoreStats, error) {
 		var domain string
 		var count int
 		if scanErr := rows.Scan(&domain, &count); scanErr != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("scan domain count: %w", scanErr)
 		}
 		stats.ByDomain[domain] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	rows, err = s.conn.QueryContext(ctx, `SELECT status, COUNT(*) FROM memories GROUP BY status`)
 	if err != nil {
@@ -1079,12 +1079,12 @@ func (s *SQLiteStore) GetStats(ctx context.Context) (*StoreStats, error) {
 		var status string
 		var count int
 		if scanErr := rows.Scan(&status, &count); scanErr != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("scan status count: %w", scanErr)
 		}
 		stats.ByStatus[status] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// Count by agent
 	stats.ByAgent = make(map[string]int)
@@ -1096,12 +1096,12 @@ func (s *SQLiteStore) GetStats(ctx context.Context) (*StoreStats, error) {
 		var agent string
 		var count int
 		if scanErr := rows.Scan(&agent, &count); scanErr != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("scan agent count: %w", scanErr)
 		}
 		stats.ByAgent[agent] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	var lastActivity *string
 	if scanErr := s.conn.QueryRowContext(ctx, `SELECT MAX(created_at) FROM memories`).Scan(&lastActivity); scanErr == nil {
@@ -1145,7 +1145,7 @@ func (s *SQLiteStore) GetTimeline(ctx context.Context, from, to time.Time, domai
 	if err != nil {
 		return nil, fmt.Errorf("get timeline: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var buckets []TimelineBucket
 	for rows.Next() {
@@ -1235,7 +1235,7 @@ func (s *SQLiteStore) GetAllScores(ctx context.Context) ([]*ValidatorScore, erro
 	if err != nil {
 		return nil, fmt.Errorf("get all scores: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var scores []*ValidatorScore
 	for rows.Next() {
@@ -1291,7 +1291,7 @@ func (s *SQLiteStore) GetActiveGrants(ctx context.Context, agentID string) ([]*A
 	if err != nil {
 		return nil, fmt.Errorf("get active grants: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var grants []*AccessGrantEntry
 	for rows.Next() {
@@ -1469,7 +1469,7 @@ func (s *SQLiteStore) GetOrgMembers(ctx context.Context, orgID string) ([]*OrgMe
 	if err != nil {
 		return nil, fmt.Errorf("get org members: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var members []*OrgMemberEntry
 	for rows.Next() {
@@ -1578,7 +1578,7 @@ func (s *SQLiteStore) GetActiveFederations(ctx context.Context, orgID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("get active federations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var feds []*FederationEntry
 	for rows.Next() {
@@ -1663,7 +1663,7 @@ func (s *SQLiteStore) GetOrgDepts(ctx context.Context, orgID string) ([]*DeptEnt
 	if err != nil {
 		return nil, fmt.Errorf("get org depts: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var depts []*DeptEntry
 	for rows.Next() {
@@ -1716,7 +1716,7 @@ func (s *SQLiteStore) GetDeptMembers(ctx context.Context, orgID, deptID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get dept members: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var members []*DeptMemberEntry
 	for rows.Next() {
@@ -1762,7 +1762,7 @@ func (s *SQLiteStore) ListAgents(ctx context.Context) ([]*AgentEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list agents: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var agents []*AgentEntry
 	for rows.Next() {
@@ -2112,7 +2112,7 @@ func (s *SQLiteStore) GetRedeployLog(ctx context.Context, operation string) ([]*
 	if err != nil {
 		return nil, fmt.Errorf("get redeploy log: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entries []*RedeploymentLogEntry
 	for rows.Next() {
@@ -2201,7 +2201,7 @@ func (s *SQLiteStore) GetAllPreferences(ctx context.Context) (map[string]string,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	prefs := make(map[string]string)
 	for rows.Next() {
@@ -2234,7 +2234,7 @@ func (s *SQLiteStore) GetCleanupCandidates(ctx context.Context, observationTTLDa
 	if err != nil {
 		return nil, fmt.Errorf("query cleanup candidates: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []*memory.MemoryRecord
 	for rows.Next() {
@@ -2338,7 +2338,7 @@ func (s *SQLiteStore) GetLinkedMemories(ctx context.Context, memoryID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("get linked memories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var links []memory.MemoryLink
 	for rows.Next() {
@@ -2375,7 +2375,7 @@ func (s *SQLiteStore) GetOpenTasks(ctx context.Context, domain string, provider 
 	if err != nil {
 		return nil, fmt.Errorf("get open tasks: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []*memory.MemoryRecord
 	for rows.Next() {
@@ -2417,7 +2417,7 @@ func (s *SQLiteStore) GetAllTasks(ctx context.Context, domain string, limit int)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []*memory.MemoryRecord
 	for rows.Next() {
@@ -2449,7 +2449,7 @@ func (s *SQLiteStore) SetTags(ctx context.Context, memoryID string, tags []strin
 		if err != nil {
 			return fmt.Errorf("prepare insert: %w", err)
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 		for _, tag := range tags {
 			tag = strings.TrimSpace(tag)
 			if tag == "" {
@@ -2470,7 +2470,7 @@ func (s *SQLiteStore) GetTags(ctx context.Context, memoryID string) ([]string, e
 	if err != nil {
 		return nil, fmt.Errorf("query tags: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []string
 	for rows.Next() {
@@ -2490,7 +2490,7 @@ func (s *SQLiteStore) ListAllTags(ctx context.Context) ([]TagCount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tags []TagCount
 	for rows.Next() {
@@ -2527,7 +2527,7 @@ func (s *SQLiteStore) ListMemoriesByTag(ctx context.Context, tag string, limit, 
 	if err != nil {
 		return nil, 0, fmt.Errorf("list by tag: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*memory.MemoryRecord
 	for rows.Next() {

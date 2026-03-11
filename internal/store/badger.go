@@ -1069,7 +1069,7 @@ func (s *BadgerStore) FindFederation(orgA, orgB string) (fedID string, err error
 					return decErr
 				}
 				// Check both directions
-				if !((proposer == orgA && target == orgB) || (proposer == orgB && target == orgA)) {
+				if (proposer != orgA || target != orgB) && (proposer != orgB || target != orgA) {
 					return nil
 				}
 				// Skip maxClearance(1) + expiresAt(8) + requiresApproval(1)

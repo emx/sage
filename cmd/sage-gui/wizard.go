@@ -234,11 +234,12 @@ func handleInstallMCP(w http.ResponseWriter, r *http.Request) {
 	switch req.Platform {
 	case "claude":
 		home, _ := os.UserHomeDir()
-		if runtime.GOOS == "darwin" {
+		switch runtime.GOOS {
+		case "darwin":
 			configPath = filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
-		} else if runtime.GOOS == "windows" {
+		case "windows":
 			configPath = filepath.Join(os.Getenv("APPDATA"), "Claude", "claude_desktop_config.json")
-		} else {
+		default:
 			configPath = filepath.Join(home, ".config", "claude", "claude_desktop_config.json")
 		}
 	case "claude-code":

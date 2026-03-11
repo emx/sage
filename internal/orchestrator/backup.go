@@ -28,7 +28,7 @@ func BackupSQLite(dataDir string) error {
 	if err != nil {
 		return fmt.Errorf("open db for backup: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// VACUUM INTO creates an atomic consistent snapshot
 	_, err = db.Exec(fmt.Sprintf(`VACUUM INTO '%s'`, backupPath))

@@ -58,7 +58,7 @@ func migrateOnUpgrade(dataDir string) (migrated bool, err error) {
 			return false, fmt.Errorf("open sqlite for backup: %w", openErr)
 		}
 		_, vacuumErr := srcDB.Exec(fmt.Sprintf(`VACUUM INTO '%s'`, backupPath))
-		srcDB.Close()
+		_ = srcDB.Close()
 		if vacuumErr != nil {
 			// Fallback to file copy if VACUUM INTO fails (e.g., older SQLite)
 			src, readErr := os.ReadFile(sqlitePath)

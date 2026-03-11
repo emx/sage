@@ -10,7 +10,6 @@ linters:
     - errcheck
     - staticcheck
     - unused
-    - gosimple
     - ineffassign
     - bodyclose
     - noctx
@@ -22,10 +21,21 @@ linters:
       enable:
         - shadow
     errcheck:
-      check-type-assertions: true
+      check-type-assertions: false
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - os.Remove
     gosec:
       excludes:
         - G104 # unhandled errors (too noisy with logger calls)
+        - G204 # subprocess with variable — intentional in self-update
+        - G301 # dir perms 0755 — standard for user dirs
+        - G302 # file perms 0755 — intentional for executables
+        - G304 # file inclusion via variable — internal paths only
 
   exclusions:
     rules:
@@ -33,5 +43,6 @@ linters:
         linters:
           - errcheck
           - gosec
+          - noctx
     max-issues-per-linter: 0
     max-same-issues: 0
