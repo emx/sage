@@ -109,6 +109,46 @@ if [ "${1:-}" = "stop" ]; then
     exit 0
 fi
 
+# Migrate: remove old com.sage.lite launchd plist (renamed in v3.6.0)
+OLD_PLIST="$HOME/Library/LaunchAgents/com.sage.lite.plist"
+if [ -f "$OLD_PLIST" ]; then
+    launchctl unload "$OLD_PLIST" 2>/dev/null || true
+    rm -f "$OLD_PLIST"
+    echo "$(date): Migrated — removed legacy com.sage.lite plist" >> "$LOG_FILE"
+fi
+
+# If SAGE is already running, check if it's the same version BEFORE copying.
+# (Must compare before cp, otherwise hashes always match.)
+needs_restart=false
+if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    if [ -f "$SAGE_BIN" ]; then
+        INSTALLED_HASH=$(md5 -q "$SAGE_BIN" 2>/dev/null)
+        APP_HASH=$(md5 -q "$APP_BIN" 2>/dev/null)
+        if [ "$INSTALLED_HASH" = "$APP_HASH" ]; then
+            # Same binary — just open dashboard
+            open "$DASHBOARD_URL"
+            exit 0
+        fi
+    fi
+    # Different binary — stop old, will start new after copy
+    echo "$(date): Upgrading SAGE — stopping old instance..." >> "$LOG_FILE"
+    stop_existing
+    needs_restart=true
+fi
+
+# Check if port 8080 is in use by a non-SAGE process (or sage without PID file)
+if [ "$needs_restart" = false ] && curl -s -o /dev/null http://localhost:8080/health 2>/dev/null; then
+    PORT_PID=$(lsof -ti tcp:8080 -s tcp:listen 2>/dev/null)
+    if [ -n "$PORT_PID" ]; then
+        PORT_CMD=$(ps -p "$PORT_PID" -o command= 2>/dev/null)
+        if echo "$PORT_CMD" | grep -q "sage-gui"; then
+            # Existing sage-gui (maybe from CLI) — stop and replace with new version
+            stop_existing
+            needs_restart=true
+        fi
+    fi
+fi
+
 # Copy binary from .app bundle to ~/.sage/bin/
 # But only if the .app binary is newer or same version — don't overwrite in-app updates.
 should_copy=true
@@ -127,40 +167,6 @@ fi
 if [ "$should_copy" = true ]; then
     cp -f "$APP_BIN" "$SAGE_BIN"
     chmod +x "$SAGE_BIN"
-fi
-
-# Migrate: remove old com.sage.lite launchd plist (renamed in v3.6.0)
-OLD_PLIST="$HOME/Library/LaunchAgents/com.sage.lite.plist"
-if [ -f "$OLD_PLIST" ]; then
-    launchctl unload "$OLD_PLIST" 2>/dev/null || true
-    rm -f "$OLD_PLIST"
-    echo "$(date): Migrated — removed legacy com.sage.lite plist" >> "$LOG_FILE"
-fi
-
-# If SAGE is already running, check if it's the same version
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    # Compare binary checksums to detect version change
-    RUNNING_HASH=$(md5 -q "$SAGE_BIN" 2>/dev/null)
-    APP_HASH=$(md5 -q "$APP_BIN" 2>/dev/null)
-    if [ "$RUNNING_HASH" = "$APP_HASH" ]; then
-        open "$DASHBOARD_URL"
-        exit 0
-    fi
-    # New version — stop old, start new
-    echo "$(date): Upgrading SAGE — stopping old instance..." >> "$LOG_FILE"
-    stop_existing
-fi
-
-# Check if port 8080 is in use by a non-SAGE process
-if curl -s -o /dev/null http://localhost:8080/health 2>/dev/null; then
-    PORT_PID=$(lsof -ti tcp:8080 -s tcp:listen 2>/dev/null)
-    if [ -n "$PORT_PID" ]; then
-        PORT_CMD=$(ps -p "$PORT_PID" -o command= 2>/dev/null)
-        if echo "$PORT_CMD" | grep -q "sage-gui"; then
-            # Existing sage-gui (maybe from CLI) — stop and replace with new version
-            stop_existing
-        fi
-    fi
 fi
 
 # First run — need setup
