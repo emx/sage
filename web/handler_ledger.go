@@ -16,7 +16,7 @@ type VaultStore interface {
 
 // handleGetLedgerStatus returns the current Synaptic Ledger (encryption vault) status.
 func (h *DashboardHandler) handleGetLedgerStatus(w http.ResponseWriter, _ *http.Request) {
-	if !h.Encrypted && !vault.Exists(h.VaultKeyPath) {
+	if !h.Encrypted.Load() && !vault.Exists(h.VaultKeyPath) {
 		writeJSONResp(w, http.StatusOK, map[string]any{"enabled": false})
 		return
 	}
@@ -28,7 +28,7 @@ func (h *DashboardHandler) handleGetLedgerStatus(w http.ResponseWriter, _ *http.
 	}
 
 	writeJSONResp(w, http.StatusOK, map[string]any{
-		"enabled":    h.Encrypted,
+		"enabled":    h.Encrypted.Load(),
 		"algorithm":  "AES-256-GCM",
 		"kdf":        "Argon2id",
 		"vault_path": displayPath,
@@ -37,7 +37,7 @@ func (h *DashboardHandler) handleGetLedgerStatus(w http.ResponseWriter, _ *http.
 
 // handleEnableLedger initialises the encryption vault and attaches it to the store.
 func (h *DashboardHandler) handleEnableLedger(w http.ResponseWriter, r *http.Request) {
-	if h.Encrypted {
+	if h.Encrypted.Load() {
 		writeError(w, http.StatusConflict, "encryption is already enabled")
 		return
 	}
@@ -52,6 +52,10 @@ func (h *DashboardHandler) handleEnableLedger(w http.ResponseWriter, r *http.Req
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Passphrase == "" {
 		writeError(w, http.StatusBadRequest, "passphrase is required")
+		return
+	}
+	if len(body.Passphrase) < 8 {
+		writeError(w, http.StatusBadRequest, "passphrase must be at least 8 characters")
 		return
 	}
 
@@ -73,7 +77,7 @@ func (h *DashboardHandler) handleEnableLedger(w http.ResponseWriter, r *http.Req
 		vs.SetVault(v)
 	}
 
-	h.Encrypted = true
+	h.Encrypted.Store(true)
 
 	// Persist encryption state to config.yaml so lock screen appears on restart.
 	if h.SaveEncryptionConfig != nil {
@@ -95,7 +99,7 @@ func (h *DashboardHandler) handleEnableLedger(w http.ResponseWriter, r *http.Req
 
 // handleChangePassphrase changes the vault passphrase without re-encrypting data.
 func (h *DashboardHandler) handleChangePassphrase(w http.ResponseWriter, r *http.Request) {
-	if !h.Encrypted {
+	if !h.Encrypted.Load() {
 		writeError(w, http.StatusBadRequest, "encryption is not enabled")
 		return
 	}
@@ -111,6 +115,10 @@ func (h *DashboardHandler) handleChangePassphrase(w http.ResponseWriter, r *http
 	}
 	if body.OldPassphrase == "" || body.NewPassphrase == "" {
 		writeError(w, http.StatusBadRequest, "old_passphrase and new_passphrase are required")
+		return
+	}
+	if len(body.NewPassphrase) < 8 {
+		writeError(w, http.StatusBadRequest, "passphrase must be at least 8 characters")
 		return
 	}
 
@@ -140,7 +148,7 @@ func (h *DashboardHandler) handleChangePassphrase(w http.ResponseWriter, r *http
 // memories remain encrypted — they can still be read while the vault is in
 // memory, but new writes will be plaintext.
 func (h *DashboardHandler) handleDisableLedger(w http.ResponseWriter, r *http.Request) {
-	if !h.Encrypted {
+	if !h.Encrypted.Load() {
 		writeError(w, http.StatusBadRequest, "encryption is not enabled")
 		return
 	}
@@ -165,13 +173,13 @@ func (h *DashboardHandler) handleDisableLedger(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	h.Encrypted = false
+	h.Encrypted.Store(false)
 
 	// Persist disabled state to config.yaml.
 	if h.SaveEncryptionConfig != nil {
 		if err := h.SaveEncryptionConfig(false); err != nil {
 			// Re-enable in memory since config didn't save.
-			h.Encrypted = true
+			h.Encrypted.Store(true)
 			writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
 			return
 		}

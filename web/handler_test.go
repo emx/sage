@@ -189,7 +189,7 @@ func TestHandleAuthMiddleware_BlocksWithoutSession(t *testing.T) {
 	h, _ := newTestHandler(t)
 	// Simulate encryption enabled
 	h.VaultKeyPath = "/tmp/fake-vault.key"
-	h.Encrypted = true
+	h.Encrypted.Store(true)
 	r := testRouter(h)
 
 	req := httptest.NewRequest("GET", "/v1/dashboard/stats", nil)
@@ -292,7 +292,7 @@ func TestHandleAuthMiddleware_DynamicEncryption(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// Enable encryption dynamically (simulates enabling via dashboard)
-	h.Encrypted = true
+	h.Encrypted.Store(true)
 
 	// Same request without cookie — should be blocked
 	req = httptest.NewRequest("GET", "/v1/dashboard/stats", nil)
@@ -301,7 +301,7 @@ func TestHandleAuthMiddleware_DynamicEncryption(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	// Disable encryption — should allow again
-	h.Encrypted = false
+	h.Encrypted.Store(false)
 	req = httptest.NewRequest("GET", "/v1/dashboard/stats", nil)
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)

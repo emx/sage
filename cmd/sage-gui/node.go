@@ -216,7 +216,7 @@ func runServe() error {
 		})
 	}
 	dashboard.SetEmbedder(embedProvider)
-	dashboard.Encrypted = cfg.Encryption.Enabled
+	dashboard.Encrypted.Store(cfg.Encryption.Enabled)
 	dashboard.VaultKeyPath = filepath.Join(SageHome(), "vault.key")
 	dashboard.SaveEncryptionConfig = func(enabled bool) error {
 		cfg.Encryption.Enabled = enabled
@@ -252,12 +252,7 @@ func runServe() error {
 	// Build combined router
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{
-			"http://localhost:8080",
-			"http://localhost:*",
-			"http://127.0.0.1:8080",
-			"http://127.0.0.1:*",
-		},
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: false,

@@ -7,11 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/fs"
+	"net"
 	"net/http"
 	"strconv"
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -42,11 +44,12 @@ type DashboardHandler struct {
 	embedder  Embedder
 	SSE       *SSEBroadcaster
 	Version   string
-	Encrypted bool
+	Encrypted atomic.Bool
 
 	// Auth — only active when Encrypted is true.
-	VaultKeyPath string
-	sessions     sync.Map // token -> expiry time
+	VaultKeyPath   string
+	sessions       sync.Map // token -> expiry time
+	loginAttempts  sync.Map // IP -> []time.Time
 
 	// SaveEncryptionConfig persists encryption enabled/disabled state to config.yaml.
 	SaveEncryptionConfig func(enabled bool) error
@@ -100,8 +103,21 @@ func (h *DashboardHandler) SetEmbedder(e Embedder) {
 const sessionCookieName = "sage_session"
 const sessionTTL = 24 * time.Hour
 
+// securityHeaders adds standard security headers to all responses.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // RegisterRoutes mounts dashboard routes on the given router.
 func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
+	r.Use(securityHeaders)
+
 	// Auth endpoints — always available (login page needs to load without auth).
 	r.Post("/v1/dashboard/auth/login", h.handleLogin)
 	r.Post("/v1/dashboard/auth/lock", h.handleLock)
@@ -218,7 +234,7 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 // Always wired in the middleware chain — skips auth dynamically when encryption is off.
 func (h *DashboardHandler) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !h.Encrypted {
+		if !h.Encrypted.Load() {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -235,10 +251,33 @@ func (h *DashboardHandler) authMiddleware(next http.Handler) http.Handler {
 
 // handleLogin verifies the vault passphrase and sets a session cookie.
 func (h *DashboardHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if !h.Encrypted {
+	if !h.Encrypted.Load() {
 		writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "message": "no auth required"})
 		return
 	}
+
+	// Rate limit: max 5 attempts per IP per minute.
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	now := time.Now()
+	cutoff := now.Add(-1 * time.Minute)
+	val, _ := h.loginAttempts.LoadOrStore(ip, &[]time.Time{})
+	attempts := val.(*[]time.Time)
+	// Filter to only recent attempts.
+	recent := (*attempts)[:0]
+	for _, t := range *attempts {
+		if t.After(cutoff) {
+			recent = append(recent, t)
+		}
+	}
+	if len(recent) >= 5 {
+		*attempts = recent
+		writeJSONResp(w, http.StatusTooManyRequests, map[string]any{"ok": false, "error": "too many login attempts, try again later"})
+		return
+	}
+	*attempts = append(recent, now)
 
 	var req struct {
 		Passphrase string `json:"passphrase"`
@@ -273,7 +312,7 @@ func (h *DashboardHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 // handleLock invalidates the current session — like Cmd+L in 1Password.
 func (h *DashboardHandler) handleLock(w http.ResponseWriter, r *http.Request) {
-	if !h.Encrypted {
+	if !h.Encrypted.Load() {
 		writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "message": "encryption not enabled"})
 		return
 	}
@@ -298,7 +337,7 @@ func (h *DashboardHandler) handleLock(w http.ResponseWriter, r *http.Request) {
 
 // handleAuthCheck returns whether auth is required and if current session is valid.
 func (h *DashboardHandler) handleAuthCheck(w http.ResponseWriter, r *http.Request) {
-	if !h.Encrypted {
+	if !h.Encrypted.Load() {
 		writeJSONResp(w, http.StatusOK, map[string]any{"auth_required": false, "authenticated": true})
 		return
 	}
@@ -720,7 +759,7 @@ func (h *DashboardHandler) handleHealth(w http.ResponseWriter, r *http.Request) 
 	health := map[string]any{
 		"sage":      "running",
 		"version":   h.Version,
-		"encrypted": h.Encrypted,
+		"encrypted": h.Encrypted.Load(),
 		"uptime":    time.Since(startTime).String(),
 	}
 
