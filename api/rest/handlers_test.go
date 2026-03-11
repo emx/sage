@@ -666,6 +666,15 @@ func (m *mockAgentStore) RotateAgentKey(_ context.Context, _ string) (string, []
 func (m *mockAgentStore) ReassignMemories(_ context.Context, _, _ string) (int64, error) {
 	return 0, nil
 }
+func (m *mockAgentStore) ListAgentTags(_ context.Context, _ string) ([]store.TagCount, error) {
+	return nil, nil
+}
+func (m *mockAgentStore) ReassignMemoriesByTag(_ context.Context, _, _, _ string) (int64, error) {
+	return 0, nil
+}
+func (m *mockAgentStore) ReassignMemoriesByDomain(_ context.Context, _, _, _ string) (int64, error) {
+	return 0, nil
+}
 
 // --- Domain Access Read Enforcement Tests ------------------------------------
 

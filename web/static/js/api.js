@@ -295,6 +295,29 @@ export async function setMemoryTags(id, tags) {
     return res.json();
 }
 
+export async function fetchAgentTags(agentId) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/network/agents/${agentId}/tags`);
+    return res.json();
+}
+
+export async function transferTag(sourceAgentId, targetAgentId, tag) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/network/transfer-tag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_agent_id: sourceAgentId, target_agent_id: targetAgentId, tag }),
+    });
+    return res.json();
+}
+
+export async function transferDomain(sourceAgentId, targetAgentId, domain) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/network/transfer-domain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_agent_id: sourceAgentId, target_agent_id: targetAgentId, domain }),
+    });
+    return res.json();
+}
+
 // ─── Auto-start API ───
 
 export async function fetchAutostart() {

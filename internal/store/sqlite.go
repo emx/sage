@@ -2062,6 +2062,174 @@ func (s *SQLiteStore) ReassignMemories(ctx context.Context, sourceAgentID, targe
 	return count, nil
 }
 
+func (s *SQLiteStore) ListAgentTags(ctx context.Context, agentID string) ([]TagCount, error) {
+	rows, err := s.conn.QueryContext(ctx, `
+		SELECT mt.tag, COUNT(*) as cnt
+		FROM memory_tags mt
+		INNER JOIN memories m ON mt.memory_id = m.memory_id
+		WHERE m.submitting_agent = ?
+		GROUP BY mt.tag
+		ORDER BY cnt DESC`, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("list agent tags: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var tags []TagCount
+	for rows.Next() {
+		var tc TagCount
+		if err := rows.Scan(&tc.Tag, &tc.Count); err != nil {
+			return nil, fmt.Errorf("scan tag count: %w", err)
+		}
+		tags = append(tags, tc)
+	}
+	return tags, rows.Err()
+}
+
+func (s *SQLiteStore) ReassignMemoriesByTag(ctx context.Context, sourceAgentID, targetAgentID, tag string) (int64, error) {
+	var count int64
+
+	doReassign := func(q sqlQuerier) error {
+		// 1. Validate target
+		var status string
+		if err := q.QueryRowContext(ctx, `SELECT status FROM network_agents WHERE agent_id=?`, targetAgentID).Scan(&status); err != nil {
+			return fmt.Errorf("target agent not found: %s", targetAgentID)
+		}
+		if status == "removed" {
+			return fmt.Errorf("cannot reassign to removed agent %s", targetAgentID)
+		}
+
+		// 2. Count tagged memories from source
+		if err := q.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM memories m
+			INNER JOIN memory_tags mt ON m.memory_id = mt.memory_id
+			WHERE m.submitting_agent = ? AND mt.tag = ?`, sourceAgentID, tag).Scan(&count); err != nil {
+			return fmt.Errorf("count tagged memories: %w", err)
+		}
+		if count == 0 {
+			return nil
+		}
+
+		// 3. Reassign only tagged memories
+		_, err := q.ExecContext(ctx, `
+			UPDATE memories SET submitting_agent = ?
+			WHERE submitting_agent = ? AND memory_id IN (
+				SELECT memory_id FROM memory_tags WHERE tag = ?
+			)`, targetAgentID, sourceAgentID, tag)
+		if err != nil {
+			return fmt.Errorf("reassign tagged memories: %w", err)
+		}
+
+		// 4. Log
+		details, _ := json.Marshal(map[string]interface{}{
+			"source": sourceAgentID,
+			"target": targetAgentID,
+			"tag":    tag,
+			"count":  count,
+		})
+		_, err = q.ExecContext(ctx, `
+			INSERT INTO redeployment_log (operation, agent_id, phase, status, details, started_at)
+			VALUES ('tag_transfer', ?, 'TRANSFERRED', 'completed', ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+			targetAgentID, string(details))
+		if err != nil {
+			return fmt.Errorf("log tag transfer: %w", err)
+		}
+
+		return nil
+	}
+
+	// Transaction handling - same pattern as ReassignMemories
+	if s.db != nil {
+		tx, txErr := s.db.BeginTx(ctx, nil)
+		if txErr != nil {
+			return 0, fmt.Errorf("begin tx: %w", txErr)
+		}
+		defer tx.Rollback() //nolint:errcheck
+		if err := doReassign(tx); err != nil {
+			return 0, err
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, fmt.Errorf("commit: %w", err)
+		}
+	} else {
+		if err := doReassign(s.conn); err != nil {
+			return 0, err
+		}
+	}
+
+	return count, nil
+}
+
+func (s *SQLiteStore) ReassignMemoriesByDomain(ctx context.Context, sourceAgentID, targetAgentID, domain string) (int64, error) {
+	var count int64
+
+	doReassign := func(q sqlQuerier) error {
+		// 1. Validate target
+		var status string
+		if err := q.QueryRowContext(ctx, `SELECT status FROM network_agents WHERE agent_id=?`, targetAgentID).Scan(&status); err != nil {
+			return fmt.Errorf("target agent not found: %s", targetAgentID)
+		}
+		if status == "removed" {
+			return fmt.Errorf("cannot reassign to removed agent %s", targetAgentID)
+		}
+
+		// 2. Count domain memories from source
+		if err := q.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM memories
+			WHERE submitting_agent = ? AND domain_tag = ?`, sourceAgentID, domain).Scan(&count); err != nil {
+			return fmt.Errorf("count domain memories: %w", err)
+		}
+		if count == 0 {
+			return nil
+		}
+
+		// 3. Reassign
+		_, err := q.ExecContext(ctx, `
+			UPDATE memories SET submitting_agent = ?
+			WHERE submitting_agent = ? AND domain_tag = ?`, targetAgentID, sourceAgentID, domain)
+		if err != nil {
+			return fmt.Errorf("reassign domain memories: %w", err)
+		}
+
+		// 4. Log
+		details, _ := json.Marshal(map[string]interface{}{
+			"source": sourceAgentID,
+			"target": targetAgentID,
+			"domain": domain,
+			"count":  count,
+		})
+		_, err = q.ExecContext(ctx, `
+			INSERT INTO redeployment_log (operation, agent_id, phase, status, details, started_at)
+			VALUES ('domain_transfer', ?, 'TRANSFERRED', 'completed', ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+			targetAgentID, string(details))
+		if err != nil {
+			return fmt.Errorf("log domain transfer: %w", err)
+		}
+
+		return nil
+	}
+
+	if s.db != nil {
+		tx, txErr := s.db.BeginTx(ctx, nil)
+		if txErr != nil {
+			return 0, fmt.Errorf("begin tx: %w", txErr)
+		}
+		defer tx.Rollback() //nolint:errcheck
+		if err := doReassign(tx); err != nil {
+			return 0, err
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, fmt.Errorf("commit: %w", err)
+		}
+	} else {
+		if err := doReassign(s.conn); err != nil {
+			return 0, err
+		}
+	}
+
+	return count, nil
+}
+
 func (s *SQLiteStore) AcquireRedeployLock(ctx context.Context, lockedBy, operation string, ttl time.Duration) error {
 	now := time.Now().UTC()
 	expires := now.Add(ttl)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // EventType represents the type of SSE event.
@@ -108,11 +109,21 @@ func (b *SSEBroadcaster) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
 
+	// Heartbeat ticker — keeps the connection alive past the HTTP server's WriteTimeout.
+	// Without this, idle SSE connections get killed every WriteTimeout seconds,
+	// causing a connect/disconnect cycle in the chain activity log.
+	heartbeat := time.NewTicker(10 * time.Second)
+	defer heartbeat.Stop()
+
 	ctx := r.Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-heartbeat.C:
+			// SSE comment — keeps the connection alive without triggering client events
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
 		case msg, ok := <-ch:
 			if !ok {
 				return

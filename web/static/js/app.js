@@ -1,6 +1,6 @@
 // CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, lockSession, importMemories, importPreview, importConfirm, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, fetchUnregisteredAgents, mergeAgent, fetchRecallSettings, saveRecallSettings } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, lockSession, importMemories, importPreview, importConfirm, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, fetchUnregisteredAgents, mergeAgent, fetchRecallSettings, saveRecallSettings, fetchAgentTags, transferTag, transferDomain } from './api.js';
 
 const { h, render, createContext } = preact;
 const { useState, useEffect, useRef, useCallback, useContext } = preactHooks;
@@ -142,6 +142,9 @@ function BrainView({ sse, onSelectMemory, timelineFilter }) {
     const [agentFilter, setAgentFilter] = useState(''); // '' = all agents
     const [agentList, setAgentList] = useState([]);
     const [focusedDomain, setFocusedDomain] = useState(null); // for UI display
+    // Domain transfer state
+    const [domainTransfer, setDomainTransfer] = useState(null); // { domain, sourceAgentId }
+    const [domainTransferring, setDomainTransferring] = useState(false);
     // Draggable stats panel
     const [statsPos, setStatsPos] = useState(() => {
         try { const s = JSON.parse(localStorage.getItem('sage_stats_pos')); if (s && s.x != null) return s; } catch {}
@@ -707,6 +710,19 @@ function BrainView({ sse, onSelectMemory, timelineFilter }) {
         });
     }
 
+    const handleDomainTransfer = async (targetAgentId) => {
+        if (!domainTransfer) return;
+        setDomainTransferring(true);
+        try {
+            const res = await transferDomain(domainTransfer.sourceAgentId, targetAgentId, domainTransfer.domain);
+            if (res.error) { showToast(res.error, 'error'); setDomainTransferring(false); return; }
+            showToast(res.message || `${res.memories_moved} memories transferred`, 'success');
+            setDomainTransfer(null);
+            loadData();
+        } catch (e) { showToast('Transfer failed: ' + e.message, 'error'); }
+        setDomainTransferring(false);
+    };
+
     return html`
         ${agentList.length > 0 && html`
             <div class="agent-tab-bar">
@@ -791,6 +807,16 @@ function BrainView({ sse, onSelectMemory, timelineFilter }) {
                     <span style="color: ${getDomainColor(focusedDomain)}">
                         Focused: ${focusedDomain}
                     </span>
+                    ${agentFilter && registeredAgentsRef.current.length > 1 && html`
+                        <button class="focus-exit-btn" style="background:var(--primary-dim);color:var(--primary);border-color:var(--primary);" onClick=${() => {
+                            const sourceAgent = registeredAgentsRef.current.find(a => a.agent_id === agentFilter);
+                            setDomainTransfer({
+                                domain: focusedDomain,
+                                sourceAgentId: agentFilter,
+                                sourceAgentName: sourceAgent?.name || agentFilter.slice(0, 16),
+                            });
+                        }}>Transfer to Agent</button>
+                    `}
                     <button class="focus-exit-btn" onClick=${() => {
                         stateRef.current.focusDomain = null;
                         stateRef.current.focusTargetPositions.clear();
@@ -879,6 +905,33 @@ function BrainView({ sse, onSelectMemory, timelineFilter }) {
                         <span class="tooltip-meta-item">${timeAgo(tooltip.node.created_at || tooltip.node.createdAt)}</span>
                     </div>
                     <div class="tooltip-hint">Click to focus domain · Double-click for full details</div>
+                </div>
+            `}
+
+            ${domainTransfer && html`
+                <div class="wizard-overlay" onClick=${e => { if (e.target === e.currentTarget) setDomainTransfer(null); }}>
+                    <div class="wizard-modal" style="max-width:480px;">
+                        <div class="wizard-header">
+                            <h2>Transfer Domain Memories</h2>
+                            <button class="detail-close" onClick=${() => setDomainTransfer(null)}>x</button>
+                        </div>
+                        <div class="wizard-body" style="padding:20px;">
+                            <p style="color:var(--text-dim);margin-bottom:16px;">
+                                Transfer all <span style="color:${getDomainColor(domainTransfer.domain)};font-weight:600;">${domainTransfer.domain}</span> memories
+                                from <strong>${domainTransfer.sourceAgentName}</strong> to:
+                            </p>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                ${registeredAgentsRef.current.filter(a => a.status !== 'removed' && a.agent_id !== domainTransfer.sourceAgentId).map(a => html`
+                                    <button class="merge-target-btn" onClick=${() => handleDomainTransfer(a.agent_id)} disabled=${domainTransferring}>
+                                        <span>${a.avatar || '\u{1F916}'}</span>
+                                        <span>${a.name}</span>
+                                        <span class="agent-role-badge ${a.role}" style="margin-left:auto;">${a.role}</span>
+                                    </button>
+                                `)}
+                            </div>
+                            ${domainTransferring && html`<p style="color:var(--primary);font-size:12px;margin-top:12px;">Submitting to blockchain consensus...</p>`}
+                        </div>
+                    </div>
                 </div>
             `}
         </div>
@@ -1025,6 +1078,62 @@ function simulateForces(state, W, H) {
 }
 
 // ============================================================================
+// ============================================================================
+// Toast Notification System
+// ============================================================================
+
+const toastState = { listeners: [], toasts: [] };
+let toastIdCounter = 0;
+
+function showToast(message, type = 'info', duration = 4000) {
+    const id = ++toastIdCounter;
+    const toast = { id, message, type, removing: false };
+    toastState.toasts = [...toastState.toasts, toast];
+    toastState.listeners.forEach(fn => fn(toastState.toasts));
+    if (duration > 0) {
+        setTimeout(() => dismissToast(id), duration);
+    }
+    return id;
+}
+
+function dismissToast(id) {
+    toastState.toasts = toastState.toasts.map(t =>
+        t.id === id ? { ...t, removing: true } : t
+    );
+    toastState.listeners.forEach(fn => fn(toastState.toasts));
+    setTimeout(() => {
+        toastState.toasts = toastState.toasts.filter(t => t.id !== id);
+        toastState.listeners.forEach(fn => fn(toastState.toasts));
+    }, 250);
+}
+
+function ToastContainer() {
+    const [toasts, setToasts] = useState([]);
+
+    useEffect(() => {
+        toastState.listeners.push(setToasts);
+        return () => {
+            toastState.listeners = toastState.listeners.filter(fn => fn !== setToasts);
+        };
+    }, []);
+
+    if (toasts.length === 0) return null;
+
+    const icons = { success: '\u2713', error: '\u2717', warning: '\u26A0', info: '\u2139' };
+
+    return html`
+        <div class="toast-container">
+            ${toasts.map(t => html`
+                <div key=${t.id} class="toast ${t.type} ${t.removing ? 'removing' : ''}">
+                    <span class="toast-icon">${icons[t.type] || icons.info}</span>
+                    <span class="toast-content">${t.message}</span>
+                    <button class="toast-close" onClick=${() => dismissToast(t.id)}>\u00D7</button>
+                </div>
+            `)}
+        </div>
+    `;
+}
+
 // Memory Detail Panel
 // ============================================================================
 
@@ -3148,6 +3257,7 @@ function ChainActivityLog({ sse }) {
             });
         }
 
+        let connectedOnce = false;
         const unsubs = [
             sse.on('remember', (data) => addEvent('remember', data)),
             sse.on('recall', (data) => addEvent('recall', data)),
@@ -3155,7 +3265,16 @@ function ChainActivityLog({ sse }) {
             sse.on('vote', (data) => addEvent('vote', data)),
             sse.on('consensus', (data) => addEvent('consensus', data)),
             sse.on('agent', (data) => addEvent('agent', data)),
-            sse.on('connection', (data) => addEvent('connection', data)),
+            sse.on('connection', (data) => {
+                // Only show first connection and actual disconnects (not routine reconnects)
+                if (data.connected && !connectedOnce) {
+                    connectedOnce = true;
+                    addEvent('connection', data);
+                } else if (!data.connected) {
+                    connectedOnce = false;
+                    addEvent('connection', data);
+                }
+            }),
         ];
         return () => unsubs.forEach(u => u());
     }, [sse]);
@@ -4009,6 +4128,9 @@ function NetworkPage() {
     const [unregistered, setUnregistered] = useState([]);
     const [mergeTarget, setMergeTarget] = useState(null); // {source, target}
     const [merging, setMerging] = useState(false);
+    // Tag transfer state
+    const [tagTransfer, setTagTransfer] = useState(null); // { agentId, agentName, tags: [], step: 'tags'|'target', selectedTag: null }
+    const [transferring, setTransferring] = useState(false);
 
     const loadAgents = useCallback(async () => {
         try {
@@ -4100,24 +4222,24 @@ function NetworkPage() {
     const handleRemove = useCallback(async (agent) => {
         try {
             const res = await removeAgent(agent.agent_id, true);
-            if (res.error) { alert(res.error); return; }
+            if (res.error) { showToast(res.error, 'error'); return; }
             const rdRes = await startRedeploy('remove_agent', agent.agent_id);
-            if (rdRes.error) alert('Agent removed but redeployment failed: ' + rdRes.error);
+            if (rdRes.error) showToast('Agent removed but redeployment failed: ' + rdRes.error, 'warning');
             else { setRedeployStatus(rdRes); startRedeployPoll(); }
             setShowRemoveConfirm(null); setExpandedId(null); loadAgents();
-        } catch (e) { alert('Failed to remove agent'); }
+        } catch (e) { showToast('Failed to remove agent', 'error'); }
     }, [loadAgents, startRedeployPoll]);
 
     const handleRotateKey = useCallback(async (agent) => {
         setRotating(true);
         try {
             const res = await rotateAgentKey(agent.agent_id);
-            if (res.error) { alert(res.error); setRotating(false); return; }
+            if (res.error) { showToast(res.error, 'error'); setRotating(false); return; }
             const rdRes = await startRedeploy('rotate_key', res.new_agent_id);
-            if (rdRes.error) alert('Key rotated but redeployment failed: ' + rdRes.error);
+            if (rdRes.error) showToast('Key rotated but redeployment failed: ' + rdRes.error, 'warning');
             else { setRedeployStatus(rdRes); startRedeployPoll(); }
             setShowRotateConfirm(null); setExpandedId(null); loadAgents();
-        } catch (e) { alert('Failed to rotate key'); }
+        } catch (e) { showToast('Failed to rotate key', 'error'); }
         setRotating(false);
     }, [loadAgents, startRedeployPoll]);
 
@@ -4125,14 +4247,41 @@ function NetworkPage() {
         setMerging(true);
         try {
             const res = await mergeAgent(sourceId, targetId);
-            if (res.error) { alert(res.error); setMerging(false); return; }
-            alert(res.message || 'Memories merged successfully.');
+            if (res.error) { showToast(res.error, 'error'); setMerging(false); return; }
+            showToast(res.message || 'Memories merged successfully.', 'success');
             setMergeTarget(null);
             loadAgents();
             loadUnregistered();
-        } catch (e) { alert('Failed to merge: ' + e.message); }
+        } catch (e) { showToast('Failed to merge: ' + e.message, 'error'); }
         setMerging(false);
     }, [loadAgents, loadUnregistered]);
+
+    const loadAgentTags = useCallback(async (agent) => {
+        try {
+            const data = await fetchAgentTags(agent.agent_id);
+            setTagTransfer({
+                agentId: agent.agent_id,
+                agentName: agent.name || agent.agent_id.slice(0, 16),
+                tags: data.tags || [],
+                step: 'tags',
+                selectedTag: null
+            });
+        } catch (e) { showToast('Failed to load agent tags', 'error'); }
+    }, []);
+
+    const handleTagTransfer = useCallback(async (targetId) => {
+        if (!tagTransfer?.selectedTag) return;
+        setTransferring(true);
+        try {
+            const res = await transferTag(tagTransfer.agentId, targetId, tagTransfer.selectedTag.tag);
+            if (res.error) { showToast(res.error, 'error'); setTransferring(false); return; }
+            showToast(res.message || `${res.memories_moved} memories transferred`, 'success');
+            setTagTransfer(null);
+            loadAgents();
+            loadUnregistered();
+        } catch (e) { showToast('Transfer failed: ' + e.message, 'error'); }
+        setTransferring(false);
+    }, [tagTransfer, loadAgents, loadUnregistered]);
 
     if (loading) return html`<div class="network-page"><p style="color:var(--text-muted);text-align:center;padding:40px;">Loading agents...</p></div>`;
 
@@ -4297,8 +4446,9 @@ function NetworkPage() {
                                                 <button class="btn" onClick=${() => setEditing(true)}>Edit</button>
                                                 <button class="btn" onClick=${async () => {
                                                     const ok = await downloadBundle(agent.agent_id);
-                                                    if (!ok) alert('No bundle available for this agent. Bundles are only created when agents are added via the wizard.');
+                                                    if (!ok) showToast('No bundle available for this agent. Bundles are only created when agents are added via the wizard.', 'warning');
                                                 }}>Download Bundle</button>
+                                                <button class="btn" onClick=${(e) => { e.stopPropagation(); loadAgentTags(agent); }} style="gap:6px;display:inline-flex;align-items:center;">Transfer by Tag</button>
                                                 <button class="btn" onClick=${() => setShowRotateConfirm(agent)}>Rotate Key</button>
                                                 ${isLastAdmin
                                                     ? html`<button class="btn btn-danger btn-disabled" disabled=${true} title="Cannot remove the last admin — network needs at least one admin">Remove</button>`
@@ -4364,6 +4514,60 @@ function NetworkPage() {
                                 `)}
                             </div>
                             ${merging && html`<p style="color:var(--primary);font-size:12px;margin-top:12px;">Submitting to blockchain consensus...</p>`}
+                        </div>
+                    </div>
+                </div>
+            `}
+            ${tagTransfer && html`
+                <div class="wizard-overlay" onClick=${e => { if (e.target === e.currentTarget) setTagTransfer(null); }}>
+                    <div class="wizard-modal" style="max-width:520px;">
+                        <div class="wizard-header">
+                            <h2>${tagTransfer.step === 'tags' ? 'Transfer Memories by Tag' : 'Select Target Agent'}</h2>
+                            <button class="detail-close" onClick=${() => setTagTransfer(null)}>x</button>
+                        </div>
+                        <div class="wizard-body" style="padding:20px;">
+                            ${tagTransfer.step === 'tags' ? html`
+                                <p style="color:var(--text-dim);margin-bottom:16px;">
+                                    Select a tag from <strong>${tagTransfer.agentName}</strong> to transfer those memories to another agent.
+                                </p>
+                                ${tagTransfer.tags.length === 0 ? html`
+                                    <p style="color:var(--text-muted);font-size:13px;font-style:italic;">No tagged memories found for this agent.</p>
+                                ` : html`
+                                    <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;">
+                                        ${tagTransfer.tags.map(t => html`
+                                            <button class="merge-target-btn" onClick=${() => setTagTransfer(prev => ({ ...prev, step: 'target', selectedTag: t }))}
+                                                style="justify-content:space-between;">
+                                                <span style="display:flex;align-items:center;gap:8px;">
+                                                    <span class="tag-chip" style="margin:0;">${t.tag}</span>
+                                                </span>
+                                                <span style="color:var(--text-muted);font-size:12px;">${t.count} memor${t.count === 1 ? 'y' : 'ies'}</span>
+                                            </button>
+                                        `)}
+                                    </div>
+                                `}
+                            ` : html`
+                                <div style="margin-bottom:16px;">
+                                    <button class="btn" onClick=${() => setTagTransfer(prev => ({ ...prev, step: 'tags', selectedTag: null }))}
+                                        style="font-size:12px;padding:4px 12px;margin-bottom:12px;">
+                                        \u2190 Back to tags
+                                    </button>
+                                    <p style="color:var(--text-dim);">
+                                        Transfer <strong>${tagTransfer.selectedTag.count}</strong> memor${tagTransfer.selectedTag.count === 1 ? 'y' : 'ies'}
+                                        tagged <span class="tag-chip" style="display:inline-flex;margin:0 4px;">${tagTransfer.selectedTag.tag}</span>
+                                        from <strong>${tagTransfer.agentName}</strong> to:
+                                    </p>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:8px;">
+                                    ${agents.filter(a => a.status !== 'removed' && a.agent_id !== tagTransfer.agentId).map(a => html`
+                                        <button class="merge-target-btn" onClick=${() => handleTagTransfer(a.agent_id)} disabled=${transferring}>
+                                            <span>${a.avatar || '\u{1F916}'}</span>
+                                            <span>${a.name}</span>
+                                            <span class="agent-role-badge ${a.role}" style="margin-left:auto;">${a.role}</span>
+                                        </button>
+                                    `)}
+                                </div>
+                                ${transferring && html`<p style="color:var(--primary);font-size:12px;margin-top:12px;">Transferring memories...</p>`}
+                            `}
                         </div>
                     </div>
                 </div>
@@ -4711,7 +4915,7 @@ function AddAgentWizard({ onClose, onCreated }) {
                                             ${connectMethod === 'bundle' && createdAgent && html`
                                                 <button class="btn btn-primary" style="padding:12px 28px;font-size:14px;" onClick=${async () => {
                                                     const ok = await downloadBundle(createdAgent.agent_id);
-                                                    if (!ok) alert('Bundle generation failed. Please try again.');
+                                                    if (!ok) showToast('Bundle generation failed. Please try again.', 'error');
                                                 }}>Download Bundle ZIP</button>
                                             `}
                                             ${connectMethod === 'lan' && html`
@@ -4945,6 +5149,7 @@ function App() {
     }, []);
 
     return html`<${TooltipsContext.Provider} value=${tooltipsEnabled}>
+        <${ToastContainer} />
         <div class="sidebar">
             <div class="sidebar-logo">S</div>
             <button class="sidebar-btn ${page === 'brain' ? 'active' : ''}" onClick=${() => navigate('brain')} title="Cerebrum">

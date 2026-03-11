@@ -1248,6 +1248,18 @@ func (s *PostgresStore) ReassignMemories(_ context.Context, _, _ string) (int64,
 	return 0, fmt.Errorf("ReassignMemories not implemented for PostgresStore")
 }
 
+func (s *PostgresStore) ListAgentTags(_ context.Context, _ string) ([]TagCount, error) {
+	return nil, fmt.Errorf("ListAgentTags not implemented for PostgresStore")
+}
+
+func (s *PostgresStore) ReassignMemoriesByTag(_ context.Context, _, _, _ string) (int64, error) {
+	return 0, fmt.Errorf("ReassignMemoriesByTag not implemented for PostgresStore")
+}
+
+func (s *PostgresStore) ReassignMemoriesByDomain(_ context.Context, _, _, _ string) (int64, error) {
+	return 0, fmt.Errorf("ReassignMemoriesByDomain not implemented for PostgresStore")
+}
+
 func (s *PostgresStore) AcquireRedeployLock(_ context.Context, _, _ string, _ time.Duration) error {
 	return fmt.Errorf("AcquireRedeployLock not implemented for PostgresStore")
 }

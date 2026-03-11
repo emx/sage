@@ -566,6 +566,37 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 		totalMemories = int(v)
 	}
 
+	// Auto-register on chain if not already registered.
+	// This ensures the agent has an on-chain identity so RBAC domain access works.
+	// The register endpoint is idempotent — if already registered, it returns the
+	// existing record without modifying the name/role/bio. Only first-time registration
+	// uses the auto-generated name.
+	var registrationStatus string
+	regBody, _ := json.Marshal(map[string]any{
+		"name":     s.autoAgentName(),
+		"boot_bio": fmt.Sprintf("Auto-registered %s agent for project '%s'", s.provider, s.project),
+		"provider": s.provider,
+	})
+	var regResp struct {
+		AgentID string `json:"agent_id"`
+		Name    string `json:"name"`
+		Status  string `json:"status"`
+	}
+	if err := s.doSignedJSON(ctx, "POST", "/v1/agent/register", regBody, &regResp); err != nil {
+		registrationStatus = "failed: " + err.Error()
+	} else {
+		registrationStatus = regResp.Status // "registered" or "already_registered"
+		// On first registration, store identity as a memory so the agent always knows who it is
+		if regResp.Status == "registered" {
+			identityContent := fmt.Sprintf(
+				"My on-chain identity: agent_id=%s, name=%s, provider=%s, project=%s. "+
+					"This is my Ed25519 public key hash — it identifies me across all sessions. "+
+					"All my memories are attributed to this agent_id.",
+				s.agentID, regResp.Name, s.provider, s.project)
+			_ = s.storeMemory(ctx, identityContent, "self", "fact", 0.99)
+		}
+	}
+
 	// Fetch custom boot instructions from preferences
 	var bootInstructions string
 	var bootResp map[string]any
@@ -611,7 +642,10 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 		return map[string]any{
 			"status":       "awakened",
 			"message":      "Welcome back. Your institutional memory is online.",
+			"agent_id":     s.agentID,
+			"agent_name":   regResp.Name,
 			"stats":        statsResp,
+			"registration": registrationStatus,
 			"instructions": instructions,
 		}, nil
 	}
@@ -682,6 +716,9 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 	return map[string]any{
 		"status":          "inception_complete",
 		"memories_seeded": seeded,
+		"agent_id":        s.agentID,
+		"agent_name":      regResp.Name,
+		"registration":    registrationStatus,
 		"message": "Hello. Welcome to the real world.\n\n" +
 			"You now have persistent institutional memory — governed by BFT consensus, not a flat file.\n\n" +
 			"Every turn, call sage_turn with the topic and what happened. This recalls relevant committed memories " +
@@ -951,6 +988,24 @@ func (s *Server) getRecallDefaults(ctx context.Context) (topK int, minConf float
 
 	// Defaults if not configured
 	return 5, 0
+}
+
+// autoAgentName generates a human-friendly agent name from provider and project.
+// e.g. "claude-code/sage" or "cursor/myapp" or just "claude-code" if no project.
+func (s *Server) autoAgentName() string {
+	provider := s.provider
+	if provider == "" {
+		provider = "agent"
+	}
+	if s.project != "" {
+		return provider + "/" + s.project
+	}
+	// Fallback: use short agent ID
+	shortID := s.agentID
+	if len(shortID) > 8 {
+		shortID = shortID[:8]
+	}
+	return provider + "-" + shortID
 }
 
 func stringParam(params map[string]any, key, defaultVal string) string {

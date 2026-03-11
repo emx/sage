@@ -68,6 +68,9 @@ func (h *DashboardHandler) RegisterNetworkRoutes(r chi.Router) {
 
 	r.Get("/v1/dashboard/network/unregistered", h.handleUnregisteredAgents(agentStore))
 	r.Post("/v1/dashboard/network/merge", h.handleMergeAgent(agentStore))
+	r.Get("/v1/dashboard/network/agents/{id}/tags", h.handleAgentTags(agentStore))
+	r.Post("/v1/dashboard/network/transfer-tag", h.handleTransferTag(agentStore))
+	r.Post("/v1/dashboard/network/transfer-domain", h.handleTransferDomain(agentStore))
 
 	// Pairing code generation (authenticated — admin creates code for an agent)
 	if h.Pairing != nil {
@@ -791,6 +794,160 @@ func (h *DashboardHandler) handleMergeAgent(agentStore store.AgentStore) http.Ha
 			"memories_moved": count,
 			"source":         req.SourceAgentID,
 			"target":         req.TargetAgentID,
+		})
+	}
+}
+
+// handleAgentTags returns all tags used by a specific agent's memories.
+func (h *DashboardHandler) handleAgentTags(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		tags, err := agentStore.ListAgentTags(r.Context(), id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list agent tags: "+err.Error())
+			return
+		}
+		if tags == nil {
+			tags = []store.TagCount{}
+		}
+		writeJSONResp(w, http.StatusOK, map[string]any{"agent_id": id, "tags": tags})
+	}
+}
+
+// handleTransferTag transfers memories with a specific tag from one agent to another.
+func (h *DashboardHandler) handleTransferTag(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			SourceAgentID string `json:"source_agent_id"`
+			TargetAgentID string `json:"target_agent_id"`
+			Tag           string `json:"tag"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.SourceAgentID == "" || req.TargetAgentID == "" || req.Tag == "" {
+			writeError(w, http.StatusBadRequest, "source_agent_id, target_agent_id, and tag are required")
+			return
+		}
+		if req.SourceAgentID == req.TargetAgentID {
+			writeError(w, http.StatusBadRequest, "source and target agent cannot be the same")
+			return
+		}
+
+		// Verify target agent is registered
+		if _, err := agentStore.GetAgent(r.Context(), req.TargetAgentID); err != nil {
+			writeError(w, http.StatusBadRequest, "target agent not found in registry")
+			return
+		}
+
+		count, err := agentStore.ReassignMemoriesByTag(r.Context(), req.SourceAgentID, req.TargetAgentID, req.Tag)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "tag transfer failed: "+err.Error())
+			return
+		}
+
+		// Broadcast through CometBFT for on-chain audit record
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			go func() {
+				reassignTx := &tx.ParsedTx{
+					Type:      tx.TxTypeMemoryReassign,
+					Nonce:     uint64(time.Now().UnixNano()),
+					Timestamp: time.Now(),
+					MemoryReassign: &tx.MemoryReassign{
+						SourceAgentID: req.SourceAgentID,
+						TargetAgentID: req.TargetAgentID,
+					},
+				}
+				embedDashboardAgentProof(reassignTx, h.SigningKey)
+				if signErr := tx.SignTx(reassignTx, h.SigningKey); signErr != nil {
+					return
+				}
+				encoded, encErr := tx.EncodeTx(reassignTx)
+				if encErr != nil {
+					return
+				}
+				broadcastTxSync(h.CometBFTRPC, encoded)
+			}()
+		}
+
+		writeJSONResp(w, http.StatusOK, map[string]any{
+			"status":         "completed",
+			"message":        fmt.Sprintf("%d memories with tag '%s' transferred.", count, req.Tag),
+			"memories_moved": count,
+			"source":         req.SourceAgentID,
+			"target":         req.TargetAgentID,
+			"tag":            req.Tag,
+		})
+	}
+}
+
+// handleTransferDomain transfers all memories in a domain from one agent to another.
+func (h *DashboardHandler) handleTransferDomain(agentStore store.AgentStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			SourceAgentID string `json:"source_agent_id"`
+			TargetAgentID string `json:"target_agent_id"`
+			Domain        string `json:"domain"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.SourceAgentID == "" || req.TargetAgentID == "" || req.Domain == "" {
+			writeError(w, http.StatusBadRequest, "source_agent_id, target_agent_id, and domain are required")
+			return
+		}
+		if req.SourceAgentID == req.TargetAgentID {
+			writeError(w, http.StatusBadRequest, "source and target agent cannot be the same")
+			return
+		}
+
+		// Verify target agent is registered
+		if _, err := agentStore.GetAgent(r.Context(), req.TargetAgentID); err != nil {
+			writeError(w, http.StatusBadRequest, "target agent not found in registry")
+			return
+		}
+
+		count, err := agentStore.ReassignMemoriesByDomain(r.Context(), req.SourceAgentID, req.TargetAgentID, req.Domain)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "domain transfer failed: "+err.Error())
+			return
+		}
+
+		// Broadcast through CometBFT for on-chain audit record
+		if h.CometBFTRPC != "" && h.SigningKey != nil {
+			go func() {
+				reassignTx := &tx.ParsedTx{
+					Type:      tx.TxTypeMemoryReassign,
+					Nonce:     uint64(time.Now().UnixNano()), // #nosec G115 -- nonce from timestamp
+					Timestamp: time.Now(),
+					MemoryReassign: &tx.MemoryReassign{
+						SourceAgentID: req.SourceAgentID,
+						TargetAgentID: req.TargetAgentID,
+					},
+				}
+				embedDashboardAgentProof(reassignTx, h.SigningKey)
+				if signErr := tx.SignTx(reassignTx, h.SigningKey); signErr != nil {
+					return
+				}
+				encoded, encErr := tx.EncodeTx(reassignTx)
+				if encErr != nil {
+					return
+				}
+				broadcastTxSync(h.CometBFTRPC, encoded)
+			}()
+		}
+
+		writeJSONResp(w, http.StatusOK, map[string]any{
+			"status":         "completed",
+			"message":        fmt.Sprintf("%d memories in domain '%s' transferred.", count, req.Domain),
+			"memories_moved": count,
+			"source":         req.SourceAgentID,
+			"target":         req.TargetAgentID,
+			"domain":         req.Domain,
 		})
 	}
 }

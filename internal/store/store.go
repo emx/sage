@@ -346,6 +346,12 @@ type AgentStore interface {
 	// ReassignMemories atomically moves all memories from sourceAgentID to targetAgentID.
 	// Returns the count of memories reassigned.
 	ReassignMemories(ctx context.Context, sourceAgentID, targetAgentID string) (int64, error)
+	// ListAgentTags returns all tags used by memories belonging to a specific agent
+	ListAgentTags(ctx context.Context, agentID string) ([]TagCount, error)
+	// ReassignMemoriesByTag moves memories with a specific tag from source to target agent
+	ReassignMemoriesByTag(ctx context.Context, sourceAgentID, targetAgentID, tag string) (int64, error)
+	// ReassignMemoriesByDomain moves memories in a specific domain from source to target agent
+	ReassignMemoriesByDomain(ctx context.Context, sourceAgentID, targetAgentID, domain string) (int64, error)
 	// Redeployment
 	AcquireRedeployLock(ctx context.Context, lockedBy, operation string, ttl time.Duration) error
 	ReleaseRedeployLock(ctx context.Context) error
