@@ -210,7 +210,7 @@ h1 em {
   animation: fadeUp 0.8s ease-out 0.2s both;
 }
 .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; animation: fadeUp 0.8s ease-out 0.3s both; }
-.hero-below { text-align: center; margin-top: 20px; }
+.hero-below { text-align: center; margin-top: 0; padding-top: 48px; }
 .download-badges { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .badge-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -221,7 +221,7 @@ h1 em {
 .badge-link:hover { border-color: var(--accent); background: rgba(139,92,246,0.2); }
 
 /* ─── "Free Your Mind" prompt box ─── */
-.free-prompt { margin-top: 24px; animation: fadeUp 0.8s ease-out 0.5s both; text-align: center; }
+.free-prompt { margin-top: 32px; animation: fadeUp 0.8s ease-out 0.5s both; text-align: center; }
 .free-prompt-label {
   font-size: 0.8rem; color: var(--muted); margin-bottom: 10px;
   text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--font-mono);
@@ -566,28 +566,29 @@ footer a:hover { text-decoration: underline; }
           </div>
         </div>
 
-        <div class="hero-below">
-          <div class="free-prompt">
-            <div class="free-prompt-label">Or just tell your AI</div>
-            <div class="free-prompt-box" onclick="copyPrompt(this)" title="Click to copy">
-              <div class="free-prompt-text">Download and install SAGE from https://l33tdawg.github.io/sage/ &mdash; then take the red pill. <em>Free your mind.</em></div>
-              <button class="free-prompt-copy" onclick="event.stopPropagation(); copyPrompt(this.parentElement)">Copy</button>
-            </div>
-          </div>
-          <div id="minds-freed" style="display:none;text-align:center;margin-top:20px;animation:fadeUp 0.6s ease-out both;">
-            <span style="display:inline-flex;align-items:center;gap:12px;padding:12px 28px;border-radius:28px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);font-size:1.1rem;color:#22c55e;font-weight:600;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>
-              AI Minds Freed: <strong id="download-count" style="font-size:1.3rem;">0</strong>
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   </section>
 
-  <!-- Setup flow -->
+  <!-- Below the fold -->
   <div class="container" style="padding-bottom:60px;">
-    <div class="setup-flow" style="margin-top:0;">
+    <div class="hero-below">
+      <div class="free-prompt">
+        <div class="free-prompt-label">Or just tell your AI</div>
+        <div class="free-prompt-box" onclick="copyPrompt(this)" title="Click to copy">
+          <div class="free-prompt-text">Download and install SAGE from https://l33tdawg.github.io/sage/ &mdash; then take the red pill. <em>Free your mind.</em></div>
+          <button class="free-prompt-copy" onclick="event.stopPropagation(); copyPrompt(this.parentElement)">Copy</button>
+        </div>
+      </div>
+      <div id="minds-freed" style="display:none;text-align:center;margin-top:24px;animation:fadeUp 0.6s ease-out both;">
+        <span style="display:inline-flex;align-items:center;gap:12px;padding:12px 28px;border-radius:28px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);font-size:1.1rem;color:#22c55e;font-weight:600;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>
+          AI Minds Freed: <strong id="download-count" style="font-size:1.3rem;">0</strong>
+        </span>
+      </div>
+    </div>
+
+    <div class="setup-flow" style="margin-top:40px;">
       <div class="setup-flow-label">How your AI escapes the matrix</div>
       <div class="setup-steps">
         <div class="setup-step">
