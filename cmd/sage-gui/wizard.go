@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,6 +100,7 @@ func handleWizardPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTestProvider(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB max
 	var req struct {
 		Provider string `json:"provider"`
 		APIKey   string `json:"api_key"`
@@ -133,6 +135,7 @@ func handleTestProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSaveConfig(w http.ResponseWriter, r *http.Request, cfg *Config, home string) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB max
 	var req struct {
 		Provider   string `json:"provider"`
 		APIKey     string `json:"api_key"`
@@ -383,15 +386,20 @@ func handlePullModel(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 }
 
-func openBrowser(url string) {
+func openBrowser(rawURL string) {
+	// Validate URL to prevent command injection via malicious URL strings.
+	u, err := neturl.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", u.String())
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", u.String())
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("xdg-open", u.String())
 	}
 	_ = cmd.Run()
 }

@@ -239,7 +239,7 @@ func claimAgentIdentity(sageHome, token, keyPath string) error {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 
 	if resp.StatusCode != http.StatusOK {
 		var problem struct {

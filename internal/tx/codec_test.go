@@ -189,8 +189,10 @@ func TestSigningPayloadDeterministic(t *testing.T) {
 	tx1 := sampleSubmitTx()
 	tx2 := sampleSubmitTx()
 
-	p1 := signingPayload(tx1)
-	p2 := signingPayload(tx2)
+	p1, err1 := signingPayload(tx1)
+	require.NoError(t, err1)
+	p2, err2 := signingPayload(tx2)
+	require.NoError(t, err2)
 
 	assert.Equal(t, p1, p2, "identical transactions must produce identical signing payloads")
 	assert.Len(t, p1, 32, "signing payload should be SHA-256 hash (32 bytes)")

@@ -79,6 +79,9 @@ func DecodeTx(data []byte) (*ParsedTx, error) {
 
 	txType := TxType(data[0])
 	payloadLen := binary.BigEndian.Uint32(data[1:5])
+	if payloadLen > math.MaxInt32 {
+		return nil, ErrInvalidTxData
+	}
 
 	// Minimum (legacy): type(1) + payloadLen(4) + payload + sig(64) + pub(32) + nonce(8) + ts(8)
 	legacyLen := 1 + 4 + int(payloadLen) + ed25519.SignatureSize + ed25519.PublicKeySize + 8 + 8 // #nosec G115 -- payloadLen validated
@@ -141,7 +144,10 @@ func DecodeTx(data []byte) (*ParsedTx, error) {
 // SignTx computes an Ed25519 signature over the transaction payload and sets
 // the Signature and PublicKey fields on the transaction.
 func SignTx(tx *ParsedTx, privateKey ed25519.PrivateKey) error {
-	payload := signingPayload(tx)
+	payload, err := signingPayload(tx)
+	if err != nil {
+		return fmt.Errorf("signing payload: %w", err)
+	}
 	pub, _ := privateKey.Public().(ed25519.PublicKey)
 	tx.PublicKey = pub
 	tx.Signature = ed25519.Sign(privateKey, payload)
@@ -156,7 +162,10 @@ func VerifyTx(tx *ParsedTx) (bool, error) {
 	if len(tx.Signature) != ed25519.SignatureSize {
 		return false, ErrSignatureLength
 	}
-	payload := signingPayload(tx)
+	payload, err := signingPayload(tx)
+	if err != nil {
+		return false, fmt.Errorf("signing payload: %w", err)
+	}
 	return ed25519.Verify(ed25519.PublicKey(tx.PublicKey), payload, tx.Signature), nil
 }
 
@@ -164,7 +173,7 @@ func VerifyTx(tx *ParsedTx) (bool, error) {
 // It encodes the tx with node signature/pubkey zeroed, then takes a SHA-256 hash.
 // Agent auth fields are preserved in the hash — the node signs over the agent's
 // identity proof, binding the two signatures together.
-func signingPayload(tx *ParsedTx) []byte {
+func signingPayload(tx *ParsedTx) ([]byte, error) {
 	// Create a copy with node signature/pubkey zeroed (NOT agent fields)
 	clone := *tx
 	clone.Signature = make([]byte, ed25519.SignatureSize)
@@ -172,12 +181,11 @@ func signingPayload(tx *ParsedTx) []byte {
 
 	encoded, err := EncodeTx(&clone)
 	if err != nil {
-		// This should never happen for a well-formed tx
-		panic(fmt.Sprintf("signingPayload: encode failed: %v", err))
+		return nil, fmt.Errorf("encode failed: %w", err)
 	}
 
 	hash := sha256.Sum256(encoded)
-	return hash[:]
+	return hash[:], nil
 }
 
 // --- payload encoding helpers ---

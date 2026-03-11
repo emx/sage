@@ -105,7 +105,7 @@ func cmdStatus() {
 			continue
 		}
 
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 		resp.Body.Close()
 
 		var result map[string]interface{}
@@ -131,7 +131,7 @@ func cmdHealth(apiURL string) {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 
 	var result map[string]interface{}
 	if unmarshalErr := json.Unmarshal(body, &result); unmarshalErr == nil {

@@ -445,7 +445,7 @@ func (s *Server) doSignedJSON(ctx context.Context, method, path string, body []b
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20)) // 10 MB max
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
 	}

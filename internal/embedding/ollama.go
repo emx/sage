@@ -84,7 +84,7 @@ func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB max
 		return nil, fmt.Errorf("ollama embed error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
