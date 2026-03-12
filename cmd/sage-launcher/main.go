@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -67,7 +68,7 @@ func main() {
 
 	// Write PID file
 	pidFile := filepath.Join(sageHome, "sage.pid")
-	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0600); err != nil {
 		fatal("write pid file: %v", err)
 	}
 
@@ -108,8 +109,13 @@ func isRunning() bool {
 }
 
 func healthOK() bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(healthURL)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false
 	}
@@ -140,7 +146,7 @@ func findSageGUI() string {
 	self, err := os.Executable()
 	if err == nil {
 		candidate := filepath.Join(filepath.Dir(self), name)
-		if _, err := os.Stat(candidate); err == nil {
+		if _, statErr := os.Stat(candidate); statErr == nil {
 			return candidate
 		}
 	}
