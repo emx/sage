@@ -242,6 +242,16 @@ func (s *Server) toolRemember(ctx context.Context, params map[string]any) (any, 
 	memType := stringParam(params, "type", "observation")
 	confidence := floatParam(params, "confidence", 0.8)
 
+	// Skip duplicates — don't store if a very similar memory already exists.
+	if s.similarMemoryExists(ctx, content, domain) {
+		return map[string]any{
+			"status":  "skipped",
+			"reason":  "A similar memory already exists in this domain.",
+			"domain":  domain,
+			"skipped": true,
+		}, nil
+	}
+
 	// Pre-validate against app validators (if endpoint exists).
 	preValidateReq, _ := json.Marshal(map[string]any{
 		"content":    content,
@@ -605,7 +615,8 @@ func (s *Server) toolTurn(ctx context.Context, params map[string]any) (any, erro
 
 	// Phase 2: Store — save this turn's observation as an episodic memory.
 	// Goes through consensus: submit → CheckTx → FinalizeBlock → Commit → auto-validator → committed.
-	if observation != "" && !isLowValueObservation(observation) {
+	// Skip duplicates — don't store if a very similar memory already exists in this domain.
+	if observation != "" && !isLowValueObservation(observation) && !s.similarMemoryExists(ctx, observation, domain) {
 		if err := s.storeMemory(ctx, observation, domain, "observation", 0.80); err != nil {
 			result["store_error"] = err.Error()
 		} else {
@@ -1152,6 +1163,11 @@ func isLowValueObservation(obs string) bool {
 		"brain is online", "brain is awake", "no action taken",
 		"user said morning", "user said back", "checking in",
 		"new session started", "user said wake up",
+		"starting research", "starting exploration", "starting search",
+		"user requested search", "user requested exploration",
+		"user requested deep analysis", "user requested thorough",
+		"user requesting comprehensive", "user requesting exploration",
+		"beginning analysis", "initializing brain",
 	}
 	for _, p := range noisePatterns {
 		if strings.Contains(lower, p) {

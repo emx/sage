@@ -412,7 +412,11 @@ func (h *DashboardHandler) validAgentSignature(r *http.Request) bool {
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
 	}
-	return auth.VerifyRequest(pubKey, r.Method, r.URL.Path, body, tsUnix, sig)
+	reqPath := r.URL.Path
+	if r.URL.RawQuery != "" {
+		reqPath = r.URL.Path + "?" + r.URL.RawQuery
+	}
+	return auth.VerifyRequest(pubKey, r.Method, reqPath, body, tsUnix, sig)
 }
 
 // handleLogin verifies the vault passphrase and sets a session cookie.

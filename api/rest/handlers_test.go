@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -248,14 +247,9 @@ func signedRequest(t *testing.T, method, path string, body []byte) (*http.Reques
 	pub, priv, err := auth.GenerateKeypair()
 	require.NoError(t, err)
 
-	// Extract just the URL path (no query string) for signing — matches r.URL.Path in middleware.
-	signPath := path
-	if idx := strings.IndexByte(path, '?'); idx >= 0 {
-		signPath = path[:idx]
-	}
-
+	// Sign with full path including query params — matches middleware verification.
 	ts := time.Now().Unix()
-	sig := auth.SignRequest(priv, method, signPath, body, ts)
+	sig := auth.SignRequest(priv, method, path, body, ts)
 	agentID := auth.PublicKeyToAgentID(pub)
 
 	var req *http.Request

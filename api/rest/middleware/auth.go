@@ -152,8 +152,13 @@ func Ed25519AuthMiddleware(next http.Handler) http.Handler {
 			r.Body = io.NopCloser(bytes.NewReader(body))
 		}
 
-		// Verify Ed25519 signature (covers method + path + body + timestamp).
-		if !auth.VerifyRequest(pubKey, r.Method, r.URL.Path, body, tsUnix, sig) {
+		// Verify Ed25519 signature (covers method + path + query + body + timestamp).
+		// Use RequestURI to include query params — the MCP client signs the full path.
+		reqPath := r.URL.Path
+		if r.URL.RawQuery != "" {
+			reqPath = r.URL.Path + "?" + r.URL.RawQuery
+		}
+		if !auth.VerifyRequest(pubKey, r.Method, reqPath, body, tsUnix, sig) {
 			writeProblem(w, http.StatusUnauthorized, "Invalid signature",
 				"Ed25519 signature verification failed.")
 			return
@@ -168,8 +173,8 @@ func Ed25519AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Compute canonical body hash for on-chain embedding.
-		// Must match the signing format: SHA-256(method + " " + path + "\n" + body)
-		canonical := []byte(r.Method + " " + r.URL.Path + "\n")
+		// Must match the signing format: SHA-256(method + " " + path[+query] + "\n" + body)
+		canonical := []byte(r.Method + " " + reqPath + "\n")
 		canonical = append(canonical, body...)
 		bodyHash := sha256.Sum256(canonical)
 
