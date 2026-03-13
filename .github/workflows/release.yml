@@ -257,6 +257,7 @@ jobs:
             ghcr.io/l33tdawg/sage:latest
 
       - name: Commit updated server.json back to repo
+        continue-on-error: true  # Branch protection may block bot pushes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
