@@ -363,6 +363,22 @@ export async function saveRecallSettings(topK, minConfidence) {
     return res.json();
 }
 
+// ─── Memory Mode API ───
+
+export async function fetchMemoryMode() {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/memory-mode`);
+    return res.json();
+}
+
+export async function saveMemoryMode(mode) {
+    const res = await fetch(`${API_BASE}/v1/dashboard/settings/memory-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+    });
+    return res.json();
+}
+
 // ─── Software Update API ───
 
 export async function checkForUpdate() {

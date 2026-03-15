@@ -39,7 +39,6 @@ All data processing occurs locally:
 - Ed25519 keypair is generated and stored locally in the browser
 
 The extension requests the following permissions:
-- activeTab: To inject the (S)AGE sidebar into AI chat pages
 - storage: To save your (S)AGE server URL and cryptographic keys locally
 - Host permissions for localhost:8080: To communicate with your local (S)AGE server
 - Host permissions for chatgpt.com/chat.openai.com: To inject the content script

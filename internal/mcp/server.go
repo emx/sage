@@ -57,6 +57,10 @@ type Server struct {
 	recallMinConf  float64
 	recallCacheAge time.Time
 
+	// Cached memory mode setting from dashboard preferences.
+	memoryMode         string // "full" (default) or "bookend"
+	memoryModeCacheAge time.Time
+
 	// Auto-inception: automatically initialize brain on first tool call if empty.
 	inceptionChecked bool
 

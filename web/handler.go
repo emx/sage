@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"fmt"
 	"strings"
@@ -259,6 +260,8 @@ func (h *DashboardHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/v1/dashboard/cleanup/run", h.handleRunCleanup)
 		r.Get("/v1/dashboard/settings/boot-instructions", h.handleGetBootInstructions)
 		r.Post("/v1/dashboard/settings/boot-instructions", h.handleSaveBootInstructions)
+		r.Get("/v1/dashboard/settings/memory-mode", h.handleGetMemoryMode)
+		r.Post("/v1/dashboard/settings/memory-mode", h.handleSaveMemoryMode)
 
 		// Task backlog
 		r.Get("/v1/dashboard/tasks", h.handleGetTasks)
@@ -1530,4 +1533,59 @@ func (h *DashboardHandler) handleSaveRecallSettings(w http.ResponseWriter, r *ht
 		"top_k":          body.TopK,
 		"min_confidence": body.MinConfidence,
 	})
+}
+
+// handleGetMemoryMode returns the current memory mode setting.
+func (h *DashboardHandler) handleGetMemoryMode(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+	mode, err := h.prefStore.GetPreference(r.Context(), "memory_mode")
+	if err != nil || mode == "" {
+		mode = "full"
+	}
+	writeJSONResp(w, http.StatusOK, map[string]any{"mode": mode})
+}
+
+// handleSaveMemoryMode saves the memory mode setting.
+// Valid modes: "full" (sage_turn every turn) or "bookend" (inception + reflect only).
+// Also writes ~/.sage/memory_mode flag file so hook scripts can read it without an API call.
+func (h *DashboardHandler) handleSaveMemoryMode(w http.ResponseWriter, r *http.Request) {
+	if h.prefStore == nil {
+		writeError(w, http.StatusNotImplemented, "preferences not available")
+		return
+	}
+	var body struct {
+		Mode string `json:"mode"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Mode != "full" && body.Mode != "bookend" {
+		writeError(w, http.StatusBadRequest, "mode must be 'full' or 'bookend'")
+		return
+	}
+	if err := h.prefStore.SetPreference(r.Context(), "memory_mode", body.Mode); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Write flag file so hook scripts can check the mode without an API call.
+	// This is the bridge between server-side preference and client-side hooks.
+	flagSynced := false
+	if sageHome := os.Getenv("SAGE_HOME"); sageHome != "" {
+		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil {
+			flagSynced = true
+		}
+	} else if home, err := os.UserHomeDir(); err == nil {
+		sageHome := filepath.Join(home, ".sage")
+		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil {
+			flagSynced = true
+		}
+	}
+
+	writeJSONResp(w, http.StatusOK, map[string]any{"ok": true, "mode": body.Mode, "flag_synced": flagSynced})
 }

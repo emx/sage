@@ -1,6 +1,6 @@
 // CEREBRUM — Your SAGE Brain
 import { SSEClient } from './sse.js';
-import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, lockSession, importMemories, importPreview, importConfirm, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, createTask, fetchUnregisteredAgents, mergeAgent, fetchRecallSettings, saveRecallSettings, fetchAgentTags, transferTag, transferDomain, bulkUpdateMemories } from './api.js';
+import { fetchStats, fetchGraph, fetchMemories, deleteMemory, fetchHealth, checkAuth, login, lockSession, importMemories, importPreview, importConfirm, fetchCleanupSettings, saveCleanupSettings, runCleanup, fetchAgents, fetchAgent, createAgent, updateAgent, removeAgent, downloadBundle, fetchTemplates, fetchRedeployStatus, startRedeploy, createPairingCode, rotateAgentKey, fetchBootInstructions, saveBootInstructions, fetchLedgerStatus, enableLedger, changeLedgerPassphrase, disableLedger, fetchTags, fetchMemoryTags, setMemoryTags, fetchAutostart, setAutostart, checkForUpdate, applyUpdate, restartServer, fetchTasks, updateTaskStatus, createTask, fetchUnregisteredAgents, mergeAgent, fetchRecallSettings, saveRecallSettings, fetchAgentTags, transferTag, transferDomain, bulkUpdateMemories, fetchMemoryMode, saveMemoryMode } from './api.js';
 
 const { h, render, createContext } = preact;
 const { useState, useEffect, useRef, useCallback, useContext } = preactHooks;
@@ -2543,6 +2543,72 @@ function AutostartToggle() {
     `;
 }
 
+function MemoryMode() {
+    const [mode, setMode] = useState('full');
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        fetchMemoryMode().then(data => {
+            if (data.mode) setMode(data.mode);
+        }).catch(() => {});
+    }, []);
+
+    async function handleChange(newMode) {
+        if (saving || newMode === mode) return;
+        setSaving(true);
+        setSaved(false);
+        try {
+            const res = await saveMemoryMode(newMode);
+            if (res.ok) {
+                setMode(newMode);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+            }
+        } catch (e) { /* ignore */ }
+        setSaving(false);
+    }
+
+    return html`
+        <h3>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px">
+                <path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/>
+                <line x1="10" y1="22" x2="14" y2="22"/>
+            </svg>
+            Memory Mode <${HelpTip} text="Controls when SAGE saves and recalls memories during a conversation. Full mode calls sage_turn every turn for maximum context. Bookend mode only runs at session start and end to save tokens." />
+        </h3>
+        <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">
+            Controls how aggressively your AI agents interact with SAGE during conversations.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn ${mode === 'full' ? 'btn-primary' : ''}"
+                    onClick=${() => handleChange('full')}
+                    disabled=${saving}
+                    style="flex:1;min-width:200px;padding:12px;text-align:left;border:1px solid ${mode === 'full' ? 'var(--accent)' : 'var(--border)'};border-radius:8px;background:${mode === 'full' ? 'var(--accent-bg, rgba(99,102,241,0.1))' : 'var(--bg-elevated)'};cursor:pointer">
+                <div style="font-weight:600;margin-bottom:4px">
+                    ${mode === 'full' ? '● ' : '○ '}Full
+                </div>
+                <div style="font-size:11px;color:var(--text-dim);font-weight:normal">
+                    sage_turn every turn. Maximum context and recall. Uses more tokens.
+                </div>
+            </button>
+            <button class="btn ${mode === 'bookend' ? 'btn-primary' : ''}"
+                    onClick=${() => handleChange('bookend')}
+                    disabled=${saving}
+                    style="flex:1;min-width:200px;padding:12px;text-align:left;border:1px solid ${mode === 'bookend' ? 'var(--accent)' : 'var(--border)'};border-radius:8px;background:${mode === 'bookend' ? 'var(--accent-bg, rgba(99,102,241,0.1))' : 'var(--bg-elevated)'};cursor:pointer">
+                <div style="font-weight:600;margin-bottom:4px">
+                    ${mode === 'bookend' ? '● ' : '○ '}Bookend
+                </div>
+                <div style="font-size:11px;color:var(--text-dim);font-weight:normal">
+                    Inception at start, reflect at end. Minimal token usage. Say "reflect" to save.
+                </div>
+            </button>
+        </div>
+        ${saving && html`<div style="margin-top:8px;font-size:12px;color:var(--text-dim)">Saving and syncing hooks...</div>`}
+        ${saved && html`<div style="margin-top:8px;font-size:12px;color:#10b981">✓ Saved — mode synced to hooks. Takes effect on next session.</div>`}
+    `;
+}
+
 function RecallSettings() {
     const [topK, setTopK] = useState(5);
     const [minConfidence, setMinConfidence] = useState(95);
@@ -3148,6 +3214,10 @@ function SettingsPage() {
             ${settingsTab === 'config' && html`
                 <div class="settings-tab-content">
                     ${html`<${BootInstructions} />`}
+
+                    <div class="settings-section" style="margin-top:16px">
+                        ${html`<${MemoryMode} />`}
+                    </div>
 
                     <div class="settings-section" style="margin-top:16px">
                         ${html`<${RecallSettings} />`}

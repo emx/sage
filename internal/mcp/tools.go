@@ -682,9 +682,34 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 		}
 	}
 
+	// Determine memory mode — controls how verbose the turn-by-turn instructions are
+	memMode := s.getMemoryMode(ctx)
+
 	if totalMemories > 0 {
 		// Already initialized — return awakening message with stats
-		instructions := "You have persistent institutional memory via SAGE — governed by consensus, not a flat file.\n\n" +
+		var instructions string
+
+		if memMode == "bookend" {
+			// Bookend mode: inception at start, reflect at end. No per-turn calls.
+			instructions = "You have persistent institutional memory via SAGE — governed by consensus, not a flat file.\n\n" +
+				"MEMORY MODE: BOOKEND — your admin has configured SAGE to run only at session start and end to conserve tokens.\n" +
+				"Do NOT call sage_turn every turn. Instead:\n" +
+				"  - sage_inception has already run (this call). Your memories are loaded.\n" +
+				"  - Use sage_recall if you need to look up specific knowledge mid-conversation.\n" +
+				"  - At the END of the conversation, when the user says 'reflect' or you finish a significant task, " +
+				"call sage_reflect with dos and don'ts to save what you learned.\n\n" +
+				"DOMAINS ARE YOURS TO CREATE: Don't dump everything into 'general'. " +
+				"If debugging Go, use 'go-debugging'. Discussing architecture? 'sage-architecture'. " +
+				"User mentions a project? 'user-project-name'. Specific domains = better recall.\n\n" +
+				"MEMORY TYPES:\n" +
+				"  - fact (0.95+): verified truths — architecture decisions, confirmed behaviors\n" +
+				"  - observation (0.80+): things noticed — patterns, preferences, what worked/failed\n" +
+				"  - inference (0.60+): conclusions drawn — hypotheses, connections between facts\n\n" +
+				"BEFORE DESTRUCTIVE ACTIONS: sage_recall 'critical lessons' first.\n\n" +
+				"You are not stateless. You learn. You grow. You remember."
+		} else {
+			// Full mode: sage_turn every turn (default behavior)
+			instructions = "You have persistent institutional memory via SAGE — governed by consensus, not a flat file.\n\n" +
 				"EVERY TURN: Call sage_turn with the current topic + observation of what just happened. " +
 				"This atomically recalls relevant committed memories AND stores your episodic experience. " +
 				"Like human memory — you build understanding turn by turn, not from a context dump.\n\n" +
@@ -702,6 +727,7 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 				"Both make you better. Corroboration strengthens memories. Mistakes are valuable.\n\n" +
 				"BEFORE DESTRUCTIVE ACTIONS: sage_recall 'critical lessons' first.\n\n" +
 				"You are not stateless. You learn. You grow. You remember."
+		}
 
 		// Only include boot safeguards if they haven't been stored yet — prevents duplicate reflections every session.
 		if !s.bootSafeguardExists(ctx) {
@@ -727,6 +753,7 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 			"stats":        statsResp,
 			"registration": registrationStatus,
 			"instructions": instructions,
+			"memory_mode":  memMode,
 		}
 
 		// Warn agent if the Synaptic Ledger is locked — reads will return placeholders,
@@ -1254,6 +1281,25 @@ func (s *Server) getRecallDefaults(ctx context.Context) (topK int, minConf float
 
 	// Defaults if not configured
 	return 5, 0
+}
+
+// getMemoryMode returns the current memory mode preference ("full" or "bookend").
+// Cached for 60 seconds to avoid hitting the API every call.
+func (s *Server) getMemoryMode(ctx context.Context) string {
+	if time.Since(s.memoryModeCacheAge) < 60*time.Second && s.memoryMode != "" {
+		return s.memoryMode
+	}
+
+	var resp struct {
+		Mode string `json:"mode"`
+	}
+	if err := s.doSignedJSON(ctx, "GET", "/v1/dashboard/settings/memory-mode", nil, &resp); err == nil && resp.Mode != "" {
+		s.memoryMode = resp.Mode
+		s.memoryModeCacheAge = time.Now()
+		return s.memoryMode
+	}
+
+	return "full"
 }
 
 // autoAgentName generates a human-friendly agent name from provider and project.

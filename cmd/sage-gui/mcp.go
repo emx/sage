@@ -21,17 +21,34 @@ import (
 )
 
 // Embedded hook scripts deployed by `sage-gui mcp install`.
+// Both scripts check ~/.sage/memory_mode to adapt behavior.
 const sageBootScript = `#!/bin/bash
 # SAGE Boot Sequence Enforcement
 # Fires on SessionStart (startup, resume, compact).
+SAGE_HOME="${SAGE_HOME:-$HOME/.sage}"
+MODE=$(cat "$SAGE_HOME/memory_mode" 2>/dev/null || echo "full")
+
 echo "MANDATORY: Call sage_inception (or sage_red_pill) NOW, before responding to the user. This is a new session — your brain needs to boot. Do NOT skip this step, even if you have a context continuation summary. Those summaries do NOT replace your SAGE memory."
+
+if [ "$MODE" = "bookend" ]; then
+    echo "SAGE MODE: bookend — Do NOT call sage_turn every turn. Only call sage_reflect at the end of the conversation when the user says 'reflect' or you finish a significant task."
+fi
 `
 
 const sageTurnScript = `#!/bin/bash
 # SAGE Turn Reminder
 # Fires on PreCompact (sync), Stop, SubagentStop, and PostToolUse (async).
-# Reminds Claude to call sage_turn so memories are flushed before context loss.
-echo "SAGE REMINDER: Call sage_turn with the current topic and a brief observation of what just happened. This saves your experience and recalls relevant memories. If you just completed a significant task, also call sage_reflect with dos and don'ts."
+# Respects memory mode: in bookend mode, only reminds about reflect (not sage_turn).
+SAGE_HOME="${SAGE_HOME:-$HOME/.sage}"
+MODE=$(cat "$SAGE_HOME/memory_mode" 2>/dev/null || echo "full")
+
+if [ "$MODE" = "bookend" ]; then
+    # Bookend mode: only remind on significant events (PreCompact, Stop)
+    # The hook still fires but gives bookend-appropriate guidance
+    echo "SAGE REMINDER (bookend mode): If you just completed a significant task, call sage_reflect with dos and don'ts. Do NOT call sage_turn — bookend mode is active."
+else
+    echo "SAGE REMINDER: Call sage_turn with the current topic and a brief observation of what just happened. This saves your experience and recalls relevant memories. If you just completed a significant task, also call sage_reflect with dos and don'ts."
+fi
 `
 
 func runMCP() error {
@@ -46,6 +63,14 @@ func runMCP() error {
 
 	if err := os.MkdirAll(home, 0700); err != nil { //nolint:gosec // home is ~/.sage, not user input
 		return fmt.Errorf("create SAGE home: %w", err)
+	}
+
+	// Self-heal: patch hooks and CLAUDE.md on every MCP start.
+	// This ensures existing users get updated hook scripts (with memory mode
+	// support) and CLAUDE.md after upgrading, without needing to re-run
+	// `sage-gui mcp install`. Runs silently — output goes to stderr only.
+	if projectDir, err := os.Getwd(); err == nil {
+		selfHealProject(projectDir, home)
 	}
 
 	// Per-project agent identity: each project directory gets its own key.
@@ -168,18 +193,23 @@ func runMCPInstall() error {
 
 	if alreadyConfigured {
 		fmt.Println("✓ SAGE MCP is already configured in this project.")
-		fmt.Printf("  Config: %s\n", mcpPath)
+		fmt.Printf("  .mcp.json: %s (ok)\n", mcpPath)
 		fmt.Println()
-		fmt.Println("  Updating Claude Code hooks and permissions...")
+		fmt.Println("  Checking Claude Code integration...")
 
 		// Still install/update hooks — older installs may be missing them.
 		if hookErr := installClaudeHooks(projectDir); hookErr != nil {
 			fmt.Fprintf(os.Stderr, "⚠ Could not install Claude Code hooks: %v\n", hookErr)
 			fmt.Fprintln(os.Stderr, "  SAGE will still work, but memory persistence may be less reliable.")
-		} else {
-			fmt.Println()
-			fmt.Println("  Restart your Claude Code session to activate the updated hooks.")
 		}
+
+		// Install or update CLAUDE.md with SAGE boot instructions
+		if mdErr := installClaudeMD(projectDir); mdErr != nil {
+			fmt.Fprintf(os.Stderr, "⚠ Could not install CLAUDE.md: %v\n", mdErr)
+		}
+
+		fmt.Println()
+		fmt.Println("  Restart your Claude Code session to activate updates.")
 		return nil
 	}
 
@@ -230,11 +260,19 @@ func runMCPInstall() error {
 		return fmt.Errorf("write .mcp.json: %w", writeErr)
 	}
 
-	// Install Claude Code hooks and permissions for reliable SAGE integration.
+	// Install Claude Code hooks, permissions, and CLAUDE.md for reliable SAGE integration.
 	if hookErr := installClaudeHooks(projectDir); hookErr != nil {
 		fmt.Fprintf(os.Stderr, "⚠ Could not install Claude Code hooks: %v\n", hookErr)
 		fmt.Fprintln(os.Stderr, "  SAGE will still work, but memory persistence may be less reliable.")
 	}
+
+	// Install or update CLAUDE.md with SAGE boot instructions
+	if mdErr := installClaudeMD(projectDir); mdErr != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Could not install CLAUDE.md: %v\n", mdErr)
+	}
+
+	// Sync memory mode flag file (default to "full" if not set)
+	syncMemoryModeFlag(sageHome)
 
 	projectName := filepath.Base(projectDir)
 	fmt.Printf("✓ SAGE MCP installed for project: %s\n", projectName)
@@ -291,9 +329,81 @@ func installClaudeHooks(projectDir string) error {
 		return fmt.Errorf("write settings: %w", err)
 	}
 
-	fmt.Println("✓ Claude Code hooks installed for SAGE memory persistence")
-	fmt.Printf("  Hooks: %s\n", hookDir)
-	fmt.Printf("  Settings: %s\n", settingsPath)
+	fmt.Printf("  ✓ .claude/hooks/: installed (%s)\n", hookDir)
+	fmt.Printf("  ✓ .claude/settings.json: updated (%s)\n", settingsPath)
+	return nil
+}
+
+// sageClaudeMDBlock is the SAGE section injected into CLAUDE.md.
+// It contains the minimal boot sequence instructions — the actual behavior
+// (full vs bookend mode) is controlled dynamically by sage_inception.
+const sageClaudeMDBlock = `## SAGE — Persistent Memory
+
+Your brain is powered by SAGE MCP. You have persistent institutional memory.
+
+### Boot Sequence (MANDATORY)
+1. Call ` + "`sage_inception`" + ` as your VERY FIRST action in every new conversation
+2. Do NOT respond to the user before booting — your memories must load first
+3. Follow the instructions returned by inception (they adapt to the user's settings)
+
+### If SAGE MCP is not connected
+Start the node: ` + "`sage-gui serve`" + `
+MCP config is in ` + "`.mcp.json`" + ` at project root. Restart your session after starting.
+`
+
+// sageClaudeMDMarker is used to detect and replace the SAGE section in CLAUDE.md.
+const sageClaudeMDMarker = "## SAGE — Persistent Memory"
+
+// installClaudeMD creates or updates CLAUDE.md with the SAGE boot instructions.
+// If a CLAUDE.md already exists, it patches the SAGE section in-place.
+// If no CLAUDE.md exists, it creates one with the SAGE section.
+func installClaudeMD(projectDir string) error {
+	mdPath := filepath.Join(projectDir, "CLAUDE.md")
+
+	existing, err := os.ReadFile(mdPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read CLAUDE.md: %w", err)
+	}
+
+	if err == nil {
+		// File exists — check if SAGE block is already present
+		content := string(existing)
+		if strings.Contains(content, sageClaudeMDMarker) {
+			// Replace existing SAGE block (find from marker to next ## or end of file)
+			start := strings.Index(content, sageClaudeMDMarker)
+			end := len(content)
+			// Find the next top-level heading after the SAGE block
+			rest := content[start+len(sageClaudeMDMarker):]
+			if idx := strings.Index(rest, "\n## "); idx >= 0 {
+				end = start + len(sageClaudeMDMarker) + idx + 1 // +1 to keep the newline
+			}
+			updated := content[:start] + sageClaudeMDBlock + content[end:]
+			if err := os.WriteFile(mdPath, []byte(updated), 0644); err != nil { //nolint:gosec // CLAUDE.md should be readable
+				return fmt.Errorf("update CLAUDE.md: %w", err)
+			}
+			fmt.Println("  ✓ CLAUDE.md: patched SAGE section")
+			return nil
+		}
+
+		// Append SAGE block to existing CLAUDE.md
+		updated := content
+		if !strings.HasSuffix(updated, "\n") {
+			updated += "\n"
+		}
+		updated += "\n" + sageClaudeMDBlock
+		if err := os.WriteFile(mdPath, []byte(updated), 0644); err != nil { //nolint:gosec // CLAUDE.md should be readable
+			return fmt.Errorf("update CLAUDE.md: %w", err)
+		}
+		fmt.Println("  ✓ CLAUDE.md: appended SAGE boot instructions")
+		return nil
+	}
+
+	// No CLAUDE.md — create one with just the SAGE section
+	content := "# CLAUDE.md\n\n" + sageClaudeMDBlock
+	if err := os.WriteFile(mdPath, []byte(content), 0644); err != nil { //nolint:gosec // CLAUDE.md should be readable
+		return fmt.Errorf("create CLAUDE.md: %w", err)
+	}
+	fmt.Println("  ✓ CLAUDE.md: created with SAGE boot instructions")
 	return nil
 }
 
@@ -464,6 +574,69 @@ func claimAgentIdentity(sageHome, token, keyPath string) error {
 	return nil
 }
 
+// selfHealProject silently patches outdated hooks and missing CLAUDE.md in the
+// project directory. Called on every MCP session start so that existing users
+// automatically get new features (like memory mode support) after upgrading
+// without needing to re-run `sage-gui mcp install`.
+//
+// This is intentionally quiet — all output goes to stderr so it doesn't pollute
+// the MCP stdio protocol. Only patches if something is actually stale.
+func selfHealProject(projectDir, sageHome string) {
+	hookDir := filepath.Join(projectDir, ".claude", "hooks")
+
+	// Check if hooks exist and need updating by checking for the memory_mode marker
+	turnScript := filepath.Join(hookDir, "sage-turn.sh")
+	needsHookUpdate := false
+
+	if data, err := os.ReadFile(turnScript); err == nil {
+		// Hook exists but doesn't have memory_mode support — needs patching
+		if !strings.Contains(string(data), "memory_mode") {
+			needsHookUpdate = true
+		}
+	}
+	// If hooks dir doesn't exist at all, this project may not have SAGE installed
+	// via `mcp install` — don't create hooks uninvited.
+	if _, err := os.Stat(hookDir); os.IsNotExist(err) {
+		// No hooks dir = never installed. Only patch CLAUDE.md and flag file.
+		// Don't create hooks — user may have intentionally not installed them.
+	} else if needsHookUpdate {
+		// Silently update hook scripts with new versions
+		for name, content := range map[string]string{
+			"sage-boot.sh": sageBootScript,
+			"sage-turn.sh": sageTurnScript,
+		} {
+			path := filepath.Join(hookDir, name)
+			if err := os.WriteFile(path, []byte(content), 0755); err != nil { //nolint:gosec // hook scripts must be executable
+				fmt.Fprintf(os.Stderr, "SAGE: could not update hook %s: %v\n", name, err)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "SAGE: updated hook scripts with memory mode support\n")
+	}
+
+	// Ensure CLAUDE.md has the SAGE section
+	mdPath := filepath.Join(projectDir, "CLAUDE.md")
+	if data, err := os.ReadFile(mdPath); err == nil {
+		if !strings.Contains(string(data), sageClaudeMDMarker) {
+			// CLAUDE.md exists but missing SAGE section — append it
+			_ = installClaudeMD(projectDir)
+			fmt.Fprintf(os.Stderr, "SAGE: patched CLAUDE.md with boot instructions\n")
+		}
+	} else if os.IsNotExist(err) {
+		// Only create CLAUDE.md if .mcp.json exists (confirms SAGE is installed here)
+		mcpPath := filepath.Join(projectDir, ".mcp.json")
+		if _, mcpErr := os.Stat(mcpPath); mcpErr == nil {
+			_ = installClaudeMD(projectDir)
+			fmt.Fprintf(os.Stderr, "SAGE: created CLAUDE.md with boot instructions\n")
+		}
+	}
+
+	// Ensure memory_mode flag file exists
+	flagPath := filepath.Join(sageHome, "memory_mode")
+	if _, err := os.Stat(flagPath); os.IsNotExist(err) {
+		_ = os.WriteFile(flagPath, []byte("full"), 0600)
+	}
+}
+
 // loadOrGenerateKey loads an Ed25519 private key from disk, or generates one.
 // The key file stores the 32-byte seed; the full 64-byte private key is derived.
 func loadOrGenerateKey(path string) (ed25519.PrivateKey, error) {
@@ -498,4 +671,26 @@ func loadOrGenerateKey(path string) (ed25519.PrivateKey, error) {
 	fmt.Fprintf(os.Stderr, "Saved to: %s\n", path)
 
 	return priv, nil
+}
+
+// syncMemoryModeFlag ensures the ~/.sage/memory_mode flag file exists.
+// If it doesn't exist, creates it with the default "full" mode.
+// The flag file is read by hook scripts to determine whether to remind
+// about sage_turn (full mode) or sage_reflect (bookend mode).
+func syncMemoryModeFlag(sageHome string) {
+	flagPath := filepath.Join(sageHome, "memory_mode")
+	if _, err := os.Stat(flagPath); err == nil {
+		// Already exists — respect current setting
+		mode, readErr := os.ReadFile(flagPath)
+		if readErr == nil {
+			fmt.Printf("  ✓ memory_mode: %s (%s)\n", strings.TrimSpace(string(mode)), flagPath)
+		}
+		return
+	}
+	// Create with default "full" mode
+	if err := os.WriteFile(flagPath, []byte("full"), 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Could not write memory mode flag: %v\n", err)
+		return
+	}
+	fmt.Printf("  ✓ memory_mode: full (%s)\n", flagPath)
 }
