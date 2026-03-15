@@ -689,7 +689,8 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 		// Already initialized — return awakening message with stats
 		var instructions string
 
-		if memMode == "on-demand" {
+		switch memMode {
+		case "on-demand":
 			// On-demand mode: no automatic calls. User triggers everything manually.
 			instructions = "You have persistent institutional memory via SAGE — but it is in ON-DEMAND mode.\n\n" +
 				"Do NOT call sage_inception, sage_turn, or sage_reflect automatically.\n" +
@@ -698,7 +699,7 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 				"  - \"reflect\" / \"save\" / \"store\" → call sage_reflect with dos and don'ts\n" +
 				"  - \"remember this\" → call sage_remember to store a specific memory\n\n" +
 				"This mode minimizes token usage. SAGE tools are available but passive."
-		} else if memMode == "bookend" {
+		case "bookend":
 			// Bookend mode: inception at start, reflect at end. No per-turn calls.
 			instructions = "You have persistent institutional memory via SAGE — governed by consensus, not a flat file.\n\n" +
 				"MEMORY MODE: BOOKEND — your admin has configured SAGE to run only at session start and end to conserve tokens.\n" +
@@ -716,7 +717,7 @@ func (s *Server) toolInception(ctx context.Context, _ map[string]any) (any, erro
 				"  - inference (0.60+): conclusions drawn — hypotheses, connections between facts\n\n" +
 				"BEFORE DESTRUCTIVE ACTIONS: sage_recall 'critical lessons' first.\n\n" +
 				"You are not stateless. You learn. You grow. You remember."
-		} else {
+		default:
 			// Full mode: sage_turn every turn (default behavior)
 			instructions = "You have persistent institutional memory via SAGE — governed by consensus, not a flat file.\n\n" +
 				"EVERY TURN: Call sage_turn with the current topic + observation of what just happened. " +
