@@ -3048,7 +3048,7 @@ func (s *SQLiteStore) PipelineStats(ctx context.Context) (map[string]int, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	stats := make(map[string]int)
 	for rows.Next() {
