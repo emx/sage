@@ -1581,12 +1581,12 @@ func (h *DashboardHandler) handleSaveMemoryMode(w http.ResponseWriter, r *http.R
 	// This is the bridge between server-side preference and client-side hooks.
 	flagSynced := false
 	if sageHome := os.Getenv("SAGE_HOME"); sageHome != "" {
-		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil {
+		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil { //nolint:gosec // trusted local path
 			flagSynced = true
 		}
 	} else if home, err := os.UserHomeDir(); err == nil {
 		sageHome := filepath.Join(home, ".sage")
-		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil {
+		if err := os.WriteFile(filepath.Join(sageHome, "memory_mode"), []byte(body.Mode), 0600); err == nil { //nolint:gosec // trusted local path
 			flagSynced = true
 		}
 	}

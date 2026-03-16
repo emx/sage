@@ -637,9 +637,9 @@ func selfHealProject(projectDir, sageHome string) {
 	}
 
 	// Ensure memory_mode flag file exists
-	flagPath := filepath.Join(sageHome, "memory_mode")
+	flagPath := filepath.Join(sageHome, "memory_mode") //nolint:gosec // path derived from trusted SAGE_HOME
 	if _, err := os.Stat(flagPath); os.IsNotExist(err) {
-		_ = os.WriteFile(flagPath, []byte("full"), 0600)
+		_ = os.WriteFile(flagPath, []byte("full"), 0600) //nolint:gosec // path derived from trusted SAGE_HOME
 	}
 }
 
@@ -685,16 +685,16 @@ func loadOrGenerateKey(path string) (ed25519.PrivateKey, error) {
 // about sage_turn (full mode) or sage_reflect (bookend mode).
 func syncMemoryModeFlag(sageHome string) {
 	flagPath := filepath.Join(sageHome, "memory_mode")
-	if _, err := os.Stat(flagPath); err == nil {
+	if _, err := os.Stat(flagPath); err == nil { //nolint:gosec // path from trusted SAGE_HOME
 		// Already exists — respect current setting
-		mode, readErr := os.ReadFile(flagPath)
+		mode, readErr := os.ReadFile(flagPath) //nolint:gosec // path from trusted SAGE_HOME
 		if readErr == nil {
 			fmt.Printf("  ✓ memory_mode: %s (%s)\n", strings.TrimSpace(string(mode)), flagPath)
 		}
 		return
 	}
 	// Create with default "full" mode
-	if err := os.WriteFile(flagPath, []byte("full"), 0600); err != nil {
+	if err := os.WriteFile(flagPath, []byte("full"), 0600); err != nil { //nolint:gosec // trusted local path
 		fmt.Fprintf(os.Stderr, "⚠ Could not write memory mode flag: %v\n", err)
 		return
 	}

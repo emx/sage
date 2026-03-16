@@ -413,7 +413,7 @@ func runRecover() error {
 	// Back up the current vault.key before overwriting.
 	backupPath := vaultKeyPath + ".bak"
 	if src, err := os.ReadFile(vaultKeyPath); err == nil {
-		if writeErr := os.WriteFile(backupPath, src, 0600); writeErr == nil {
+		if writeErr := os.WriteFile(backupPath, src, 0600); writeErr == nil { //nolint:gosec // trusted local vault path
 			fmt.Printf("Backed up vault.key to %s\n", backupPath)
 		}
 	}
