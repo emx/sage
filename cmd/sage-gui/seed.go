@@ -156,10 +156,9 @@ Examples:
 		}
 		fmt.Printf("[%d/%d] OK: %s\n", i+1, len(memories), preview)
 
-		// Pace requests to stay within rate limits (2 calls per memory: embed + submit).
-		// 100 req/min ≈ 50 memories/min → ~1.2s per memory.
+		// Small delay between seeds to avoid overwhelming the consensus pipeline.
 		if i < len(memories)-1 {
-			time.Sleep(1200 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 
