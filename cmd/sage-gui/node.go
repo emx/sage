@@ -197,11 +197,11 @@ func runServe() error {
 	// of the block store (e.g. after chain reset, upgrade, or crash), CometBFT
 	// refuses to sign at the lower height.  Auto-reset to prevent a stuck chain.
 	pvStatePath := cometCfg.PrivValidatorStateFile()
-	if signedHeight := pv.LastSignState.Height; signedHeight > 0 {
-		blockStoreDBPath := filepath.Join(cometCfg.RootDir, "data", "blockstore.db")
-		if _, statErr := os.Stat(blockStoreDBPath); os.IsNotExist(statErr) {
-			// Block store was wiped but signing state wasn't — this causes
-			// "height regression" errors where CometBFT refuses to sign.
+	blockStoreDBPath := filepath.Join(cometCfg.RootDir, "data", "blockstore.db")
+	if _, statErr := os.Stat(blockStoreDBPath); os.IsNotExist(statErr) {
+		// Block store is gone (upgrade or reset) — clean up stale state that
+		// would otherwise hang or confuse CometBFT on fresh start.
+		if signedHeight := pv.LastSignState.Height; signedHeight > 0 {
 			logger.Warn().
 				Int64("signed_height", signedHeight).
 				Msg("validator signed ahead of missing block store — resetting signing state to prevent height regression")
@@ -210,6 +210,13 @@ func runServe() error {
 				return fmt.Errorf("reset validator state: %w", wErr)
 			}
 			pv = privval.LoadFilePV(cometCfg.PrivValidatorKeyFile(), pvStatePath)
+		}
+		// Remove stale consensus WAL — replaying old WAL against empty databases
+		// causes CometBFT to hang during startup (60s timeout then failure).
+		csWalDir := filepath.Join(cometCfg.RootDir, "data", "cs.wal")
+		if _, walErr := os.Stat(csWalDir); walErr == nil {
+			logger.Warn().Msg("removing stale consensus WAL (block store missing)")
+			_ = os.RemoveAll(csWalDir)
 		}
 	}
 

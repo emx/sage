@@ -112,8 +112,10 @@ func migrateOnUpgrade(dataDir string) (migrated bool, err error) {
 	// Keep config (genesis, keys) but remove block/state databases
 	cometDataDir := filepath.Join(cometHome, "data")
 	if _, statErr := os.Stat(cometDataDir); statErr == nil {
-		// Remove the block/state DBs but keep priv_validator_state.json
-		for _, dbName := range []string{"blockstore.db", "state.db", "tx_index.db", "evidence.db"} {
+		// Remove the block/state DBs and consensus WAL but keep priv_validator_state.json.
+		// The consensus WAL (cs.wal/) MUST be removed — stale WAL from a previous version
+		// causes CometBFT to hang during replay when the block databases are gone.
+		for _, dbName := range []string{"blockstore.db", "state.db", "tx_index.db", "evidence.db", "cs.wal"} {
 			dbPath := filepath.Join(cometDataDir, dbName)
 			if removeErr := os.RemoveAll(dbPath); removeErr != nil {
 				fmt.Fprintf(os.Stderr, "  Warning: could not remove %s: %v\n", dbName, removeErr)
