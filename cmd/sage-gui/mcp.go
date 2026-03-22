@@ -250,12 +250,28 @@ func runMCPInstall() error {
 		sageHome = expandTilde(sageHome)
 	}
 
-	// Determine the per-project agent key directory
-	agentDir := projectAgentDir(sageHome, projectDir)
-	if mkErr := os.MkdirAll(agentDir, 0700); mkErr != nil {
-		return fmt.Errorf("create agent dir: %w", mkErr)
+	// === IDENTITY PATH FOR INSTALL (highest priority) ===
+	// Matches the resolution logic in runMCP() and the SDK.
+	// Enables `sage-gui mcp install --token` to write directly to
+	// SAGE_IDENTITY_PATH when set (e.g.for multi-agent tmux setups).
+	keyPath := os.Getenv("SAGE_IDENTITY_PATH")
+	if keyPath != "" {
+		keyPath = expandTilde(keyPath)
+		fmt.Fprintf(os.Stderr, "INFO: Install using SAGE_IDENTITY_PATH: %s\n", keyPath)
+		// Ensure parent dir exists (auto-generation + claiming)
+		if dir := filepath.Dir(keyPath); dir != "." {
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				return fmt.Errorf("create identity dir: %w", err)
+			}
+		}
+	} else {
+		// Legacy fallback (unchanged)
+		agentDir := projectAgentDir(sageHome, projectDir)
+		if mkErr := os.MkdirAll(agentDir, 0700); mkErr != nil {
+			return fmt.Errorf("create agent dir: %w", mkErr)
+		}
+		keyPath = filepath.Join(agentDir, "agent.key")
 	}
-	keyPath := filepath.Join(agentDir, "agent.key")
 
 	// If --token provided, claim the pre-configured identity from the dashboard
 	if claimToken != "" {
