@@ -56,6 +56,12 @@ Add agents, configure domain-level read/write permissions, manage clearance leve
 
 ---
 
+## What's New in v5.0.12
+
+- **MCP Identity Fix** — `sage-gui mcp` and `sage-gui mcp install --token` now respect `SAGE_IDENTITY_PATH` environment variable as the **highest priority** (exactly matching the SDK’s `AgentIdentity.default()`).  
+- Auto-creates directories + keypair if missing. Added clear INFO logs. 100% backward compatible.  
+- Enables clean multi-agent setups (e.g. multiple Claude Code instances in tmux). Closes the identity collision issue.
+
 ## What's New in v5.0.11
 
 - **Docker Fix** — Container no longer stuck in restart loop. Default entrypoint changed from MCP stdio mode to `serve` (persistent REST API + dashboard). MCP stdio still available via `docker run -i ghcr.io/l33tdawg/sage mcp`. Fixes #14.
